@@ -8,10 +8,11 @@ import Array "mo:base/Array";
 import Float "mo:base/Float";
 import Debug "mo:base/Debug";
 import Result "mo:base/Result";
+import Cycles "mo:base/ExperimentalCycles";
 import { JSON } "mo:serde";
 import Types "./Types";
 
-persistent actor {
+actor {
   // Record keys for JSON serialization
   let WelcomeResponseKeys = ["message"];
   let BalanceResponseKeys = ["address", "balance", "unit"];
@@ -45,7 +46,8 @@ persistent actor {
     };
 
     // Call the management canister's bitcoin_get_balance endpoint with cycles
-    let satoshis = await (with cycles = 100_000_000) management_canister.bitcoin_get_balance(request);
+    Cycles.add(100_000_000);
+    let satoshis = await management_canister.bitcoin_get_balance(request);
 
     // Convert satoshis to BTC (1 BTC = 100,000,000 satoshis)
     let btcBalance = Float.fromInt64(Int64.fromNat64(satoshis)) / 100_000_000.0;
@@ -77,7 +79,7 @@ persistent actor {
 
   // Dummy: Returns the 100 fee percentiles measured in millisatoshi/byte
   public shared query func get_current_fee_percentiles() : async [Nat] {
-    Array.tabulate<Nat>(100, func(i) = 100 + i);
+    Array.tabulate(100, func(i : Nat) : Nat = 100 + i);
   };
 
   // Dummy: Returns the P2PKH address of this canister
