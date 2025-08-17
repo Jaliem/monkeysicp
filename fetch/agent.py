@@ -10,6 +10,8 @@ from uagents_core.contrib.protocols.chat import (
 from uagents import Agent, Context, Protocol
 from datetime import datetime, timezone, timedelta
 from uuid import uuid4
+import time
+from typing import Dict, List, Optional
 
 # ASI1 API settings
 # Create yours at: https://asi1.ai/dashboard/api-keys
@@ -20,13 +22,18 @@ ASI1_HEADERS = {
     "Content-Type": "application/json"
 }
 
-CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"
+CANISTER_ID = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
 BASE_URL = "http://127.0.0.1:4943"
 
 HEADERS = {
     "Host": f"{CANISTER_ID}.localhost",
     "Content-Type": "application/json"
 }
+
+# Portfolio storage (in production, use a database)
+user_portfolio = {}
+watchlist = set()
+price_alerts = []
 
 # Function definitions for ASI1 function calling
 tools = [
@@ -81,8 +88,191 @@ tools = [
             },
             "strict": True
         }
-    },    
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_crypto_price",
+            "description": "Gets the current price of a cryptocurrency.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The cryptocurrency symbol (e.g., BTC, ETH, ADA)"
+                    }
+                },
+                "required": ["symbol"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_market_data",
+            "description": "Gets market data for top cryptocurrencies including prices, market cap, and 24h changes.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "Number of cryptocurrencies to return (default: 10)"
+                    }
+                },
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_to_portfolio",
+            "description": "Adds a cryptocurrency holding to the user's portfolio.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The cryptocurrency symbol"
+                    },
+                    "amount": {
+                        "type": "number",
+                        "description": "The amount held"
+                    },
+                    "purchase_price": {
+                        "type": "number",
+                        "description": "The price when purchased (optional)"
+                    }
+                },
+                "required": ["symbol", "amount"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_portfolio_value",
+            "description": "Gets the current total value of the user's portfolio.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "add_to_watchlist",
+            "description": "Adds a cryptocurrency to the user's watchlist.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "description": "The cryptocurrency symbol to watch"
+                    }
+                },
+                "required": ["symbol"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_fear_greed_index",
+            "description": "Gets the current Fear & Greed Index for crypto market sentiment.",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    }
 ]
+
+async def get_crypto_price_from_api(symbol: str) -> dict:
+    """Get cryptocurrency price from CoinGecko API"""
+    try:
+        url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol.lower()}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        if symbol.lower() in data:
+            return {
+                "symbol": symbol.upper(),
+                "price": data[symbol.lower()]["usd"],
+                "change_24h": data[symbol.lower()].get("usd_24h_change", 0),
+                "market_cap": data[symbol.lower()].get("usd_market_cap", 0)
+            }
+        else:
+            # Try alternative API or symbol mapping
+            symbol_map = {"BTC": "bitcoin", "ETH": "ethereum", "ADA": "cardano", "SOL": "solana"}
+            if symbol.upper() in symbol_map:
+                mapped_symbol = symbol_map[symbol.upper()]
+                url = f"https://api.coingecko.com/api/v3/simple/price?ids={mapped_symbol}&vs_currencies=usd&include_24hr_change=true&include_market_cap=true"
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
+                data = response.json()
+                return {
+                    "symbol": symbol.upper(),
+                    "price": data[mapped_symbol]["usd"],
+                    "change_24h": data[mapped_symbol].get("usd_24h_change", 0),
+                    "market_cap": data[mapped_symbol].get("usd_market_cap", 0)
+                }
+    except Exception as e:
+        raise ValueError(f"Could not fetch price for {symbol}: {str(e)}")
+
+async def get_market_data_from_api(limit: int = 10) -> list:
+    """Get top cryptocurrency market data"""
+    try:
+        url = f"https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page={limit}&page=1"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        market_data = []
+        for coin in data:
+            market_data.append({
+                "name": coin["name"],
+                "symbol": coin["symbol"].upper(),
+                "price": coin["current_price"],
+                "market_cap": coin["market_cap"],
+                "change_24h": coin["price_change_percentage_24h"],
+                "volume_24h": coin["total_volume"]
+            })
+        return market_data
+    except Exception as e:
+        raise ValueError(f"Could not fetch market data: {str(e)}")
+
+async def get_fear_greed_from_api() -> dict:
+    """Get Fear & Greed Index"""
+    try:
+        url = "https://api.alternative.me/fng/"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        return {
+            "value": int(data["data"][0]["value"]),
+            "classification": data["data"][0]["value_classification"],
+            "timestamp": data["data"][0]["timestamp"]
+        }
+    except Exception as e:
+        raise ValueError(f"Could not fetch Fear & Greed Index: {str(e)}")
 
 async def call_icp_endpoint(func_name: str, args: dict):
     if func_name == "get_current_fee_percentiles":
@@ -94,8 +284,61 @@ async def call_icp_endpoint(func_name: str, args: dict):
     elif func_name == "get_utxos":
         url = f"{BASE_URL}/get-utxos"
         response = requests.post(url, headers=HEADERS, json={"address": args["address"]})    
+    elif func_name == "get_crypto_price":
+        return await get_crypto_price_from_api(args["symbol"])
+    elif func_name == "get_market_data":
+        limit = args.get("limit", 10)
+        return await get_market_data_from_api(limit)
+    elif func_name == "add_to_portfolio":
+        symbol = args["symbol"].upper()
+        amount = args["amount"]
+        purchase_price = args.get("purchase_price")
+        user_portfolio[symbol] = {
+            "amount": amount,
+            "purchase_price": purchase_price
+        }
+        return {"message": f"Added {amount} {symbol} to portfolio", "portfolio": user_portfolio}
+    elif func_name == "get_portfolio_value":
+        total_value = 0
+        portfolio_details = []
+        for symbol, holding in user_portfolio.items():
+            try:
+                price_data = await get_crypto_price_from_api(symbol)
+                current_price = price_data["price"]
+                value = holding["amount"] * current_price
+                total_value += value
+                
+                profit_loss = 0
+                if holding.get("purchase_price"):
+                    profit_loss = (current_price - holding["purchase_price"]) * holding["amount"]
+                
+                portfolio_details.append({
+                    "symbol": symbol,
+                    "amount": holding["amount"],
+                    "current_price": current_price,
+                    "value": value,
+                    "profit_loss": profit_loss
+                })
+            except:
+                portfolio_details.append({
+                    "symbol": symbol,
+                    "amount": holding["amount"],
+                    "error": "Could not fetch current price"
+                })
+        
+        return {
+            "total_value": total_value,
+            "holdings": portfolio_details
+        }
+    elif func_name == "add_to_watchlist":
+        symbol = args["symbol"].upper()
+        watchlist.add(symbol)
+        return {"message": f"Added {symbol} to watchlist", "watchlist": list(watchlist)}
+    elif func_name == "get_fear_greed_index":
+        return await get_fear_greed_from_api()
     else:
         raise ValueError(f"Unsupported function call: {func_name}")
+    
     response.raise_for_status()
     return response.json()
 
@@ -176,10 +419,9 @@ async def process_query(query: str, ctx: Context) -> str:
         return f"An error occurred while processing your request: {str(e)}"
 
 agent = Agent(
-    name='test-ICP-agent',
+    name='crypto-assistant',
     port=8001,
-    mailbox=True
-    endpoint=("http://127.0.0.1:8001/submit"),
+    mailbox=True,
 )
 chat_proto = Protocol(spec=chat_protocol_spec)
 
@@ -230,31 +472,36 @@ if __name__ == "__main__":
 
 
 """
-Queries for /get-balance
-What's the balance of address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+CRYPTO ASSISTANT - SAMPLE QUERIES
 
-Can you check how many bitcoins are in bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+💰 Portfolio Management:
+- Add 2.5 BTC to my portfolio at $45000
+- What's my portfolio value?
+- Add 10 ETH to my portfolio
+- Show me my holdings
 
-Show me the balance of this Bitcoin wallet: bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs.
+📈 Price & Market Data:
+- What's the current price of Bitcoin?
+- Show me the top 5 cryptocurrencies
+- Get market data for the top 10 coins
+- What's ETH trading at?
 
-🧾 Queries for /get-utxos
-What UTXOs are available for address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+📊 Market Sentiment:
+- What's the current Fear & Greed Index?
+- Show me market sentiment
 
-List unspent outputs for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs.
+👀 Watchlist:
+- Add SOL to my watchlist
+- Add MATIC to watchlist
 
-Do I have any unspent transactions for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+₿ Bitcoin Operations:
+- What's the balance of address bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs?
+- What are the current Bitcoin fee percentiles?
+- Show me UTXOs for bc1q8sxznvhualuyyes0ded7kgt33876phpjhp29rs
 
-🧾 Queries for /get-current-fee-percentiles
-What are the current Bitcoin fee percentiles?
-
-Show me the latest fee percentile distribution.
-
-How much are the Bitcoin network fees right now?
-
-🧾 Queries for /get-p2pkh-address
-What is my canister's P2PKH address?
-
-Generate a Bitcoin address for me.
-
-Give me a Bitcoin address I can use to receive coins.
+🔥 Example Conversations:
+- "I want to track my crypto portfolio"
+- "What's happening in the crypto market today?"
+- "Add 1.5 BTC to my portfolio bought at $42000"
+- "Show me the top cryptocurrencies and their performance"
 """
