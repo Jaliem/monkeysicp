@@ -179,6 +179,7 @@ agent = Agent(
     name='test-ICP-agent',
     port=8001,
     mailbox=True
+    endpoint=("http://127.0.0.1:8001/submit"),
 )
 chat_proto = Protocol(spec=chat_protocol_spec)
 
