@@ -22,6 +22,11 @@ actor {
   let ReminderListResponseKeys = ["reminders", "active_count"];
   let EmergencyStatusResponseKeys = ["has_active_emergency", "latest_emergency"];
   
+  // Wellness Record Keys
+  let WellnessLogKeys = ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"];
+  let WellnessStoreResponseKeys = ["success", "message", "id", "logged_data"];
+  let WellnessSummaryResponseKeys = ["logs", "total_count", "success", "message"];
+  
   // Doctor & Appointment JSON keys
   let DoctorKeys = ["doctor_id", "name", "specialty", "qualifications", "experience_years", "rating", "available_days", "available_slots"];
   let AppointmentKeys = ["appointment_id", "doctor_id", "doctor_name", "specialty", "patient_symptoms", "appointment_date", "appointment_time", "status", "urgency", "created_at", "user_id"];
@@ -35,6 +40,7 @@ actor {
   private stable var emergency_alerts : [(Text, Types.EmergencyAlert)] = [];
   private stable var doctor_entries : [(Text, Types.Doctor)] = [];
   private stable var appointment_entries : [(Text, Types.Appointment)] = [];
+  private stable var wellness_log_entries : [(Text, Types.WellnessLog)] = [];
   private stable var next_id : Nat = 1;
 
   private var symptoms = Buffer.Buffer<(Text, Types.SymptomData)>(0);
@@ -42,6 +48,7 @@ actor {
   private var emergencies = Buffer.Buffer<(Text, Types.EmergencyAlert)>(0);
   private var doctors = Buffer.Buffer<(Text, Types.Doctor)>(0);
   private var appointments = Buffer.Buffer<(Text, Types.Appointment)>(0);
+  private var wellness_logs = Buffer.Buffer<(Text, Types.WellnessLog)>(0);
 
   system func preupgrade() {
     symptom_entries := Buffer.toArray(symptoms);
@@ -49,6 +56,7 @@ actor {
     emergency_alerts := Buffer.toArray(emergencies);
     doctor_entries := Buffer.toArray(doctors);
     appointment_entries := Buffer.toArray(appointments);
+    wellness_log_entries := Buffer.toArray(wellness_logs);
   };
 
   system func postupgrade() {
@@ -57,11 +65,13 @@ actor {
     emergencies := Buffer.fromArray(emergency_alerts);
     doctors := Buffer.fromArray(doctor_entries);
     appointments := Buffer.fromArray(appointment_entries);
+    wellness_logs := Buffer.fromArray(wellness_log_entries);
     symptom_entries := [];
     medication_reminders := [];
     emergency_alerts := [];
     doctor_entries := [];
     appointment_entries := [];
+    wellness_log_entries := [];
     
     // Initialize doctors if empty
     if (doctors.size() == 0) {
@@ -400,7 +410,96 @@ actor {
     };
   };
 
+  // ----- Wellness Functions -----
+
+  // Add a new wellness log
+  public shared func add_wellness_log(log: Types.WellnessLog): async Types.StoreResponse {
+    // Validate log data
+    if (Text.size(log.user_id) == 0) {
+      Debug.print("[ERROR]: Invalid user_id in wellness log");
+      return {
+        success = false;
+        message = "Invalid user_id";
+        id = null;
+        logged_data = null;
+      };
+    };
+
+    let id = "wellness_" # Nat.toText(next_id);
+    wellness_logs.add((id, log));
+    next_id += 1;
+    Debug.print("[INFO]: Stored wellness log for user " # log.user_id # " on date " # log.date);
+    
+    return {
+      success = true;
+      message = "Wellness log stored successfully";
+      id = ?id;
+      logged_data = ?log;
+    };
+  };
+
+  // Get wellness summary for a user
+  public shared query func get_wellness_summary(user_id: Text, days: Nat): async Types.SummaryResponse {
+    let user_logs = Buffer.Buffer<Types.WellnessLog>(0);
+    let now = Time.now();
+    
+    // Convert days to nanoseconds for timestamp comparison
+    let cutoff_timestamp = now - (Int.abs(days) * 24 * 60 * 60 * 1_000_000_000);
+
+    for ((_, log) in wellness_logs.vals()) {
+      if (log.user_id == user_id) {
+        user_logs.add(log);
+      };
+    };
+
+    Debug.print("[INFO]: Found " # Nat.toText(user_logs.size()) # " logs for user " # user_id);
+
+    return {
+      logs = Buffer.toArray(user_logs);
+      total_count = user_logs.size();
+      success = true;
+      message = "Successfully retrieved wellness logs";
+    };
+  };
+
   // ----- Private helper functions -----
+
+  // Extracts WellnessLog data from HTTP request body
+  private func extractWellnessLogData(body: Blob): ?Types.WellnessLog {
+    switch(parseJson(body)) {
+      case (#err(e)) { 
+        Debug.print("[ERROR]: Failed to parse JSON: " # e);
+        null 
+      };
+      case (#ok(jsonText)) {
+        try {
+          let parsed = JSON.parse(jsonText);
+          switch(parsed) {
+            case null { null };
+            case (?json) {
+              switch(JSON.get(json, ["log"])) {
+                case null { null };
+                case (?logJson) {
+                  ?{
+                    user_id = Option.get(JSON.getString(json, ["user_id"]), "default_user");
+                    date = Option.get(JSON.getString(logJson, ["date"]), Time.now());
+                    sleep = JSON.getNumber(logJson, ["sleep"]);
+                    steps = JSON.getNumber(logJson, ["steps"]);
+                    exercise = JSON.getString(logJson, ["exercise"]);
+                    mood = JSON.getString(logJson, ["mood"]);
+                    water_intake = JSON.getNumber(logJson, ["water_intake"]);
+                  };
+                };
+              };
+            };
+          };
+        } catch (e) {
+          Debug.print("[ERROR]: JSON parsing error: " # Error.message(e));
+          null;
+        };
+      };
+    };
+  };
 
   // Extracts doctor data from HTTP request body
   private func extractDoctorData(body : Blob) : Result.Result<Types.Doctor, Text> {
@@ -585,7 +684,7 @@ actor {
           upgrade = null;
         };
       };
-      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment") {
+      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/add-wellness-log" or "/get-wellness-summary") {
         {
           status_code = 200;
           headers = [("content-type", "application/json")];
@@ -756,6 +855,37 @@ actor {
           };
         };
       };
+
+      // Wellness endpoints
+      case ("POST", "/add-wellness-log") {
+        let logData = extractWellnessLogData(body);
+        switch(logData) {
+          case null { 
+            makeJsonResponse(400, "{\"error\": \"Invalid wellness log data\"}");
+          };
+          case (?log) {
+            let response = await add_wellness_log(log);
+            let blob = to_candid(response);
+            let #ok(jsonText) = JSON.toText(blob, WellnessStoreResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+
+      case ("POST", "/get-wellness-summary") {
+        let userIdResult = extractUserId(body);
+        switch (userIdResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(userId)) {
+            let days = 7; // Default to 7 days if not specified
+            let response = await get_wellness_summary(userId, days);
+            let blob = to_candid(response);
+            let #ok(jsonText) = JSON.toText(blob, WellnessSummaryResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
       case ("OPTIONS", _) {
         {
           status_code = 200;

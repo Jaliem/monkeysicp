@@ -113,4 +113,48 @@ module {
     available_slots : [Text];
     next_available : ?Text;
   };
+
+  // Represents a single day's wellness log for a user.
+  public type WellnessLog = {
+    user_id: Text;
+    date: Text; // Stored in "YYYY-MM-DD" format
+    sleep: ?Float;
+    steps: ?Nat;
+    exercise: ?Text;
+    mood: ?Text;
+    water_intake: ?Float;
+  };
+
+  // The response after successfully storing a log.
+  public type StoreResponse = {
+    success: Bool;
+    message: Text;
+    id: ?Text;
+    logged_data: ?WellnessLog;
+  };
+
+  // The response when the agent requests a summary.
+  public type SummaryResponse = {
+    logs: [WellnessLog];
+    total_count: Nat;
+    success: Bool;
+    message: Text;
+  };
+  
+  public type StreamingCallbackToken = {
+    key: Text;
+    index: Nat;
+  };
+
+  public type StreamingStrategy = {
+    #Callback: {
+      token: StreamingCallbackToken;
+      callback: shared query (StreamingCallbackToken) -> async StreamingCallbackHttpResponse;
+    };
+  };
+
+  public type StreamingCallbackHttpResponse = {
+    body: Blob;
+    token: ?StreamingCallbackToken;
+  };
 };
