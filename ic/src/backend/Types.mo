@@ -2,8 +2,6 @@ import Text "mo:base/Text";
 import Blob "mo:base/Blob";
 import Nat "mo:base/Nat";
 import Nat16 "mo:base/Nat16";
-import Nat32 "mo:base/Nat32";
-import Float "mo:base/Float";
 
 module {
   // ----- HTTP types -----
@@ -25,55 +23,94 @@ module {
     upgrade : ?Bool;
   };
 
-  // ----- API response types -----
+  // ----- Basic API response types -----
   public type WelcomeResponse = {
     message : Text;
   };
 
-  public type BalanceResponse = {
-    address : Text;
-    balance : Float;
-    unit : Text;
+  // ----- Healthcare API types -----
+  public type SymptomData = {
+    symptoms : Text;
+    timestamp : Text;
+    user_id : Text;
   };
 
-  public type UtxoResponse = {
-    txid : Text;
-    vout : Nat;
-    value : Nat;
-    confirmations : Nat;
+  public type MedicationReminder = {
+    medicine : Text;
+    time : Text;
+    created_at : Text;
+    user_id : Text;
+    active : Bool;
   };
 
-  public type AddressResponse = {
-    address : Text;
-  };
-
-  public type SendResponse = {
-    success : Bool;
-    destination : Text;
-    amount : Nat;
-    txId : Text;
-  };
-
-  public type TestDataResponse = {
-    id : Nat;
-    name : Text;
-    value : Float;
-    isTest : Bool;
-  };
-
-  public type DummyTestResponse = {
+  public type EmergencyAlert = {
+    timestamp : Text;
+    user_id : Text;
     status : Text;
-    data : {
-      message : Text;
-      timestamp : Text;
-      testData : TestDataResponse;
-    };
   };
 
-  // ----- Bitcoin API types -----
-  public type GetBalanceRequest = {
-    address : Text;
-    network : { #mainnet; #testnet; #regtest };
-    min_confirmations : ?Nat32;
+  public type HealthStorageResponse = {
+    success : Bool;
+    message : Text;
+    id : ?Text;
+  };
+
+  public type SymptomHistoryResponse = {
+    symptoms : [SymptomData];
+    total_count : Nat;
+  };
+
+  public type ReminderListResponse = {
+    reminders : [MedicationReminder];
+    active_count : Nat;
+  };
+
+  public type EmergencyStatusResponse = {
+    has_active_emergency : Bool;
+    latest_emergency : ?EmergencyAlert;
+  };
+
+  // ----- Doctor & Appointment API types -----
+  public type Doctor = {
+    doctor_id : Text;
+    name : Text;
+    specialty : Text;
+    qualifications : Text;
+    experience_years : Nat;
+    rating : Float;
+    available_days : [Text];
+    available_slots : [Text];
+  };
+
+  public type Appointment = {
+    appointment_id : Text;
+    doctor_id : Text;
+    doctor_name : Text;
+    specialty : Text;
+    patient_symptoms : ?Text;
+    appointment_date : Text;
+    appointment_time : Text;
+    status : Text; // "confirmed", "cancelled", "rescheduled", "completed"
+    urgency : Text;
+    created_at : Text;
+    user_id : Text;
+  };
+
+  public type DoctorSearchResponse = {
+    doctors : [Doctor];
+    total_count : Nat;
+  };
+
+  public type AppointmentResponse = {
+    success : Bool;
+    appointment_id : ?Text;
+    message : Text;
+    appointment : ?Appointment;
+  };
+
+  public type DoctorAvailabilityResponse = {
+    doctor : Doctor;
+    available_slots : [Text];
+    next_available : ?Text;
   };
 };
