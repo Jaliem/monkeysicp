@@ -63,11 +63,32 @@ class MedicineCheckRequest(Model):
     prescription_id: Optional[str] = None
 
 class MedicineCheckResponse(Model):
-    status: str
+    type: str = "MedicineCheckResponse"
+    medicine: str
     available: bool
+    stock: Optional[int] = None
     price: Optional[float] = None
-    pharmacy_name: Optional[str] = None
+    pharmacy_name: str = "HealthPlus Pharmacy"
+    status: str
     message: str
+
+class MedicineOrderRequest(Model):
+    medicine_id: str
+    medicine_name: Optional[str] = None
+    quantity: int
+    user_id: str = "user123"
+    prescription_id: Optional[str] = None
+
+class MedicineOrderResponse(Model):
+    type: str = "MedicineOrderResponse"
+    medicine: str
+    medicine_id: str
+    qty: int
+    price: float
+    status: str  # "confirmed", "insufficient_stock", "prescription_required", "not_found"
+    order_id: Optional[str] = None
+    message: str
+    suggested_alternatives: Optional[List[dict]] = None
 
 class WellnessLog(Model):
     log_type: str
@@ -88,7 +109,7 @@ wellness_protocol = Protocol(name="WellnessProtocol", version="1.0")
 
 # Agent addresses - update these with actual addresses from agent startup logs
 DOCTOR_AGENT_ADDRESS = "agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru"  # Fixed to exact sender from warning logs
-PHARMACY_AGENT_ADDRESS = None
+PHARMACY_AGENT_ADDRESS = "agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c"  # PharmacyAgent actual address
 WELLNESS_AGENT_ADDRESS = None
 
 # Store connected agents
@@ -229,7 +250,7 @@ def classify_user_intent(message: str, sender: str = None) -> str:
         return "health_analysis"
     elif any(phrase in message_lower for phrase in ["doctor", "appointment", "book", "schedule", "see a doctor", "need a doctor", "visit a doctor", "consult a doctor", "medical help", "need medical attention", "check up", "checkup", "medical consultation", "i need to see", "can you book", "schedule me"]):
         return "book_doctor"
-    elif any(word in message_lower for word in ["medicine", "pharmacy", "buy", "prescription"]):
+    elif any(word in message_lower for word in ["medicine", "pharmacy", "buy", "prescription", "drug", "tablet", "pill", "capsule", "available", "stock", "order"]):
         return "pharmacy"
     elif any(word in message_lower for word in ["remind", "reminder", "medication", "take"]):
         return "medication_reminder"
@@ -523,6 +544,97 @@ async def handle_doctor_booking_cancellation(sender: str, ctx: Context) -> str:
     
     return "👍 No problem! Your symptoms are still logged. You can ask for a doctor booking anytime by saying 'book me a doctor appointment'."
 
+async def get_medicine_usage_hint(medicine_name: str, ctx: Context) -> str:
+    """Use ASI1 LLM to provide intelligent medicine usage insights"""
+    try:
+        system_prompt = """You are a pharmaceutical AI assistant. Provide a brief, helpful insight about a medicine's common uses.
+        
+For the given medicine, provide a concise 1-sentence description of its primary use or indication.
+Examples:
+- Paracetamol: "pain relief and fever reduction"
+- Ibuprofen: "reducing inflammation, pain, and fever"
+- Insulin: "managing blood sugar levels in diabetes"
+- Amoxicillin: "treating bacterial infections"
+
+Keep it simple, accurate, and helpful. Only mention common, well-known uses."""
+
+        user_prompt = f"Medicine: {medicine_name}"
+
+        payload = {
+            "model": "asi1-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 50
+        }
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json=payload,
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            usage_hint = result["choices"][0]["message"]["content"].strip()
+            return usage_hint
+        else:
+            return "general medical treatment"
+            
+    except Exception as e:
+        ctx.logger.error(f"Medicine usage hint failed: {str(e)}")
+        return "medical treatment"
+
+async def get_medicine_alternatives(medicine_name: str, ctx: Context) -> list:
+    """Use ASI1 LLM to suggest alternative medicines"""
+    try:
+        system_prompt = """You are a pharmaceutical AI assistant. Suggest alternative medicines for a given medication.
+        
+For the given medicine, suggest 3-4 common alternatives that have similar effects or uses.
+Respond with a simple list, one medicine per line.
+Focus on well-known, commonly available medicines.
+Do not include the original medicine in the alternatives.
+
+Example format:
+Paracetamol
+Ibuprofen
+Aspirin"""
+
+        user_prompt = f"Original medicine: {medicine_name}\nSuggest alternatives:"
+
+        payload = {
+            "model": "asi1-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.4,
+            "max_tokens": 100
+        }
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json=payload,
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            alternatives_text = result["choices"][0]["message"]["content"].strip()
+            # Parse alternatives from response
+            alternatives = [alt.strip() for alt in alternatives_text.split('\n') if alt.strip()]
+            return alternatives[:4]  # Limit to 4 alternatives
+        else:
+            return ["Paracetamol", "Ibuprofen", "Aspirin"]  # Fallback alternatives
+            
+    except Exception as e:
+        ctx.logger.error(f"Medicine alternatives failed: {str(e)}")
+        return ["Paracetamol", "Ibuprofen", "Aspirin"]  # Fallback alternatives
+
 async def extract_specialty_with_llm(message: str, ctx: Context) -> str:
     """Use ASI1 LLM to intelligently extract medical specialty from natural language"""
     try:
@@ -770,33 +882,220 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
         ctx.logger.error(f"Error routing to doctor agent: {str(e)}")
         return "Sorry, I couldn't book your appointment right now. Please try again later."
 
-async def route_to_pharmacy_agent(message: str, ctx: Context) -> str:
-    """Route medicine check to PharmacyAgent"""
+async def extract_medicine_info_with_llm(message: str, ctx: Context) -> dict:
+    """Use ASI1 LLM to intelligently extract medicine information from natural language"""
     try:
-        # Extract medicine name from message
-        medicine_match = re.search(r'(?:buy|get|need)\s+([\w\s]+)', message.lower())
-        medicine_name = medicine_match.group(1).strip() if medicine_match else "medication"
+        system_prompt = """You are a pharmacy assistant AI. Extract medicine information from user requests.
         
-        medicine_request = MedicineCheckRequest(
-            medicine_name=medicine_name,
-            quantity=1
+Analyze the user's message and extract:
+1. Medicine name (generic or brand name)
+2. Request type (check availability, order/buy, general inquiry)
+3. Quantity if mentioned
+4. Any specific requirements (prescription, dosage, etc.)
+
+Respond in JSON format with: {"medicine_name": "", "request_type": "check|order|inquiry", "quantity": 1, "requirements": ""}
+
+Common medicines: Paracetamol, Ibuprofen, Aspirin, Insulin, Amoxicillin, Omeprazole, Metformin, Vitamin D, etc.
+If medicine name is unclear, use the closest match or "medication"."""
+
+        user_prompt = f"User request: \"{message}\""
+
+        payload = {
+            "model": "asi1-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 200,
+            "response_format": {"type": "json_object"}
+        }
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json=payload,
+            timeout=10
         )
         
-        # In a real implementation, send to actual PharmacyAgent
-        # For demo, simulate response
-        mock_response = MedicineCheckResponse(
-            status="available",
-            available=True,
-            price=12.99,
-            pharmacy_name="HealthPlus Pharmacy",
-            message="Medicine is available"
-        )
+        if response.status_code == 200:
+            result = response.json()
+            content = result["choices"][0]["message"]["content"]
+            
+            try:
+                medicine_info = json.loads(content)
+                ctx.logger.info(f"🤖 LLM extracted medicine info: {medicine_info}")
+                
+                # Validate and sanitize the response
+                validated_info = {
+                    "medicine_name": str(medicine_info.get("medicine_name", "medication")),
+                    "request_type": str(medicine_info.get("request_type", "check")),
+                    "quantity": int(medicine_info.get("quantity", 1)) if medicine_info.get("quantity") else 1,
+                    "requirements": str(medicine_info.get("requirements", ""))
+                }
+                return validated_info
+            except (json.JSONDecodeError, ValueError, TypeError) as e:
+                ctx.logger.warning(f"LLM returned invalid data, using fallback: {str(e)}")
+                return {"medicine_name": "medication", "request_type": "check", "quantity": 1, "requirements": ""}
+        else:
+            ctx.logger.warning(f"ASI1 API error: {response.status_code}")
+            return {"medicine_name": "medication", "request_type": "check", "quantity": 1, "requirements": ""}
+            
+    except Exception as e:
+        ctx.logger.error(f"LLM medicine extraction failed: {str(e)}")
+        return {"medicine_name": "medication", "request_type": "check", "quantity": 1, "requirements": ""}
+
+async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str = None) -> str:
+    """Route medicine check/order to PharmacyAgent using ASI1 LLM for intelligent parsing"""
+    try:
+        # Use ASI1 LLM to intelligently extract medicine information
+        ctx.logger.info(f"🧠 Analyzing medicine request with AI: '{message}'")
+        medicine_info = await extract_medicine_info_with_llm(message, ctx)
         
-        return f"💊 {medicine_name.title()} is available at {mock_response.pharmacy_name} for ${mock_response.price}. Would you like me to help you place an order?"
+        medicine_name = medicine_info.get("medicine_name", "medication")
+        request_type = medicine_info.get("request_type", "check")
+        quantity = medicine_info.get("quantity", 1)
+        
+        # Ensure quantity is an integer
+        try:
+            quantity = int(quantity) if quantity else 1
+        except (ValueError, TypeError):
+            quantity = 1
+        
+        # Create request based on LLM-extracted information
+        is_order_request = request_type == "order"
+        
+        ctx.logger.info(f"📋 Creating MedicineCheckRequest with: medicine_name='{medicine_name}' (type: {type(medicine_name)}), quantity={quantity} (type: {type(quantity)})")
+        
+        try:
+            if is_order_request:
+                # For order requests, we need medicine_id - first check availability to get it
+                ctx.logger.info(f"Processing medicine order request for: {medicine_name} (qty: {quantity})")
+                medicine_request = MedicineCheckRequest(
+                    medicine_name=medicine_name,
+                    quantity=quantity
+                )
+            else:
+                # Availability check
+                ctx.logger.info(f"Processing medicine availability check for: {medicine_name}")
+                medicine_request = MedicineCheckRequest(
+                    medicine_name=medicine_name,
+                    quantity=quantity
+                )
+            
+            ctx.logger.info(f"✅ Successfully created MedicineCheckRequest: {type(medicine_request)}")
+            
+        except Exception as e:
+            ctx.logger.error(f"❌ Failed to create MedicineCheckRequest: {str(e)}")
+            ctx.logger.error(f"   Medicine name: '{medicine_name}' (type: {type(medicine_name)})")
+            ctx.logger.error(f"   Quantity: {quantity} (type: {type(quantity)})")
+            raise
+        
+        # Send request to PharmacyAgent if available
+        if PHARMACY_AGENT_ADDRESS:
+            try:
+                ctx.logger.info(f"📤 Sending medicine request to PharmacyAgent")
+                
+                # Clear any previous responses and create event
+                import asyncio
+                if PHARMACY_AGENT_ADDRESS in agent_responses:
+                    del agent_responses[PHARMACY_AGENT_ADDRESS]
+                
+                response_event = asyncio.Event()
+                response_events[PHARMACY_AGENT_ADDRESS] = response_event
+                response_events["pharmacy_response"] = response_event
+                
+                await ctx.send(PHARMACY_AGENT_ADDRESS, medicine_request)
+                ctx.logger.info(f"📤 Medicine request sent, waiting for response...")
+                
+                # Poll for response
+                max_wait_time = 15.0
+                poll_interval = 0.5
+                total_waited = 0.0
+                
+                while total_waited < max_wait_time:
+                    if PHARMACY_AGENT_ADDRESS in agent_responses:
+                        ctx.logger.info(f"✅ Medicine response received after {total_waited}s")
+                        response = agent_responses.pop(PHARMACY_AGENT_ADDRESS)
+                        
+                        # Clean up
+                        if PHARMACY_AGENT_ADDRESS in response_events:
+                            del response_events[PHARMACY_AGENT_ADDRESS]
+                        
+                        # Format response for user with enhanced ASI1-powered messaging
+                        if response.available:
+                            if is_order_request:
+                                # User wants to order - provide comprehensive ordering information
+                                order_message = f"✅ **{response.medicine}** is available for purchase!\n\n"
+                                order_message += f"📦 **Stock:** {response.stock} units available\n"
+                                order_message += f"💰 **Price:** ${response.price:.2f} per unit\n"
+                                order_message += f"🏥 **Pharmacy:** {response.pharmacy_name}\n\n"
+                                
+                                # Add intelligent recommendations based on medicine type
+                                requirements = medicine_info.get("requirements", "")
+                                if "prescription" in requirements.lower() or "insulin" in medicine_name.lower():
+                                    order_message += f"⚠️ **Note:** This medicine may require a prescription.\n\n"
+                                
+                                order_message += f"**To complete your order:**\n"
+                                order_message += f"• Specify quantity needed (you requested {quantity})\n"
+                                order_message += f"• Provide prescription ID if required\n"
+                                order_message += f"• Example: 'Order {quantity} units of {response.medicine}'\n\n"
+                                order_message += f"💡 **AI Tip:** This medication is commonly used for {await get_medicine_usage_hint(medicine_name, ctx)}"
+                            else:
+                                # Just availability check with intelligent insights
+                                order_message = f"✅ **{response.medicine}** is available at {response.pharmacy_name}\n\n"
+                                order_message += f"📦 **Stock:** {response.stock} units in inventory\n"
+                                order_message += f"💰 **Price:** ${response.price:.2f} per unit\n\n"
+                                order_message += f"💡 **AI Insight:** {await get_medicine_usage_hint(medicine_name, ctx)}\n\n"
+                                order_message += f"Would you like me to help you place an order for this medicine?"
+                            
+                            if user_sender:
+                                await ctx.send(user_sender, order_message)
+                                return "Enhanced medicine availability sent to user"
+                            else:
+                                return order_message
+                        else:
+                            # Enhanced unavailable message with alternatives
+                            unavailable_message = f"❌ **{response.medicine}** is currently {response.status}\n\n"
+                            unavailable_message += f"🏥 **Pharmacy:** {response.pharmacy_name}\n"
+                            unavailable_message += f"📝 **Details:** {response.message}\n\n"
+                            
+                            # Add intelligent alternative suggestions
+                            alternatives = await get_medicine_alternatives(medicine_name, ctx)
+                            if alternatives:
+                                unavailable_message += f"💡 **AI Suggestions - Similar medicines you might consider:**\n"
+                                for alt in alternatives[:3]:
+                                    unavailable_message += f"• {alt}\n"
+                                unavailable_message += f"\nWould you like me to check availability for any of these alternatives?"
+                            
+                            if user_sender:
+                                await ctx.send(user_sender, unavailable_message)
+                                return "Enhanced unavailability info sent to user"
+                            else:
+                                return unavailable_message
+                    
+                    await asyncio.sleep(poll_interval)
+                    total_waited += poll_interval
+                
+                # Timeout
+                ctx.logger.warning(f"⚠️ No response from PharmacyAgent after {max_wait_time}s")
+                timeout_message = "Sorry, the pharmacy service is not responding right now. Please try again in a moment."
+                if user_sender:
+                    await ctx.send(user_sender, timeout_message)
+                    return "Timeout message sent to user"
+                else:
+                    return timeout_message
+                    
+            except Exception as e:
+                ctx.logger.error(f"❌ Error communicating with PharmacyAgent: {str(e)}")
+                return "Sorry, there was an error connecting to the pharmacy service. Please try again."
+        else:
+            ctx.logger.error("❌ PHARMACY_AGENT_ADDRESS not configured")
+            return "Sorry, the pharmacy service is not properly configured. Please contact support."
         
     except Exception as e:
         ctx.logger.error(f"Error routing to pharmacy agent: {str(e)}")
-        return "Sorry, I couldn't check medicine availability right now. Please try again later."
+        return "Sorry, I couldn't process your medicine request right now. Please try again later."
 
 async def route_to_wellness_agent(message: str, ctx: Context) -> str:
     """Route wellness logging to WellnessAgent"""
@@ -852,20 +1151,31 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
         elif intent == "book_doctor":
             return await route_to_doctor_agent(query, ctx, sender)
         elif intent == "pharmacy":
-            return await route_to_pharmacy_agent(query, ctx)
+            return await route_to_pharmacy_agent(query, ctx, sender)
         elif intent == "wellness":
             return await route_to_wellness_agent(query, ctx)
         else:
             # Clear any waiting context when showing general help
             clear_user_context(sender)
-            return ("Hello! I'm your HealthAgent. I can help you with:\n"
-                   "• Symptom logging: 'I have fever and cough'\n"
-                   "• Health analysis: 'What disease might I have?' or 'Analyze my symptoms'\n"
-                   "• Medication reminders: 'Remind me to take aspirin at 8PM'\n"
-                   "• Doctor appointments: 'Book me a cardiologist appointment'\n"
-                   "• Medicine inquiries: 'Check if paracetamol is available'\n"
-                   "• Wellness tracking: 'Log my sleep: 8 hours last night'\n"
-                   "• Emergency alerts: Type 'emergency' for urgent situations")
+            return ("Hello! I'm your HealthAgent powered by ASI1 AI. I can help you with:\n\n"
+                   "🩺 **Smart Symptom Analysis:**\n"
+                   "• 'I have fever and cough' - AI-powered diagnosis suggestions\n"
+                   "• 'What disease might I have?' - Comprehensive health analysis\n\n"
+                   "💊 **Intelligent Pharmacy Services:**\n"
+                   "• 'Check if paracetamol is available' - Real-time stock checking\n"
+                   "• 'I need to buy insulin' - Smart medicine ordering\n"
+                   "• 'Order 2 tablets of ibuprofen' - Quantity-specific requests\n"
+                   "• AI-powered alternative medicine suggestions when unavailable\n\n"
+                   "👨‍⚕️ **Smart Doctor Booking:**\n"
+                   "• 'Book me a cardiologist appointment' - AI specialty matching\n"
+                   "• 'I need to see a doctor for my headaches' - Intelligent routing\n\n"
+                   "💊 **Medication Management:**\n"
+                   "• 'Remind me to take aspirin at 8PM' - Smart reminders\n\n"
+                   "💪 **Wellness Tracking:**\n"
+                   "• 'Log my sleep: 8 hours last night' - Health data logging\n\n"
+                   "🚨 **Emergency Support:**\n"
+                   "• Type 'emergency' for urgent medical situations\n\n"
+                   "🤖 **Powered by ASI1 AI** for intelligent healthcare assistance!")
         
     except Exception as e:
         ctx.logger.error(f"Error processing health query: {str(e)}")
@@ -897,15 +1207,25 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
             if isinstance(item, StartSessionContent):
                 ctx.logger.info(f"Health session started with {sender}")
                 welcome_msg = (
-                    "👋 Welcome to HealthAgent! I'm here to help with your healthcare needs.\n\n"
-                    "I can assist you with:\n"
-                    "🩺 Symptom logging and analysis\n"
-                    "💊 Medication reminders\n"
-                    "👨‍⚕️ Doctor appointment booking\n"
-                    "🏥 Pharmacy inquiries\n"
-                    "💪 Wellness tracking\n"
-                    "🚨 Emergency alerts\n\n"
-                    "How can I help you today?"
+                    "👋 Welcome to **HealthAgent** powered by ASI1 AI! I'm your intelligent healthcare assistant.\n\n"
+                    "🤖 **AI-Enhanced Capabilities:**\n\n"
+                    "🩺 **Smart Health Analysis**\n"
+                    "• AI-powered symptom analysis and condition predictions\n"
+                    "• Intelligent specialist recommendations\n\n"
+                    "💊 **Intelligent Pharmacy Services**\n"
+                    "• AI medicine name recognition from natural language\n"
+                    "• Real-time inventory checking with smart alternatives\n"
+                    "• Usage insights and safety recommendations\n\n"
+                    "👨‍⚕️ **Smart Appointment Booking**\n"
+                    "• AI specialty matching from symptom descriptions\n"
+                    "• Automated doctor selection and scheduling\n\n"
+                    "💊 **Medication Management**\n"
+                    "• Intelligent reminder scheduling\n\n"
+                    "💪 **Wellness Tracking**\n"
+                    "• Health data logging and insights\n\n"
+                    "🚨 **Emergency Support**\n"
+                    "• Immediate emergency response protocols\n\n"
+                    "**How can I assist you with your healthcare needs today?**"
                 )
                 
                 response = ChatMessage(
@@ -1028,12 +1348,85 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
             ctx.logger.info(f"🚨 Emergency signaling event: {event_id}")
             event.set()
 
-# Handler for pharmacy responses  
+# Handler for pharmacy medicine check responses  
 @pharmacy_protocol.on_message(model=MedicineCheckResponse)
-async def handle_pharmacy_response(ctx: Context, sender: str, msg: MedicineCheckResponse):
-    """Handle responses from PharmacyAgent"""
-    ctx.logger.info(f"Received pharmacy response: {msg}")
-    # In a real implementation, relay this back to the user
+async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: MedicineCheckResponse):
+    """Handle medicine check responses from PharmacyAgent"""
+    global PHARMACY_AGENT_ADDRESS
+    
+    try:
+        ctx.logger.info(f"🎯 PHARMACY PROTOCOL HANDLER TRIGGERED!")
+        ctx.logger.info(f"📨 Received medicine check response at {datetime.now()}: {msg.status} - {msg.medicine}")
+        ctx.logger.info(f"📨 Response sender: {sender}")
+        ctx.logger.info(f"📨 Response type: {type(msg)}")
+        ctx.logger.info(f"📨 Available: {msg.available}, Stock: {msg.stock}, Price: ${msg.price}")
+        
+        # Store the PharmacyAgent address for future communications
+        if PHARMACY_AGENT_ADDRESS != sender:
+            PHARMACY_AGENT_ADDRESS = sender
+            connected_agents[sender] = "PharmacyAgent"
+        
+        # Check if we have an active waiting event
+        ctx.logger.info(f"🔍 Looking for events. Current response_events keys: {list(response_events.keys())}")
+        
+        if sender in response_events:
+            # Store the response using sender address
+            agent_responses[sender] = msg
+            ctx.logger.info(f"✅ Stored pharmacy response from sender: {sender}")
+            
+            # Also store with PHARMACY_AGENT_ADDRESS for consistency  
+            if PHARMACY_AGENT_ADDRESS:
+                agent_responses[PHARMACY_AGENT_ADDRESS] = msg
+                ctx.logger.info(f"✅ Also stored response with PHARMACY_AGENT_ADDRESS: {PHARMACY_AGENT_ADDRESS}")
+            
+            event_obj = response_events[sender]
+            ctx.logger.info(f"🔍 Found event for sender: {sender}, signaling...")
+            event_obj.set()
+            ctx.logger.info(f"✅ Event signaled for sender: {sender}")
+            
+        elif PHARMACY_AGENT_ADDRESS and PHARMACY_AGENT_ADDRESS in response_events:
+            # Store using PHARMACY_AGENT_ADDRESS
+            agent_responses[sender] = msg
+            agent_responses[PHARMACY_AGENT_ADDRESS] = msg
+            ctx.logger.info(f"✅ Stored pharmacy response using PHARMACY_AGENT_ADDRESS: {PHARMACY_AGENT_ADDRESS}")
+            
+            event_obj = response_events[PHARMACY_AGENT_ADDRESS]
+            event_obj.set()
+            ctx.logger.info(f"✅ Event signaled for PHARMACY_AGENT_ADDRESS: {PHARMACY_AGENT_ADDRESS}")
+            
+        elif "pharmacy_response" in response_events:
+            # Store using generic pharmacy response event
+            agent_responses[sender] = msg
+            agent_responses[PHARMACY_AGENT_ADDRESS] = msg
+            ctx.logger.info(f"✅ Stored response using generic pharmacy_response event")
+            
+            event_obj = response_events["pharmacy_response"]
+            event_obj.set()
+            ctx.logger.info(f"✅ Generic pharmacy_response event signaled")
+            
+        else:
+            ctx.logger.warning(f"⚠️ No active waiting events - pharmacy response arrived too late")
+            ctx.logger.warning(f"⚠️ Available events: {list(response_events.keys())}")
+            ctx.logger.info("🚫 Stopping processing of late response")
+            return
+                
+        ctx.logger.info(f"✅ Pharmacy response handler completed successfully")
+        
+    except Exception as e:
+        ctx.logger.error(f"❌ Error in pharmacy response handler: {str(e)}")
+        # Emergency fallback: signal all events
+        for event_id, event in list(response_events.items()):
+            if "pharmacy" in event_id:
+                ctx.logger.info(f"🚨 Emergency signaling pharmacy event: {event_id}")
+                event.set()
+
+# Handler for pharmacy medicine order responses
+@pharmacy_protocol.on_message(model=MedicineOrderResponse)
+async def handle_pharmacy_order_response(ctx: Context, sender: str, msg: MedicineOrderResponse):
+    """Handle medicine order responses from PharmacyAgent"""
+    ctx.logger.info(f"📨 Received medicine order response: {msg.status} - {msg.medicine}")
+    ctx.logger.info(f"Order ID: {msg.order_id}, Total: ${msg.price}")
+    # For now, just log the order response - could be extended to relay back to user
 
 # Handler for wellness advice
 @wellness_protocol.on_message(model=WellnessAdvice)
@@ -1065,6 +1458,12 @@ async def health_agent_startup(ctx: Context):
         ctx.logger.info(f"✅ DoctorAgent configured: {DOCTOR_AGENT_ADDRESS}")
     else:
         ctx.logger.info("⚠️  DoctorAgent address not configured - update DOCTOR_AGENT_ADDRESS in code")
+    
+    if PHARMACY_AGENT_ADDRESS:
+        connected_agents[PHARMACY_AGENT_ADDRESS] = "PharmacyAgent"
+        ctx.logger.info(f"✅ PharmacyAgent configured: {PHARMACY_AGENT_ADDRESS}")
+    else:
+        ctx.logger.info("⚠️  PharmacyAgent address not configured - will be set when PharmacyAgent connects")
 
 if __name__ == "__main__":
     print("Starting HealthAgent...")
@@ -1073,43 +1472,60 @@ if __name__ == "__main__":
     agent.run()
 
 """
-HEALTH AGENT - SAMPLE CONVERSATIONS
+HEALTH AGENT - ASI1 AI-ENHANCED SAMPLE CONVERSATIONS
 
-🩺 Symptom Logging:
-- "I have fever and cough"
-- "I'm experiencing headache and fatigue"
-- "I have chest pain and shortness of breath"
+🧠 **AI-Powered Symptom Analysis:**
+- "I have fever and cough" → AI provides detailed condition analysis with confidence scores
+- "I'm experiencing headache and fatigue" → Smart specialist recommendations
+- "I have chest pain and shortness of breath" → Urgency assessment with emergency protocols
 
-💊 Medication Reminders:
-- "Remind me to take paracetamol at 8PM"
-- "Set reminder for insulin at 7AM and 7PM"
-- "Remind me to take my blood pressure medication at noon"
+💊 **Intelligent Pharmacy Services:**
+- "Check if paracetamol is available" → Real-time stock + AI usage insights
+- "I need to buy insulin for diabetes" → Smart quantity suggestions + prescription guidance
+- "Do you have something for headaches?" → AI medicine recognition + alternatives
+- "Order 3 tablets of ibuprofen" → Quantity-specific ordering with safety tips
 
-👨‍⚕️ Doctor Appointments:
-- "Book me a cardiologist tomorrow"
-- "Schedule an appointment with a dermatologist"
-- "I need to see a neurologist next week"
+👨‍⚕️ **Smart Doctor Appointments:**
+- "Book me a cardiologist tomorrow" → AI specialty matching + automated scheduling
+- "I need help with my skin problems" → AI maps to dermatology + books appointment
+- "My head hurts constantly, need a doctor" → AI routes to neurology specialist
 
-🏥 Pharmacy Inquiries:
-- "Check if paracetamol is available"
-- "I need to buy insulin"
-- "Do you have aspirin in stock?"
+💊 **Medication Reminders:**
+- "Remind me to take paracetamol at 8PM" → Smart scheduling with dosage reminders
+- "Set reminder for insulin at 7AM and 7PM" → Diabetes-specific guidance
 
-💪 Wellness Tracking:
-- "Log my sleep: 8 hours last night"
-- "I exercised for 30 minutes today"
-- "My mood today is good"
+💪 **Wellness Tracking:**
+- "Log my sleep: 8 hours last night" → AI sleep quality analysis
+- "I exercised for 30 minutes today" → Personalized fitness insights
 
-🚨 Emergency:
-- "emergency" (triggers immediate emergency response)
+🚨 **Emergency Response:**
+- "emergency" → Immediate protocol activation with location services
 
-🔥 Example Full Conversation:
+🤖 **ASI1 AI-Enhanced Example Conversation:**
 User: "I have fever and cough."
-HealthAgent: "Logged symptoms. Possible causes: flu, cold, infection."
+HealthAgent: "✅ Symptoms logged: 'fever and cough'
+🔍 Detected symptoms: fever, persistent cough
+🏥 **AI Analysis - Likely conditions:**
+  • 🔵 **Upper Respiratory Infection** (85% confidence)
+  • 🟡 **Influenza** (70% confidence)
+👨‍⚕️ **Recommended specialists:** General Practitioner
+💡 **AI Insight:** These symptoms commonly indicate viral or bacterial respiratory infections.
+📅 Would you like me to book an appointment with a General Practitioner?"
 
-User: "Book me a cardiologist tomorrow."
-HealthAgent: "✅ Appointment booked! Dr. Amir Hassan (cardiology) on Tomorrow 9:00 AM. Reference: APT-2024-001"
+User: "Yes, book it"
+HealthAgent: "✅ Appointment booked! Dr. Sarah Wilson (General Practitioner) on Tomorrow at 10:00 AM. Reference: APT-20250820-A1B2C3"
 
-User: "Remind me to take paracetamol at 8PM."
-HealthAgent: "✅ Reminder set: Take paracetamol at 8PM. You'll be notified at the scheduled time."
+User: "Check if paracetamol is available"
+HealthAgent: "✅ **Paracetamol** is available at HealthPlus Pharmacy
+📦 **Stock:** 150 units in inventory
+💰 **Price:** $5.99 per unit
+💡 **AI Insight:** pain relief and fever reduction
+Would you like me to help you place an order for this medicine?"
+
+🎯 **Key ASI1 AI Features:**
+- Natural language medicine name extraction
+- Intelligent symptom-to-specialist mapping
+- Real-time inventory with smart alternatives
+- Confidence-based medical condition analysis
+- Contextual health insights and recommendations
 """

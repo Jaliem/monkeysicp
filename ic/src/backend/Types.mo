@@ -157,4 +157,54 @@ module {
     body: Blob;
     token: ?StreamingCallbackToken;
   };
+
+  // ----- Medicine & Pharmacy API types -----
+  public type Medicine = {
+    medicine_id : Text;
+    name : Text;
+    generic_name : ?Text;
+    category : Text; // e.g., "Pain Relief", "Antibiotic", "Vitamin"
+    stock : Nat;
+    price : Float;
+    manufacturer : ?Text;
+    description : ?Text;
+    requires_prescription : Bool;
+    active_ingredient : ?Text;
+    dosage : ?Text;
+  };
+
+  public type MedicineOrder = {
+    order_id : Text;
+    medicine_id : Text;
+    medicine_name : Text;
+    quantity : Nat;
+    unit_price : Float;
+    total_price : Float;
+    user_id : Text;
+    order_date : Text;
+    status : Text; // "pending", "confirmed", "dispensed", "cancelled"
+    prescription_id : ?Text;
+    pharmacy_notes : ?Text;
+  };
+
+  public type MedicineSearchResponse = {
+    medicines : [Medicine];
+    total_count : Nat;
+    status : Text;
+  };
+
+  public type MedicineOrderResponse = {
+    success : Bool;
+    order_id : ?Text;
+    message : Text;
+    order : ?MedicineOrder;
+    suggested_alternatives : ?[Medicine];
+  };
+
+  public type PharmacyInventoryResponse = {
+    medicine : Medicine;
+    available : Bool;
+    stock_level : Nat;
+    estimated_restock : ?Text;
+  };
 };

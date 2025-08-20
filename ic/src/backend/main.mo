@@ -9,49 +9,58 @@ import Int "mo:base/Int";
 import Char "mo:base/Char";
 import Float "mo:base/Float";
 import Time "mo:base/Time";
-import Option "mo:base/Option";
-import Error "mo:base/Error";
 import { JSON } "mo:serde";
 import Types "./Types";
 
-actor {
+persistent actor {
   // Record keys for JSON serialization - Healthcare
-  let WelcomeResponseKeys = ["message"];  
-  let SymptomDataKeys = ["symptoms", "timestamp", "user_id"];
-  let MedicationReminderKeys = ["medicine", "time", "created_at", "user_id", "active"];
-  let EmergencyAlertKeys = ["timestamp", "user_id", "status"];
-  let HealthStorageResponseKeys = ["success", "message", "id"];
-  let SymptomHistoryResponseKeys = ["symptoms", "total_count"];
-  let ReminderListResponseKeys = ["reminders", "active_count"];
-  let EmergencyStatusResponseKeys = ["has_active_emergency", "latest_emergency"];
+  transient let WelcomeResponseKeys = ["message"];  
+  transient let _SymptomDataKeys = ["symptoms", "timestamp", "user_id"];
+  transient let _MedicationReminderKeys = ["medicine", "time", "created_at", "user_id", "active"];
+  transient let _EmergencyAlertKeys = ["timestamp", "user_id", "status"];
+  transient let HealthStorageResponseKeys = ["success", "message", "id"];
+  transient let SymptomHistoryResponseKeys = ["symptoms", "total_count"];
+  transient let ReminderListResponseKeys = ["reminders", "active_count"];
+  transient let EmergencyStatusResponseKeys = ["has_active_emergency", "latest_emergency"];
   
   // Wellness Record Keys
-  let WellnessLogKeys = ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"];
-  let WellnessStoreResponseKeys = ["success", "message", "id", "logged_data"];
-  let WellnessSummaryResponseKeys = ["logs", "total_count", "success", "message"];
+  transient let _WellnessLogKeys = ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"];
+  transient let WellnessStoreResponseKeys = ["success", "message", "id", "logged_data"];
+  transient let WellnessSummaryResponseKeys = ["logs", "total_count", "success", "message"];
   
   // Doctor & Appointment JSON keys
-  let DoctorKeys = ["doctor_id", "name", "specialty", "qualifications", "experience_years", "rating", "available_days", "available_slots"];
-  let AppointmentKeys = ["appointment_id", "doctor_id", "doctor_name", "specialty", "patient_symptoms", "appointment_date", "appointment_time", "status", "urgency", "created_at", "user_id"];
-  let DoctorSearchResponseKeys = ["doctors", "total_count"];
-  let AppointmentResponseKeys = ["success", "appointment_id", "message", "appointment"];
-  let DoctorAvailabilityResponseKeys = ["doctor", "available_slots", "next_available"];
+  transient let _DoctorKeys = ["doctor_id", "name", "specialty", "qualifications", "experience_years", "rating", "available_days", "available_slots"];
+  transient let _AppointmentKeys = ["appointment_id", "doctor_id", "doctor_name", "specialty", "patient_symptoms", "appointment_date", "appointment_time", "status", "urgency", "created_at", "user_id"];
+  transient let DoctorSearchResponseKeys = ["doctors", "total_count"];
+  transient let AppointmentResponseKeys = ["success", "appointment_id", "message", "appointment"];
+  transient let _DoctorAvailabilityResponseKeys = ["doctor", "available_slots", "next_available"];
+
+  // Medicine & Pharmacy JSON keys
+  transient let _MedicineKeys = ["medicine_id", "name", "generic_name", "category", "stock", "price", "manufacturer", "description", "requires_prescription", "active_ingredient", "dosage"];
+  transient let _MedicineOrderKeys = ["order_id", "medicine_id", "medicine_name", "quantity", "unit_price", "total_price", "user_id", "order_date", "status", "prescription_id", "pharmacy_notes"];
+  transient let MedicineSearchResponseKeys = ["medicines", "total_count", "status"];
+  transient let MedicineOrderResponseKeys = ["success", "order_id", "message", "order", "suggested_alternatives"];
+  transient let PharmacyInventoryResponseKeys = ["medicine", "available", "stock_level", "estimated_restock"];
 
   // Healthcare data storage
-  private stable var symptom_entries : [(Text, Types.SymptomData)] = [];
-  private stable var medication_reminders : [(Text, Types.MedicationReminder)] = [];  
-  private stable var emergency_alerts : [(Text, Types.EmergencyAlert)] = [];
-  private stable var doctor_entries : [(Text, Types.Doctor)] = [];
-  private stable var appointment_entries : [(Text, Types.Appointment)] = [];
-  private stable var wellness_log_entries : [(Text, Types.WellnessLog)] = [];
-  private stable var next_id : Nat = 1;
+  private var symptom_entries : [(Text, Types.SymptomData)] = [];
+  private var medication_reminders : [(Text, Types.MedicationReminder)] = [];  
+  private var emergency_alerts : [(Text, Types.EmergencyAlert)] = [];
+  private var doctor_entries : [(Text, Types.Doctor)] = [];
+  private var appointment_entries : [(Text, Types.Appointment)] = [];
+  private var wellness_log_entries : [(Text, Types.WellnessLog)] = [];
+  private var medicine_entries : [(Text, Types.Medicine)] = [];
+  private var medicine_order_entries : [(Text, Types.MedicineOrder)] = [];
+  private var next_id : Nat = 1;
 
-  private var symptoms = Buffer.Buffer<(Text, Types.SymptomData)>(0);
-  private var reminders = Buffer.Buffer<(Text, Types.MedicationReminder)>(0);
-  private var emergencies = Buffer.Buffer<(Text, Types.EmergencyAlert)>(0);
-  private var doctors = Buffer.Buffer<(Text, Types.Doctor)>(0);
-  private var appointments = Buffer.Buffer<(Text, Types.Appointment)>(0);
-  private var wellness_logs = Buffer.Buffer<(Text, Types.WellnessLog)>(0);
+  private transient var symptoms = Buffer.Buffer<(Text, Types.SymptomData)>(0);
+  private transient var reminders = Buffer.Buffer<(Text, Types.MedicationReminder)>(0);
+  private transient var emergencies = Buffer.Buffer<(Text, Types.EmergencyAlert)>(0);
+  private transient var doctors = Buffer.Buffer<(Text, Types.Doctor)>(0);
+  private transient var appointments = Buffer.Buffer<(Text, Types.Appointment)>(0);
+  private transient var wellness_logs = Buffer.Buffer<(Text, Types.WellnessLog)>(0);
+  private transient var medicines = Buffer.Buffer<(Text, Types.Medicine)>(0);
+  private transient var medicine_orders = Buffer.Buffer<(Text, Types.MedicineOrder)>(0);
 
   system func preupgrade() {
     symptom_entries := Buffer.toArray(symptoms);
@@ -60,6 +69,8 @@ actor {
     doctor_entries := Buffer.toArray(doctors);
     appointment_entries := Buffer.toArray(appointments);
     wellness_log_entries := Buffer.toArray(wellness_logs);
+    medicine_entries := Buffer.toArray(medicines);
+    medicine_order_entries := Buffer.toArray(medicine_orders);
   };
 
   system func postupgrade() {
@@ -69,16 +80,25 @@ actor {
     doctors := Buffer.fromArray(doctor_entries);
     appointments := Buffer.fromArray(appointment_entries);
     wellness_logs := Buffer.fromArray(wellness_log_entries);
+    medicines := Buffer.fromArray(medicine_entries);
+    medicine_orders := Buffer.fromArray(medicine_order_entries);
     symptom_entries := [];
     medication_reminders := [];
     emergency_alerts := [];
     doctor_entries := [];
     appointment_entries := [];
     wellness_log_entries := [];
+    medicine_entries := [];
+    medicine_order_entries := [];
     
     // Initialize doctors if empty
     if (doctors.size() == 0) {
       initializeDoctors();
+    };
+    
+    // Initialize medicines if empty
+    if (medicines.size() == 0) {
+      initializeMedicines();
     };
   };
 
@@ -205,9 +225,163 @@ actor {
     Debug.print("[INIT]: Added " # Nat.toText(doctors.size()) # " doctors to database");
   };
 
+  // ----- Medicine Database Initialization -----
+  
+  private func initializeMedicines() {
+    Debug.print("[INIT]: Initializing medicine database");
+    
+    // Pain Relief medicines
+    let paracetamol : Types.Medicine = {
+      medicine_id = "med_001";
+      name = "Paracetamol";
+      generic_name = ?"Acetaminophen";
+      category = "Pain Relief";
+      stock = 150;
+      price = 5.99;
+      manufacturer = ?"PharmaCorp";
+      description = ?"Effective pain reliever and fever reducer";
+      requires_prescription = false;
+      active_ingredient = ?"Acetaminophen 500mg";
+      dosage = ?"1-2 tablets every 4-6 hours";
+    };
+    medicines.add(("med_001", paracetamol));
+    
+    let ibuprofen : Types.Medicine = {
+      medicine_id = "med_002";
+      name = "Ibuprofen";
+      generic_name = ?"Ibuprofen";
+      category = "Pain Relief";
+      stock = 120;
+      price = 7.50;
+      manufacturer = ?"HealthPlus";
+      description = ?"Anti-inflammatory pain reliever";
+      requires_prescription = false;
+      active_ingredient = ?"Ibuprofen 400mg";
+      dosage = ?"1 tablet every 6-8 hours";
+    };
+    medicines.add(("med_002", ibuprofen));
+    
+    let aspirin : Types.Medicine = {
+      medicine_id = "med_003";
+      name = "Aspirin";
+      generic_name = ?"Acetylsalicylic acid";
+      category = "Pain Relief";
+      stock = 80;
+      price = 4.25;
+      manufacturer = ?"MediCare";
+      description = ?"Pain relief and blood thinner";
+      requires_prescription = false;
+      active_ingredient = ?"Acetylsalicylic acid 325mg";
+      dosage = ?"1-2 tablets every 4 hours";
+    };
+    medicines.add(("med_003", aspirin));
+    
+    // Antibiotics
+    let amoxicillin : Types.Medicine = {
+      medicine_id = "med_004";
+      name = "Amoxicillin";
+      generic_name = ?"Amoxicillin";
+      category = "Antibiotic";
+      stock = 60;
+      price = 15.99;
+      manufacturer = ?"PharmaLab";
+      description = ?"Broad-spectrum antibiotic";
+      requires_prescription = true;
+      active_ingredient = ?"Amoxicillin 500mg";
+      dosage = ?"1 capsule every 8 hours";
+    };
+    medicines.add(("med_004", amoxicillin));
+    
+    // Vitamins
+    let vitamin_c : Types.Medicine = {
+      medicine_id = "med_005";
+      name = "Vitamin C";
+      generic_name = ?"Ascorbic Acid";
+      category = "Vitamin";
+      stock = 200;
+      price = 8.99;
+      manufacturer = ?"VitaHealth";
+      description = ?"Immune system support";
+      requires_prescription = false;
+      active_ingredient = ?"Ascorbic Acid 1000mg";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_005", vitamin_c));
+    
+    let vitamin_d : Types.Medicine = {
+      medicine_id = "med_006";
+      name = "Vitamin D3";
+      generic_name = ?"Cholecalciferol";
+      category = "Vitamin";
+      stock = 180;
+      price = 12.50;
+      manufacturer = ?"VitaHealth";
+      description = ?"Bone health and immune support";
+      requires_prescription = false;
+      active_ingredient = ?"Cholecalciferol 2000 IU";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_006", vitamin_d));
+    
+    // Allergy medicines
+    let cetirizine : Types.Medicine = {
+      medicine_id = "med_007";
+      name = "Cetirizine";
+      generic_name = ?"Cetirizine Hydrochloride";
+      category = "Allergy";
+      stock = 90;
+      price = 6.75;
+      manufacturer = ?"AllerCare";
+      description = ?"Non-drowsy antihistamine";
+      requires_prescription = false;
+      active_ingredient = ?"Cetirizine HCl 10mg";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_007", cetirizine));
+    
+    // Stomach medicines
+    let omeprazole : Types.Medicine = {
+      medicine_id = "med_008";
+      name = "Omeprazole";
+      generic_name = ?"Omeprazole";
+      category = "Digestive Health";
+      stock = 45;
+      price = 18.99;
+      manufacturer = ?"DigestCare";
+      description = ?"Acid reducer for heartburn";
+      requires_prescription = false;
+      active_ingredient = ?"Omeprazole 20mg";
+      dosage = ?"1 capsule daily before breakfast";
+    };
+    medicines.add(("med_008", omeprazole));
+    
+    // Out of stock example
+    let insulin : Types.Medicine = {
+      medicine_id = "med_009";
+      name = "Insulin Glargine";
+      generic_name = ?"Insulin Glargine";
+      category = "Diabetes";
+      stock = 0;
+      price = 89.99;
+      manufacturer = ?"DiabetesCare";
+      description = ?"Long-acting insulin";
+      requires_prescription = true;
+      active_ingredient = ?"Insulin Glargine 100 units/mL";
+      dosage = ?"As prescribed by physician";
+    };
+    medicines.add(("med_009", insulin));
+    
+    Debug.print("[INIT]: Added " # Nat.toText(medicines.size()) # " medicines to database");
+  };
+
   // Initialize doctors on actor startup (for fresh deployments)
   if (doctors.size() == 0) {
     initializeDoctors();
+  };
+  
+  // Initialize medicines on actor startup (for fresh deployments)  
+  if (medicines.size() == 0) {
+    initializeMedicines();
   };
 
   // ----- Public API functions -----
@@ -418,6 +592,246 @@ actor {
     };
   };
 
+  // ----- Medicine & Pharmacy API functions -----
+
+  // Store medicine information
+  public shared func store_medicine(medicine_data : Types.Medicine) : async Types.HealthStorageResponse {
+    let id = "medicine_" # Int.toText(next_id);
+    medicines.add((id, medicine_data));
+    next_id += 1;
+    Debug.print("[MEDICINE]: Stored medicine " # medicine_data.name # " (" # medicine_data.category # ")");
+    {
+      success = true;
+      message = "Medicine stored successfully";
+      id = ?id;
+    };
+  };
+
+  // Search medicines by name (partial match)
+  public shared query func search_medicines_by_name(medicine_name : Text) : async Types.MedicineSearchResponse {
+    let matching_medicines = Buffer.Buffer<Types.Medicine>(0);
+    let name_lower = Text.map(medicine_name, func(c : Char) : Char {
+      if (c >= 'A' and c <= 'Z') {
+        Char.fromNat32(Char.toNat32(c) + 32)
+      } else { c }
+    });
+    
+    for ((_, medicine) in medicines.vals()) {
+      let medicine_name_lower = Text.map(medicine.name, func(c : Char) : Char {
+        if (c >= 'A' and c <= 'Z') {
+          Char.fromNat32(Char.toNat32(c) + 32)
+        } else { c }
+      });
+      
+      let generic_name_lower = switch (medicine.generic_name) {
+        case null { "" };
+        case (?generic) {
+          Text.map(generic, func(c : Char) : Char {
+            if (c >= 'A' and c <= 'Z') {
+              Char.fromNat32(Char.toNat32(c) + 32)
+            } else { c }
+          });
+        };
+      };
+      
+      if (Text.contains(medicine_name_lower, #text name_lower) or 
+          Text.contains(name_lower, #text medicine_name_lower) or
+          Text.contains(generic_name_lower, #text name_lower)) {
+        matching_medicines.add(medicine);
+      };
+    };
+    
+    {
+      medicines = Buffer.toArray(matching_medicines);
+      total_count = matching_medicines.size();
+      status = "success";
+    };
+  };
+
+  // Search medicines by category
+  public shared query func search_medicines_by_category(category : Text) : async Types.MedicineSearchResponse {
+    let matching_medicines = Buffer.Buffer<Types.Medicine>(0);
+    let category_lower = Text.map(category, func(c : Char) : Char {
+      if (c >= 'A' and c <= 'Z') {
+        Char.fromNat32(Char.toNat32(c) + 32)
+      } else { c }
+    });
+    
+    for ((_, medicine) in medicines.vals()) {
+      let medicine_category_lower = Text.map(medicine.category, func(c : Char) : Char {
+        if (c >= 'A' and c <= 'Z') {
+          Char.fromNat32(Char.toNat32(c) + 32)
+        } else { c }
+      });
+      
+      if (Text.contains(medicine_category_lower, #text category_lower) or 
+          Text.contains(category_lower, #text medicine_category_lower)) {
+        matching_medicines.add(medicine);
+      };
+    };
+    
+    {
+      medicines = Buffer.toArray(matching_medicines);
+      total_count = matching_medicines.size();
+      status = "success";
+    };
+  };
+
+  // Get medicine by ID with inventory status
+  public shared query func get_medicine_by_id(medicine_id : Text) : async ?Types.PharmacyInventoryResponse {
+    for ((_, medicine) in medicines.vals()) {
+      if (medicine.medicine_id == medicine_id) {
+        return ?{
+          medicine = medicine;
+          available = medicine.stock > 0;
+          stock_level = medicine.stock;
+          estimated_restock = if (medicine.stock == 0) { ?"2-3 business days" } else { null };
+        };
+      };
+    };
+    null;
+  };
+
+  // Place medicine order
+  public shared func place_medicine_order(medicine_id : Text, quantity : Nat, user_id : Text, prescription_id : ?Text) : async Types.MedicineOrderResponse {
+    // Find the medicine
+    var found_medicine : ?Types.Medicine = null;
+    var medicine_index : ?Nat = null;
+    
+    var index = 0;
+    for ((_, medicine) in medicines.vals()) {
+      if (medicine.medicine_id == medicine_id) {
+        found_medicine := ?medicine;
+        medicine_index := ?index;
+      };
+      index += 1;
+    };
+    
+    switch (found_medicine) {
+      case null {
+        return {
+          success = false;
+          order_id = null;
+          message = "Medicine not found";
+          order = null;
+          suggested_alternatives = null;
+        };
+      };
+      case (?medicine) {
+        // Check prescription requirement
+        if (medicine.requires_prescription and prescription_id == null) {
+          return {
+            success = false;
+            order_id = null;
+            message = "This medicine requires a prescription";
+            order = null;
+            suggested_alternatives = null;
+          };
+        };
+        
+        // Check stock availability
+        if (medicine.stock < quantity) {
+          // Get alternative suggestions from same category
+          let alternatives = Buffer.Buffer<Types.Medicine>(0);
+          for ((_, alt_medicine) in medicines.vals()) {
+            if (alt_medicine.medicine_id != medicine_id and 
+                alt_medicine.category == medicine.category and 
+                alt_medicine.stock >= quantity and
+                alternatives.size() < 3) {
+              alternatives.add(alt_medicine);
+            };
+          };
+          
+          return {
+            success = false;
+            order_id = null;
+            message = "Insufficient stock. Available: " # Nat.toText(medicine.stock) # " units";
+            order = null;
+            suggested_alternatives = if (alternatives.size() > 0) { ?Buffer.toArray(alternatives) } else { null };
+          };
+        };
+        
+        // Create order
+        let order_id = "ORD-" # Int.toText(Time.now()) # "-" # Nat.toText(next_id);
+        let total_price = medicine.price * Float.fromInt(quantity);
+        
+        let order : Types.MedicineOrder = {
+          order_id = order_id;
+          medicine_id = medicine_id;
+          medicine_name = medicine.name;
+          quantity = quantity;
+          unit_price = medicine.price;
+          total_price = total_price;
+          user_id = user_id;
+          order_date = Int.toText(Time.now());
+          status = "confirmed";
+          prescription_id = prescription_id;
+          pharmacy_notes = ?"Order confirmed and ready for pickup";
+        };
+        
+        // Store order
+        let order_storage_id = "order_" # Int.toText(next_id);
+        medicine_orders.add((order_storage_id, order));
+        next_id += 1;
+        
+        // Update medicine stock - create updated medicine record
+        let updated_medicine : Types.Medicine = {
+          medicine_id = medicine.medicine_id;
+          name = medicine.name;
+          generic_name = medicine.generic_name;
+          category = medicine.category;
+          stock = medicine.stock - quantity;
+          price = medicine.price;
+          manufacturer = medicine.manufacturer;
+          description = medicine.description;
+          requires_prescription = medicine.requires_prescription;
+          active_ingredient = medicine.active_ingredient;
+          dosage = medicine.dosage;
+        };
+        
+        // Replace in medicines buffer (simplified approach - add updated version)
+        medicines.add((medicine_id, updated_medicine));
+        
+        Debug.print("[ORDER]: Medicine order " # order_id # " placed for user " # user_id);
+        
+        return {
+          success = true;
+          order_id = ?order_id;
+          message = "Order placed successfully. Total: $" # Float.toText(total_price);
+          order = ?order;
+          suggested_alternatives = null;
+        };
+      };
+    };
+  };
+
+  // Get user medicine orders
+  public shared query func get_user_medicine_orders(user_id : Text) : async [Types.MedicineOrder] {
+    let user_orders = Buffer.Buffer<Types.MedicineOrder>(0);
+    for ((_, order) in medicine_orders.vals()) {
+      if (order.user_id == user_id) {
+        user_orders.add(order);
+      };
+    };
+    Buffer.toArray(user_orders);
+  };
+
+  // Get all available medicines (non-prescription, in stock)
+  public shared query func get_available_medicines() : async Types.MedicineSearchResponse {
+    let available_medicines = Buffer.Buffer<Types.Medicine>(0);
+    for ((_, medicine) in medicines.vals()) {
+      if (medicine.stock > 0 and not medicine.requires_prescription) {
+        available_medicines.add(medicine);
+      };
+    };
+    
+    {
+      medicines = Buffer.toArray(available_medicines);
+      total_count = available_medicines.size();
+      status = "success";
+    };
+  };
+
   // ----- Wellness Functions -----
 
   // Add a new wellness log
@@ -447,7 +861,7 @@ actor {
   };
 
   // Get wellness summary for a user
-  public shared query func get_wellness_summary(user_id: Text, days: Nat): async Types.SummaryResponse {
+  public shared query func get_wellness_summary(user_id: Text, _days: Nat): async Types.SummaryResponse {
     let user_logs = Buffer.Buffer<Types.WellnessLog>(0);
 
     for ((_, log) in wellness_logs.vals()) {
@@ -634,6 +1048,116 @@ actor {
     };
   };
 
+  // Extracts medicine data from HTTP request body
+  private func extractMedicineData(body : Blob) : Result.Result<Types.Medicine, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+
+    let medicineData : ?Types.Medicine = from_candid (blob);
+
+    switch (medicineData) {
+      case null return #err("Medicine data not found in JSON");
+      case (?data) #ok(data);
+    };
+  };
+
+  // Extracts medicine name from HTTP request body
+  private func extractMedicineName(body : Blob) : Result.Result<Text, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+
+    type MedicineNameRequest = {
+      medicine_name : Text;
+    };
+    let nameRequest : ?MedicineNameRequest = from_candid (blob);
+
+    switch (nameRequest) {
+      case null return #err("Medicine name not found in JSON");
+      case (?req) #ok(req.medicine_name);
+    };
+  };
+
+  // Extracts medicine category from HTTP request body
+  private func extractMedicineCategory(body : Blob) : Result.Result<Text, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+
+    type MedicineCategoryRequest = {
+      category : Text;
+    };
+    let categoryRequest : ?MedicineCategoryRequest = from_candid (blob);
+
+    switch (categoryRequest) {
+      case null return #err("Medicine category not found in JSON");
+      case (?req) #ok(req.category);
+    };
+  };
+
+  // Extracts medicine ID from HTTP request body
+  private func extractMedicineId(body : Blob) : Result.Result<Text, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+
+    type MedicineIdRequest = {
+      medicine_id : Text;
+    };
+    let idRequest : ?MedicineIdRequest = from_candid (blob);
+
+    switch (idRequest) {
+      case null return #err("Medicine ID not found in JSON");
+      case (?req) #ok(req.medicine_id);
+    };
+  };
+
+  // Extracts medicine order request from HTTP request body
+  private func extractMedicineOrderRequest(body : Blob) : Result.Result<{medicine_id: Text; quantity: Nat; user_id: Text; prescription_id: ?Text}, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+
+    type MedicineOrderRequest = {
+      medicine_id : Text;
+      quantity : Nat;
+      user_id : Text;
+      prescription_id : ?Text;
+    };
+    let orderRequest : ?MedicineOrderRequest = from_candid (blob);
+
+    switch (orderRequest) {
+      case null return #err("Medicine order request not found in JSON");
+      case (?req) #ok(req);
+    };
+  };
+
   // Constructs a JSON HTTP response using serde
   private func makeJsonResponse(statusCode : Nat16, jsonText : Text) : Types.HttpResponse {
     {
@@ -678,7 +1202,7 @@ actor {
           upgrade = null;
         };
       };
-      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/add-wellness-log" or "/get-wellness-summary") {
+      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/add-wellness-log" or "/get-wellness-summary") {
         {
           status_code = 200;
           headers = [("content-type", "application/json")];
@@ -848,6 +1372,106 @@ actor {
             makeJsonResponse(200, jsonText);
           };
         };
+      };
+
+      // Medicine & Pharmacy endpoints
+      case ("POST", "/store-medicine") {
+        let medicineResult = extractMedicineData(body);
+        switch (medicineResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(medicineData)) {
+            let response = await store_medicine(medicineData);
+            let blob = to_candid (response);
+            let #ok(jsonText) = JSON.toText(blob, HealthStorageResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/search-medicines-by-name") {
+        let nameResult = extractMedicineName(body);
+        switch (nameResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(medicineName)) {
+            let response = await search_medicines_by_name(medicineName);
+            let blob = to_candid (response);
+            let #ok(jsonText) = JSON.toText(blob, MedicineSearchResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/search-medicines-by-category") {
+        let categoryResult = extractMedicineCategory(body);
+        switch (categoryResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(category)) {
+            let response = await search_medicines_by_category(category);
+            let blob = to_candid (response);
+            let #ok(jsonText) = JSON.toText(blob, MedicineSearchResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/get-medicine-by-id") {
+        let medicineIdResult = extractMedicineId(body);
+        switch (medicineIdResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(medicineId)) {
+            let response = await get_medicine_by_id(medicineId);
+            switch (response) {
+              case null {
+                makeJsonResponse(404, "{\"error\": \"Medicine not found\"}");
+              };
+              case (?inventory) {
+                let blob = to_candid (inventory);
+                let #ok(jsonText) = JSON.toText(blob, PharmacyInventoryResponseKeys, null) else return makeSerializationErrorResponse();
+                makeJsonResponse(200, jsonText);
+              };
+            };
+          };
+        };
+      };
+      case ("POST", "/place-medicine-order") {
+        let orderResult = extractMedicineOrderRequest(body);
+        switch (orderResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(orderRequest)) {
+            let response = await place_medicine_order(orderRequest.medicine_id, orderRequest.quantity, orderRequest.user_id, orderRequest.prescription_id);
+            let blob = to_candid (response);
+            let #ok(jsonText) = JSON.toText(blob, MedicineOrderResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/get-user-medicine-orders") {
+        let userIdResult = extractUserId(body);
+        switch (userIdResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(userId)) {
+            let orders = await get_user_medicine_orders(userId);
+            let blob = to_candid (orders);
+            let orderArrayKeys = ["order_id", "medicine_id", "medicine_name", "quantity", "unit_price", "total_price", "user_id", "order_date", "status", "prescription_id", "pharmacy_notes"];
+            let #ok(jsonText) = JSON.toText(blob, orderArrayKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/get-available-medicines") {
+        let response = await get_available_medicines();
+        let blob = to_candid (response);
+        let #ok(jsonText) = JSON.toText(blob, MedicineSearchResponseKeys, null) else return makeSerializationErrorResponse();
+        makeJsonResponse(200, jsonText);
       };
 
       // Wellness endpoints
