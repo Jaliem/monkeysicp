@@ -29,7 +29,7 @@ class StoreResponse(Model):
     success: bool
     message: str
     id: Optional[str] = None
-    logged_data: Optional[WellnessLog] = None
+    logged_data: Optional[dict] = None  # Changed from WellnessLog to dict
 
 class SummaryRequest(Model):
     days: int = 7
@@ -83,7 +83,9 @@ def parse_wellness_from_icp(log_data: dict) -> dict:
         "sleep": log_data.get("sleep"),
         "steps": log_data.get("steps"),
         "exercise": log_data.get("exercise"),
-        "date": log_data.get("date")
+        "date": log_data.get("date"),
+        "mood": log_data.get("mood"),
+        "water_intake": log_data.get("water_intake")
     }
 
 # --- LLM Function (Unchanged) ---
@@ -116,7 +118,7 @@ async def startup(ctx: Context):
     ctx.logger.info("Wellness Agent is ready and connected to ICP.")
     ctx.logger.info(f"My address is: {ctx.agent.address}")
 
-@wellness_protocol.on_message(model=LogRequest, replies=[WellnessAdviceResponse, StoreResponse])
+@wellness_protocol.on_message(model=LogRequest, replies=WellnessAdviceResponse)
 async def handle_log_request(ctx: Context, sender: str, msg: LogRequest):
     """Handles log requests and stores them on the ICP canister."""
     ctx.logger.info(f"Received log from {sender}. Storing to ICP canister...")
@@ -140,19 +142,27 @@ async def handle_log_request(ctx: Context, sender: str, msg: LogRequest):
     store_result = store_to_icp("add-wellness-log", log_payload, ctx)
     
     if "error" in store_result:
-        error_response = StoreResponse(
+        error_response = WellnessAdviceResponse(
+            summary=None,
+            advice=[f"Error storing data: {store_result['error']}"],
             success=False,
-            message=f"Error storing data: {store_result['error']}",
-            logged_data=wellness_log
+            message=f"Error storing data: {store_result['error']}"
         )
         await ctx.send(sender, error_response)
         return
 
     ctx.logger.info("Log stored successfully. Getting LLM advice...")
     
-    daily_prompt = (f"User's Log:\n- Hours Slept: {msg.sleep or 'Not logged'}\n- Steps Taken: {msg.steps or 'Not logged'}\n- Exercise Done: {msg.exercise or 'Not logged'}")
+    daily_prompt = (f"User's daily log:\n- Hours Slept: {msg.sleep or 'Not logged'}\n- Steps Taken: {msg.steps or 'Not logged'}\n- Exercise Done: {msg.exercise or 'Not logged'}")
     advice_from_llm = await get_llm_advice(daily_prompt, ctx)
-    await ctx.send(sender, WellnessAdviceResponse(advice=advice_from_llm))
+    
+    success_response = WellnessAdviceResponse(
+        summary=f"Successfully logged your wellness data for {datetime.date.today().isoformat()}",
+        advice=advice_from_llm,
+        success=True,
+        message="Data logged successfully"
+    )
+    await ctx.send(sender, success_response)
 
 @wellness_protocol.on_message(model=SummaryRequest, replies=WellnessAdviceResponse)
 async def handle_summary_request(ctx: Context, sender: str, msg: SummaryRequest):
@@ -182,8 +192,8 @@ async def handle_summary_request(ctx: Context, sender: str, msg: SummaryRequest)
         total_steps = sum(log.get('steps') or 0 for log in logs)
         logs_found = len(logs)
         
-        avg_sleep = total_sleep / logs_found
-        avg_steps = total_steps / logs_found
+        avg_sleep = total_sleep / logs_found if logs_found > 0 else 0
+        avg_steps = total_steps / logs_found if logs_found > 0 else 0
         
         summary_text = (
             f"Here is your summary for the last {logs_found} logged day(s): "
@@ -194,7 +204,12 @@ async def handle_summary_request(ctx: Context, sender: str, msg: SummaryRequest)
         summary_prompt = (f"User's Weekly Summary:\n- Average Sleep: {avg_sleep:.1f} hours\n- Average Steps: {int(avg_steps)}")
         advice_text = await get_llm_advice(summary_prompt, ctx)
 
-    await ctx.send(sender, WellnessAdviceResponse(summary=summary_text, advice=advice_text))
+    await ctx.send(sender, WellnessAdviceResponse(
+        summary=summary_text, 
+        advice=advice_text,
+        success=True,
+        message="Summary retrieved successfully"
+    ))
 
 wellness_agent.include(wellness_protocol)
 
