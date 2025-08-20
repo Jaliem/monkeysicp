@@ -8,6 +8,9 @@ import Buffer "mo:base/Buffer";
 import Int "mo:base/Int";
 import Char "mo:base/Char";
 import Float "mo:base/Float";
+import Time "mo:base/Time";
+import Option "mo:base/Option";
+import Error "mo:base/Error";
 import { JSON } "mo:serde";
 import Types "./Types";
 
@@ -200,6 +203,11 @@ actor {
     doctors.add(("gp_001", gp1));
     
     Debug.print("[INIT]: Added " # Nat.toText(doctors.size()) # " doctors to database");
+  };
+
+  // Initialize doctors on actor startup (for fresh deployments)
+  if (doctors.size() == 0) {
+    initializeDoctors();
   };
 
   // ----- Public API functions -----
@@ -441,10 +449,6 @@ actor {
   // Get wellness summary for a user
   public shared query func get_wellness_summary(user_id: Text, days: Nat): async Types.SummaryResponse {
     let user_logs = Buffer.Buffer<Types.WellnessLog>(0);
-    let now = Time.now();
-    
-    // Convert days to nanoseconds for timestamp comparison
-    let cutoff_timestamp = now - (Int.abs(days) * 24 * 60 * 60 * 1_000_000_000);
 
     for ((_, log) in wellness_logs.vals()) {
       if (log.user_id == user_id) {
@@ -464,6 +468,14 @@ actor {
 
   // ----- Private helper functions -----
 
+  // Helper function to parse JSON text from blob
+  private func parseJson(body: Blob): Result.Result<Text, Text> {
+    switch (Text.decodeUtf8(body)) {
+      case null { #err("Invalid UTF-8 encoding") };
+      case (?text) { #ok(text) };
+    };
+  };
+
   // Extracts WellnessLog data from HTTP request body
   private func extractWellnessLogData(body: Blob): ?Types.WellnessLog {
     switch(parseJson(body)) {
@@ -472,31 +484,13 @@ actor {
         null 
       };
       case (#ok(jsonText)) {
-        try {
-          let parsed = JSON.parse(jsonText);
-          switch(parsed) {
-            case null { null };
-            case (?json) {
-              switch(JSON.get(json, ["log"])) {
-                case null { null };
-                case (?logJson) {
-                  ?{
-                    user_id = Option.get(JSON.getString(json, ["user_id"]), "default_user");
-                    date = Option.get(JSON.getString(logJson, ["date"]), Time.now());
-                    sleep = JSON.getNumber(logJson, ["sleep"]);
-                    steps = JSON.getNumber(logJson, ["steps"]);
-                    exercise = JSON.getString(logJson, ["exercise"]);
-                    mood = JSON.getString(logJson, ["mood"]);
-                    water_intake = JSON.getNumber(logJson, ["water_intake"]);
-                  };
-                };
-              };
-            };
-          };
-        } catch (e) {
-          Debug.print("[ERROR]: JSON parsing error: " # Error.message(e));
-          null;
+        let #ok(blob) = JSON.fromText(jsonText, null) else {
+          Debug.print("[ERROR]: Invalid JSON format");
+          return null;
         };
+        
+        let logData : ?Types.WellnessLog = from_candid (blob);
+        logData;
       };
     };
   };
@@ -886,6 +880,7 @@ actor {
             makeJsonResponse(200, jsonText);
           };
         };
+      };
       case ("OPTIONS", _) {
         {
           status_code = 200;

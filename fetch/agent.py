@@ -15,7 +15,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 # ICP Canister settings for healthcare backend
-CANISTER_ID = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"
 BASE_URL = "http://127.0.0.1:4943"
 
 HEADERS = {
@@ -87,7 +87,7 @@ pharmacy_protocol = Protocol(name="PharmacyProtocol", version="1.0")
 wellness_protocol = Protocol(name="WellnessProtocol", version="1.0")
 
 # Agent addresses - update these with actual addresses from agent startup logs
-DOCTOR_AGENT_ADDRESS = "agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru"  # Replace with actual DoctorAgent address
+DOCTOR_AGENT_ADDRESS = "agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru"  # Fixed to exact sender from warning logs
 PHARMACY_AGENT_ADDRESS = None
 WELLNESS_AGENT_ADDRESS = None
 
@@ -508,10 +508,13 @@ async def handle_doctor_booking_confirmation(sender: str, ctx: Context) -> str:
     # Clear the context
     clear_user_context(sender)
     
-    # Route to doctor booking agent
-    booking_result = await route_to_doctor_agent(f"book {doctor}", ctx)
+    # Send immediate confirmation
+    await ctx.send(sender, "✅ Booking confirmed! I'm finding you a doctor and scheduling your appointment...")
     
-    return f"✅ Great! I'll book that appointment for you.\n{booking_result}"
+    # Route to doctor booking agent (this will send detailed results later)
+    booking_result = await route_to_doctor_agent(f"book {doctor}", ctx, sender)
+    
+    return booking_result
 
 async def handle_doctor_booking_cancellation(sender: str, ctx: Context) -> str:
     """Handle cancellation of doctor appointment booking"""
@@ -578,7 +581,7 @@ Only respond with the specialty name, nothing else."""
         ctx.logger.error(f"LLM specialty extraction failed: {str(e)}")
         return "general practitioner"
 
-async def route_to_doctor_agent(message: str, ctx: Context) -> str:
+async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = None) -> str:
     """Route doctor booking request to DoctorAgent"""
     try:
         # Use LLM to intelligently extract specialty
@@ -626,27 +629,61 @@ async def route_to_doctor_agent(message: str, ctx: Context) -> str:
                 
                 response_event = asyncio.Event()
                 response_events[DOCTOR_AGENT_ADDRESS] = response_event
+                # Also create event with a generic key for any DoctorAgent response
+                response_events["doctor_response"] = response_event
                 ctx.logger.info(f"📋 Event created and stored for: {DOCTOR_AGENT_ADDRESS}")
+                ctx.logger.info(f"📋 Also created generic 'doctor_response' event")
                 ctx.logger.info(f"🔍 Event object ID: {id(response_event)}")
                 
                 ctx.logger.info(f"⏰ Sending booking request at: {datetime.now()}")
-                await ctx.send(DOCTOR_AGENT_ADDRESS, booking_request)
-                ctx.logger.info(f"📤 Request sent, now waiting for response...")
+                ctx.logger.info(f"📋 Sending to address: {DOCTOR_AGENT_ADDRESS}")
+                ctx.logger.info(f"📋 Message content: {booking_request}")
+                send_id = str(uuid4())[:8]
+                ctx.logger.info(f"[SEND-{send_id}] Sending booking request to DoctorAgent")
+                ctx.logger.info(f"🔍 About to send message type: {type(booking_request)}")
+                ctx.logger.info(f"🔍 Message details: {booking_request}")
                 
-                # Wait for the response event to be set (up to 10 seconds)
                 try:
-                    ctx.logger.info(f"⏳ Starting to wait for event...")
-                    await asyncio.wait_for(response_event.wait(), timeout=10.0)
-                    ctx.logger.info(f"✅ Event wait completed!")
+                    await ctx.send(DOCTOR_AGENT_ADDRESS, booking_request)
+                    ctx.logger.info(f"📤 Request sent successfully, now waiting for response...")
+                except Exception as e:
+                    ctx.logger.error(f"❌ Failed to send request: {str(e)}")
+                    return f"Failed to send request to DoctorAgent: {str(e)}"
+                
+                # Small delay to allow response to be processed in the same event loop
+                await asyncio.sleep(0.1)
+                
+                # Poll for response (more reliable than event waiting)
+                max_wait_time = 20.0  # Increased to accommodate DoctorAgent processing time
+                poll_interval = 0.5
+                total_waited = 0.0
+                
+                # Check immediately in case response is already available
+                ctx.logger.info(f"🔍 Immediate check for response with key: {DOCTOR_AGENT_ADDRESS}")
+                ctx.logger.info(f"🔍 Available keys before polling: {list(agent_responses.keys())}")
+                
+                if DOCTOR_AGENT_ADDRESS in agent_responses:
+                    ctx.logger.info(f"✅ Response found immediately!")
+                    response = agent_responses.pop(DOCTOR_AGENT_ADDRESS)
                     
-                    # Small delay to ensure response storage completes
-                    await asyncio.sleep(0.1)
+                    # Clean up
+                    if DOCTOR_AGENT_ADDRESS in response_events:
+                        del response_events[DOCTOR_AGENT_ADDRESS]
                     
-                    ctx.logger.info(f"🔍 Event triggered. Checking for response from: {DOCTOR_AGENT_ADDRESS}")
-                    ctx.logger.info(f"🔍 Available responses: {list(agent_responses.keys())}")
+                    if response.status == "success":
+                        ctx.logger.info(f"✅ Appointment confirmed: {response.doctor_name}")
+                        return f"✅ Appointment booked! {response.doctor_name} ({specialty}) on {response.appointment_time}. Reference: {response.appointment_id}"
+                    else:
+                        return f"❌ Booking failed: {response.message}"
+                
+                ctx.logger.info(f"⏳ No immediate response, starting polling every {poll_interval}s, max {max_wait_time}s...")
+                ctx.logger.info(f"🔍 Looking for response with key: {DOCTOR_AGENT_ADDRESS}")
+                
+                while total_waited < max_wait_time:
+                    ctx.logger.info(f"🔍 Poll check at {total_waited}s - Available keys: {list(agent_responses.keys())}")
                     
-                    # Response received, get it from storage
                     if DOCTOR_AGENT_ADDRESS in agent_responses:
+                        ctx.logger.info(f"✅ Response found after {total_waited}s!")
                         response = agent_responses.pop(DOCTOR_AGENT_ADDRESS)
                         
                         # Clean up
@@ -655,16 +692,72 @@ async def route_to_doctor_agent(message: str, ctx: Context) -> str:
                         
                         if response.status == "success":
                             ctx.logger.info(f"✅ Appointment confirmed: {response.doctor_name}")
-                            return f"✅ Appointment booked! {response.doctor_name} ({specialty}) on {response.appointment_time}. Reference: {response.appointment_id}"
+                            success_message = f"✅ Appointment booked! {response.doctor_name} ({specialty}) on {response.appointment_time}. Reference: {response.appointment_id}"
+                            
+                            # Send detailed results to user if user_sender is provided
+                            if user_sender:
+                                await ctx.send(user_sender, success_message)
+                                return "Booking details sent to user"
+                            else:
+                                return success_message
                         else:
-                            return f"❌ Booking failed: {response.message}"
-                    else:
-                        ctx.logger.warning(f"⚠️ Event was set but no response found from: {DOCTOR_AGENT_ADDRESS}")
-                        ctx.logger.warning(f"⚠️ Available responses: {list(agent_responses.keys())}")
+                            error_message = f"❌ Booking failed: {response.message}"
+                            if user_sender:
+                                await ctx.send(user_sender, error_message)
+                                return "Error details sent to user"
+                            else:
+                                return error_message
+                    
+                    await asyncio.sleep(poll_interval)
+                    total_waited += poll_interval
+                    
+                ctx.logger.warning(f"⚠️ No response found after {max_wait_time}s of polling")
+                ctx.logger.warning(f"⚠️ Available responses: {list(agent_responses.keys())}")
+                
+                # Give a longer moment for any in-flight responses to arrive (mailbox delay)
+                ctx.logger.info("⏸️ Waiting for any in-flight responses (accounting for mailbox delays)...")
+                await asyncio.sleep(5.0)  # Extended to catch delayed responses
+                
+                # Check one more time after the delay
+                if DOCTOR_AGENT_ADDRESS in agent_responses:
+                    ctx.logger.info(f"✅ Found response after delay!")
+                    response = agent_responses.pop(DOCTOR_AGENT_ADDRESS)
+                    
+                    # Clean up
+                    if DOCTOR_AGENT_ADDRESS in response_events:
+                        del response_events[DOCTOR_AGENT_ADDRESS]
+                    
+                    if response.status == "success":
+                        ctx.logger.info(f"✅ Appointment confirmed: {response.doctor_name}")
+                        success_message = f"✅ Appointment booked! {response.doctor_name} on {response.appointment_time}. Reference: {response.appointment_id}"
                         
-                except asyncio.TimeoutError:
-                    ctx.logger.error("❌ Timeout waiting for DoctorAgent response")
-                    return "Sorry, the doctor booking service is not responding right now. Please try again in a moment."
+                        if user_sender:
+                            await ctx.send(user_sender, success_message)
+                            return "Booking details sent to user"
+                        else:
+                            return success_message
+                    else:
+                        error_message = f"❌ Booking failed: {response.message}"
+                        if user_sender:
+                            await ctx.send(user_sender, error_message)
+                            return "Error details sent to user"
+                        else:
+                            return error_message
+                
+                # Clean up to prevent late responses from being processed
+                if DOCTOR_AGENT_ADDRESS in response_events:
+                    del response_events[DOCTOR_AGENT_ADDRESS]
+                    ctx.logger.info("🧹 Cleaned up DOCTOR_AGENT_ADDRESS event after timeout")
+                if "doctor_response" in response_events:
+                    del response_events["doctor_response"]
+                    ctx.logger.info("🧹 Cleaned up generic doctor_response event after timeout")
+                
+                timeout_message = "Sorry, the doctor booking service is not responding right now. Please try again in a moment."
+                if user_sender:
+                    await ctx.send(user_sender, timeout_message)
+                    return "Timeout message sent to user"
+                else:
+                    return timeout_message
                     
             except Exception as e:
                 ctx.logger.error(f"❌ Error communicating with DoctorAgent: {str(e)}")
@@ -757,7 +850,7 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
         elif intent == "medication_reminder":
             return await handle_medication_reminder(query, ctx)
         elif intent == "book_doctor":
-            return await route_to_doctor_agent(query, ctx)
+            return await route_to_doctor_agent(query, ctx, sender)
         elif intent == "pharmacy":
             return await route_to_pharmacy_agent(query, ctx)
         elif intent == "wellness":
@@ -863,42 +956,68 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
     global DOCTOR_AGENT_ADDRESS
     
     try:
+        ctx.logger.info(f"🎯 PROTOCOL HANDLER TRIGGERED!")
         ctx.logger.info(f"📨 Received booking response at {datetime.now()}: {msg.status} - {msg.doctor_name}")
+        ctx.logger.info(f"📨 Response sender: {sender}")
+        ctx.logger.info(f"📨 Response message type: {type(msg)}")
+        ctx.logger.info(f"📨 Full response content: {msg}")
         
         # Store the DoctorAgent address for future communications
         if DOCTOR_AGENT_ADDRESS != sender:
             DOCTOR_AGENT_ADDRESS = sender
             connected_agents[sender] = "DoctorAgent"
         
-        # Store the response using sender address
-        agent_responses[sender] = msg
-        ctx.logger.info(f"✅ Stored response from sender: {sender}")
-        
-        # Also store with DOCTOR_AGENT_ADDRESS for consistency  
-        if DOCTOR_AGENT_ADDRESS:
-            agent_responses[DOCTOR_AGENT_ADDRESS] = msg
-            ctx.logger.info(f"✅ Also stored response with DOCTOR_AGENT_ADDRESS: {DOCTOR_AGENT_ADDRESS}")
-        
-        # Signal the event for this sender
+        # Check if we have an active waiting event BEFORE storing response
         ctx.logger.info(f"🔍 Looking for events. Current response_events keys: {list(response_events.keys())}")
+        ctx.logger.info(f"🔍 Checking sender '{sender}' against events")
+        ctx.logger.info(f"🔍 Checking DOCTOR_AGENT_ADDRESS '{DOCTOR_AGENT_ADDRESS}' against events")
         
         if sender in response_events:
+            # Store the response using sender address - only if we're actively waiting
+            agent_responses[sender] = msg
+            ctx.logger.info(f"✅ Stored response from sender: {sender}")
+            
+            # Also store with DOCTOR_AGENT_ADDRESS for consistency  
+            if DOCTOR_AGENT_ADDRESS:
+                agent_responses[DOCTOR_AGENT_ADDRESS] = msg
+                ctx.logger.info(f"✅ Also stored response with DOCTOR_AGENT_ADDRESS: {DOCTOR_AGENT_ADDRESS}")
+            
             event_obj = response_events[sender]
             ctx.logger.info(f"🔍 Found event for sender: {sender}, object ID: {id(event_obj)}")
             event_obj.set()
             ctx.logger.info(f"✅ Event signaled for sender: {sender}")
+            
         elif DOCTOR_AGENT_ADDRESS and DOCTOR_AGENT_ADDRESS in response_events:
+            # Store the response - only if we're actively waiting
+            agent_responses[sender] = msg
+            agent_responses[DOCTOR_AGENT_ADDRESS] = msg
+            ctx.logger.info(f"✅ Stored response from sender: {sender} and DOCTOR_AGENT_ADDRESS: {DOCTOR_AGENT_ADDRESS}")
+            
             event_obj = response_events[DOCTOR_AGENT_ADDRESS]
             ctx.logger.info(f"🔍 Found event for DOCTOR_AGENT_ADDRESS: {DOCTOR_AGENT_ADDRESS}, object ID: {id(event_obj)}")
             event_obj.set()
             ctx.logger.info(f"✅ Event signaled for DOCTOR_AGENT_ADDRESS: {DOCTOR_AGENT_ADDRESS}")
+            
+        elif "doctor_response" in response_events:
+            # Store the response using generic doctor response event
+            agent_responses[sender] = msg
+            agent_responses[DOCTOR_AGENT_ADDRESS] = msg
+            ctx.logger.info(f"✅ Stored response using generic doctor_response event from sender: {sender}")
+            
+            event_obj = response_events["doctor_response"]
+            ctx.logger.info(f"🔍 Found generic doctor_response event, object ID: {id(event_obj)}")
+            event_obj.set()
+            ctx.logger.info(f"✅ Generic doctor_response event signaled")
+            
         else:
-            ctx.logger.warning(f"⚠️ No event found for sender: {sender} or DOCTOR_AGENT_ADDRESS: {DOCTOR_AGENT_ADDRESS}")
+            ctx.logger.warning(f"⚠️ No active waiting events - response arrived too late")
+            ctx.logger.warning(f"⚠️ Sender: {sender}, DOCTOR_AGENT_ADDRESS: {DOCTOR_AGENT_ADDRESS}")
             ctx.logger.warning(f"⚠️ Available events: {list(response_events.keys())}")
-            # Fallback: signal all events
-            for event_id, event in list(response_events.items()):
-                ctx.logger.info(f"🔔 Signaling fallback event: {event_id}")
-                event.set()
+            ctx.logger.info("🗑️ Discarding late response to prevent confusion")
+            
+            # Early return to prevent processing of late responses - don't store them at all
+            ctx.logger.info("🚫 Stopping processing of late response")
+            return
                 
         ctx.logger.info(f"✅ Response handler completed successfully")
         
@@ -935,6 +1054,7 @@ agent.include(wellness_protocol)
 async def health_agent_startup(ctx: Context):
     ctx.logger.info(f"🏥 HealthAgent started")
     ctx.logger.info(f"📋 Agent address: {agent.address}")
+    ctx.logger.info(f"🔗 Protocols registered: chat, doctor, pharmacy, wellness")
     ctx.logger.info(f"🔍 Ready for inter-agent communication")
     
     # Initialize manual connections
@@ -947,7 +1067,7 @@ async def health_agent_startup(ctx: Context):
         ctx.logger.info("⚠️  DoctorAgent address not configured - update DOCTOR_AGENT_ADDRESS in code")
 
 if __name__ == "__main__":
-    print("🏥 Starting HealthAgent...")
+    print("Starting HealthAgent...")
     print(f"Agent Address: {agent.address}")
     print("Ready to assist with your healthcare needs!")
     agent.run()

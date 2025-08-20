@@ -42,7 +42,7 @@ class WellnessAdviceResponse(Model):
     message: str = ""
 
 # --- ICP & LLM Configuration (MERGED FROM DOCTOR.PY) ---
-CANISTER_ID = "bkyz2-fmaaa-aaaaa-qaaaq-cai"
+CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"
 BASE_URL = "http://127.0.0.1:4943"
 
 HEADERS = {
@@ -104,9 +104,9 @@ async def get_llm_advice(prompt: str, ctx: Context) -> List[str]:
 # --- Agent Setup ---
 wellness_agent = Agent(
     name="wellness_agent",
-    port=8001,
+    port=8002,
     seed="wellness_agent_secret_seed_phrase",
-    endpoint=["http://127.0.0.1:8001/submit"],
+    mailbox=True,
 )
 
 wellness_protocol = Protocol("WellnessProtocol", version="1.0")

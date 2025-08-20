@@ -6,8 +6,7 @@ from uuid import uuid4
 from typing import Optional
 
 # === Configuration ===
-AGENTVERSE_API_KEY = "sk_5666831f85d54da1a2922c9b9c53cf2784bc53e6a9fa48f0987ec74efb26737e"
-CANISTER_ID = "bkyz2-fmaaa-aaaaa-qaaaq-cai"  # Updated to match HealthAgent canister
+CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"  # Updated to match HealthAgent canister
 BASE_URL = "http://127.0.0.1:4943"
 
 HEADERS = {
@@ -20,7 +19,6 @@ agent = Agent(
     name="doctor_agent",
     seed="healthcare_doctor_booking_agent_2025_unique_seed_v1",
     port=8001,
-    endpoint=["http://127.0.0.1:8001/submit"],
     mailbox=True,
 )
 
@@ -79,7 +77,7 @@ async def store_to_icp(endpoint: str, data: dict) -> dict:
     """Store data to ICP canister backend"""
     try:
         url = f"{BASE_URL}/{endpoint}"
-        response = requests.post(url, headers=HEADERS, json=data, timeout=30)
+        response = requests.post(url, headers=HEADERS, json=data, timeout=10)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -90,9 +88,9 @@ async def get_from_icp(endpoint: str, params: dict = None) -> dict:
     try:
         url = f"{BASE_URL}/{endpoint}"
         if params:
-            response = requests.post(url, headers=HEADERS, json=params, timeout=30)
+            response = requests.post(url, headers=HEADERS, json=params, timeout=10)
         else:
-            response = requests.get(url, headers=HEADERS, timeout=30)
+            response = requests.get(url, headers=HEADERS, timeout=10)
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -202,7 +200,10 @@ doctor_protocol = Protocol(name="DoctorBookingProtocol", version="1.0")
 async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingRequest):
     """Handle doctor appointment booking requests from HealthAgent"""
     
-    ctx.logger.info(f"Received booking request for {msg.specialty}")
+    import uuid
+    handler_id = str(uuid.uuid4())[:8]
+    ctx.logger.info(f"[{handler_id}] Received booking request for {msg.specialty}")
+    ctx.logger.info(f"[{handler_id}] Sender address: {sender}")
     
     try:
         ctx.logger.info("Step 1: Starting doctor search...")
@@ -249,8 +250,19 @@ async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingReq
                 ctx.logger.error(f"BOOKING FAILED: {booking_result['error']}")
         
         ctx.logger.info("Step 4: Sending response back to HealthAgent...")
-        await ctx.send(sender, response)
-        ctx.logger.info("Step 4 complete: Response sent")
+        ctx.logger.info(f"Step 4: Sending to address: {sender}")
+        ctx.logger.info(f"Step 4: Response content: {response}")
+        ctx.logger.info(f"Step 4: Response type: {type(response)}")
+        ctx.logger.info(f"Step 4: Current time before send: {datetime.now()}")
+        
+        try:
+            await ctx.send(sender, response)
+            ctx.logger.info("Step 4 complete: Response sent successfully")
+            ctx.logger.info(f"Step 4: Current time after send: {datetime.now()}")
+        except Exception as e:
+            ctx.logger.error(f"Step 4 ERROR: Failed to send response: {str(e)}")
+            ctx.logger.error(f"Step 4 ERROR: Exception type: {type(e)}")
+            raise
         
     except Exception as e:
         ctx.logger.error(f"EXCEPTION in booking handler: {str(e)}")
