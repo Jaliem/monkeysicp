@@ -10,6 +10,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@dfinity/auth-client": "^3.2.1",
     "prettier": "^3.6.2"
+  },
+  "devDependencies": {
+    "@dfinity/internet-identity-playwright": "^2.0.0"
   }
 }
