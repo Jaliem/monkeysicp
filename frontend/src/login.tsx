@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthClient } from '@dfinity/auth-client';
 import { useNavigate } from 'react-router-dom';
 
-const identityProvider = 'http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943';
+const identityProvider = 'https://identity.ic0.app';
 
 const Login = () => {
   const [authClient, setAuthClient] = useState<AuthClient | null>(null);

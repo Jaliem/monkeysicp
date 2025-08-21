@@ -1,5 +1,4 @@
 import { AuthClient } from '@dfinity/auth-client';
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 // Side Navigation Component
