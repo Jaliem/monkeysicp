@@ -634,14 +634,8 @@ async def handle_doctor_booking_confirmation(sender: str, ctx: Context) -> str:
     # Clear the context
     clear_user_context(sender)
     
-    # Send immediate confirmation
-    confirmation_message = "✅ Booking confirmed! I'm finding you a doctor and scheduling your appointment..."
-    chat_response = ChatMessage(
-        timestamp=datetime.now(timezone.utc),
-        msg_id=uuid4(),
-        content=[TextContent(type="text", text=confirmation_message)]
-    )
-    await ctx.send(sender, chat_response)
+    # Note: For REST API users, confirmations are handled via the API response
+    # No need to send chat messages to REST API user IDs
     
     # Route to doctor booking agent (this will send detailed results later)
     booking_result = await route_to_doctor_agent(f"book {doctor}", ctx, sender)
@@ -858,15 +852,8 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
             try:
                 ctx.logger.info(f"📤 Booking {specialty} appointment ({urgency})")
                 
-                # Send immediate "Booking..." notification to user
-                if user_sender:
-                    booking_message = f"📅 Booking {specialty} appointment ({urgency} priority)..."
-                    chat_response = ChatMessage(
-                        timestamp=datetime.now(timezone.utc),
-                        msg_id=uuid4(),
-                        content=[TextContent(type="text", text=booking_message)]
-                    )
-                    await ctx.send(user_sender, chat_response)
+                # Note: For REST API users, immediate notifications are handled via the API response
+                # No need to send chat messages to REST API user IDs
                 
                 # Events no longer needed - using pure event-driven architecture
                 
@@ -1043,15 +1030,8 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                 
                 # Events no longer needed - using pure event-driven architecture
                 
-                # Send immediate "Checking..." notification to user
-                if user_sender:
-                    checking_message = f"🔍 Checking {medicine_name} availability..."
-                    chat_response = ChatMessage(
-                        timestamp=datetime.now(timezone.utc),
-                        msg_id=uuid4(),
-                        content=[TextContent(type="text", text=checking_message)]
-                    )
-                    await ctx.send(user_sender, chat_response)
+                # Note: For REST API users, immediate notifications are handled via the API response
+                # No need to send chat messages to REST API user IDs
                 
                 await ctx.send(PHARMACY_AGENT_ADDRESS, medicine_request)
                 ctx.logger.info(f"📤 Medicine request sent (ID: {request_id}), user notified")
@@ -1103,15 +1083,8 @@ async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str =
         # Send request to WellnessAgent if available
         if WELLNESS_AGENT_ADDRESS:
             try:
-                # Send immediate "Logging..." notification to user
-                if user_sender:
-                    logging_message = f"📊 Logging your wellness data..."
-                    chat_response = ChatMessage(
-                        timestamp=datetime.now(timezone.utc),
-                        msg_id=uuid4(),
-                        content=[TextContent(type="text", text=logging_message)]
-                    )
-                    await ctx.send(user_sender, chat_response)
+                # Note: For REST API users, immediate notifications are handled via the API response
+                # No need to send chat messages to REST API user IDs
                 
                 await ctx.send(WELLNESS_AGENT_ADDRESS, wellness_request)
                 ctx.logger.info(f"📤 Wellness request sent (ID: {request_id}), user notified")
@@ -1425,8 +1398,8 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
         )
         await ctx.send(sender, ack)
         
-        # Send result to user
-        if user_sender:
+        # Send result to user (only for direct chat users, not REST API users)
+        if user_sender and not user_sender.startswith("frontend_"):
             if msg.status == "success":
                 success_message = f"✅ Appointment booked! {msg.doctor_name} ({request_info['specialty']}) on {msg.appointment_time}. Reference: {msg.appointment_id}"
             else:
@@ -1438,6 +1411,8 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
                 content=[TextContent(type="text", text=success_message)]
             )
             await ctx.send(user_sender, chat_response)
+        else:
+            ctx.logger.info(f"📝 Result for REST API user {user_sender}: {msg.status} - {msg.message}")
         
         # Clean up pending request
         del pending_requests[msg.request_id]
@@ -1486,8 +1461,8 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
         )
         await ctx.send(sender, ack)
         
-        # Send result to user
-        if user_sender:
+        # Send result to user (only for direct chat users, not REST API users)
+        if user_sender and not user_sender.startswith("frontend_"):
             if msg.available:
                 if is_order_request:
                     # User wants to order - provide comprehensive ordering information
@@ -1524,6 +1499,8 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
                 content=[TextContent(type="text", text=order_message)]
             )
             await ctx.send(user_sender, chat_response)
+        else:
+            ctx.logger.info(f"📝 Pharmacy result for REST API user {user_sender}: {msg.status} - {msg.medicine}")
         
         # Clean up pending request
         del pending_requests[msg.request_id]
@@ -1577,8 +1554,8 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
         )
         await ctx.send(sender, ack)
         
-        # Send result to user
-        if user_sender:
+        # Send result to user (only for direct chat users, not REST API users)
+        if user_sender and not user_sender.startswith("frontend_"):
             if msg.success:
                 wellness_message = f"✅ **Wellness Data Logged Successfully!**\n\n"
                 if msg.summary:
@@ -1597,6 +1574,8 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
                 content=[TextContent(type="text", text=wellness_message)]
             )
             await ctx.send(user_sender, chat_response)
+        else:
+            ctx.logger.info(f"📝 Wellness result for REST API user {user_sender}: {msg.success} - {msg.message}")
         
         # Clean up pending request
         del pending_requests[msg.request_id]

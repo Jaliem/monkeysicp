@@ -2,6 +2,34 @@
 
 A comprehensive healthcare platform built with React frontend and AI-powered agents using Fetch.ai uAgents framework.
 
+## 📋 Prerequisites
+
+### **Install DFX (Internet Computer SDK)**
+
+**macOS/Linux:**
+```bash
+sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+```
+
+**Windows:**
+```powershell
+# Install via WSL2 (recommended) or use the installer
+wsl --install
+# Then run the macOS/Linux command inside WSL
+```
+
+### **Install Mops (Motoko Package Manager)**
+
+```bash
+# Install via npm (requires Node.js)
+npm install -g ic-mops
+
+# Verify installation
+mops --version
+```
+
+**Note**: Mops is used for managing Motoko dependencies in the ICP backend.
+
 ## 🚀 Quick Start Guide
 
 ### 1. **Start ICP Backend**
@@ -124,6 +152,85 @@ ICP Backend (Motoko)
 - **Smart Intent Classification** for accurate routing
 - **Context-Aware Conversations** with memory
 - **ICP Blockchain Storage** for secure health data
+
+## 🤖 How the Agents Work
+
+The Cura Healthcare System uses a multi-agent architecture built with **Fetch.ai uAgents framework**. Each agent operates independently while communicating through structured protocols.
+
+### **Agent Architecture**
+
+```
+Frontend (React) → Health Agent (Main) → Specialized Agents
+                                      ↓
+                              ICP Blockchain Storage
+```
+
+### **Agent Communication Flow**
+
+1. **Request Routing**: Health Agent receives user input and classifies intent using ASI1 LLM
+2. **Protocol-Based Messaging**: Agents communicate via typed message models (Pydantic)
+3. **Asynchronous Processing**: Each agent processes requests independently
+4. **Response Correlation**: Requests tracked by unique IDs for proper response routing
+5. **Data Persistence**: All health data stored on ICP blockchain for security
+
+### **Core Agents**
+
+#### **Health Agent** (`agent.py` - Port 8000)
+- **Role**: Main coordinator and AI-powered health assistant
+- **Features**:
+  - ASI1 LLM integration for symptom analysis
+  - Intent classification and request routing
+  - REST API endpoints for frontend integration
+  - Context-aware conversation management
+- **Protocols**: Chat, Doctor, Pharmacy, Wellness
+
+#### **Doctor Agent** (`doctor.py` - Port 8001)
+- **Role**: Medical appointment booking and specialist matching
+- **Features**:
+  - Specialist database management via ICP
+  - Appointment scheduling and conflict resolution
+  - Doctor availability checking
+- **Message Types**: `DoctorBookingRequest` → `DoctorBookingResponse`
+
+#### **Pharmacy Agent** (`pharmacy.py` - Port 8002)
+- **Role**: Medicine inventory and prescription management
+- **Features**:
+  - Real-time medicine availability checking
+  - Price and stock management via ICP
+  - Alternative medicine suggestions
+- **Message Types**: `MedicineCheckRequest` → `MedicineCheckResponse`
+
+#### **Wellness Agent** (`wellness.py` - Port 8003)
+- **Role**: Health metrics tracking and wellness insights
+- **Features**:
+  - Sleep, exercise, mood, and activity logging
+  - Health trend analysis and recommendations
+  - Wellness data aggregation via ICP
+- **Message Types**: `LogRequest` → `WellnessAdviceResponse`
+
+### **Agent Communication Protocols**
+
+Agents use **typed message models** for reliable communication:
+
+```python
+# Example: Health Agent → Doctor Agent
+booking_request = DoctorBookingRequest(
+    request_id="abc123",
+    specialty="cardiology",
+    preferred_time="tomorrow",
+    urgency="urgent",
+    symptoms="chest pain"
+)
+await ctx.send(DOCTOR_AGENT_ADDRESS, booking_request)
+```
+
+### **Key Features**
+
+- **Event-Driven Architecture**: Agents respond to protocol-specific message events
+- **Request Correlation**: Each request has unique ID for tracking responses
+- **Fault Tolerance**: Graceful error handling and fallback mechanisms
+- **Scalable Design**: Easy to add new agents and protocols
+- **Blockchain Integration**: Secure data storage on ICP network
 
 ## 🛠️ Development
 
