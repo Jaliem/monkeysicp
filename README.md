@@ -1,192 +1,195 @@
-# 🏥 Cura. - Healthcare Agent System
+# 🏥 Cura Healthcare System
 
-A comprehensive healthcare system built with React frontend, ICP blockchain backend, and AI-powered agents for personalized health management.
+A comprehensive healthcare platform built with React frontend and AI-powered agents using Fetch.ai uAgents framework.
 
-## 🚀 Quick Start
+## 🚀 Quick Start Guide
 
-### 1. Install Agent Dependencies
+### 1. **Start ICP Backend**
+
+```bash
+dfx start --clean --background
+dfx deploy backend
+```
+
+**Note**: After `dfx deploy backend` completes, it will display the canister ID and base URL. Copy these values - you'll need them for the `.env` file in step 2.
+
+### 2. **Setup Python Environment for Agents**
+
 ```bash
 cd fetch
+python -m venv venv
+
+# Activate virtual environment
+# Windows:
+venv\Scripts\activate
+# macOS/Linux:
+source venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-### 2. Configure Agentverse API
+#### **Configure Environment Variables:**
+
+1. **Copy the example file:**
+   ```bash
+   cp .env.example .env
+   ```
+
+2. **Update `.env` with your values:**
+   - **CANISTER_ID** and **BASE_URL**: Use the values from `dfx deploy backend` output
+   - **ASI1_API_KEY**: Get your API key from https://asi1.ai/dashboard/api-keys
+   - **Agent addresses**: Update with your actual agent addresses (or keep the provided ones)
+
+   Example `.env` file:
+   ```
+   CANISTER_ID=rdmx6-jaaaa-aaaah-qcaaa-cai
+   BASE_URL=http://127.0.0.1:4943
+   ASI1_API_KEY=sk_your_actual_api_key_here
+   DOCTOR_AGENT_ADDRESS=agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru
+   # ... other agent addresses
+   ```
+
+### 3. **Start All Healthcare Agents**
+
+Run each agent in separate terminal windows:
+
 ```bash
-cd fetch
-python setup_agentverse.py
+# Terminal 1 - Main Health Agent (port 8000)
+python agent.py
+
+# Terminal 2 - Pharmacy Agent (port 8001)  
+python pharmacy.py
+
+# Terminal 3 - Doctor Agent (port 8002)
+python doctor.py
+
+# Terminal 4 - Wellness Agent (port 8003)
+python wellness.py
 ```
 
-### 3. Start Agent System
-```bash
-python start_agentverse.py
-```
+### 4. **Start Frontend**
 
-This starts:
-- **HealthAgent** - Main coordination agent
-- **DoctorAgent** - Appointment booking
-- **PharmacyAgent** - Medicine queries
-- **WellnessAgent** - Health data tracking
-- **Agentverse API Bridge** - Cloud agent communication
-
-### 4. Start React Frontend
 ```bash
 cd frontend
-npm install
+npm i
 npm run dev
 ```
 
-### 5. Deploy ICP Backend (Optional)
-```bash
-cd ic
-dfx start --clean
-dfx deploy
-```
+## 🌐 Access Points
+
+- **Frontend**: http://localhost:5173
+- **Main Health Agent**: http://localhost:8000
+- **Pharmacy Agent**: http://localhost:8001
+- **Doctor Agent**: http://localhost:8002
+- **Wellness Agent**: http://localhost:8003
 
 ## 🏗️ Architecture
 
 ```
-React Frontend (localhost:5173)
-           ↓ HTTP requests
-   Agentverse API Bridge
-           ↓ Cloud API calls
-     HealthAgent (Cloud)
-           ↓ Inter-agent communication
-    ┌─────────────┬─────────────┬─────────────┐
-    │             │             │             │
-DoctorAgent  PharmacyAgent  WellnessAgent  ICP Backend
-  (Cloud)      (Cloud)      (Cloud)     (Blockchain)
+React Frontend (TypeScript)
+       ↓ Direct HTTP REST API
+Healthcare Agents (Python uAgents)
+       ↓ Data Storage
+ICP Backend (Motoko)
 ```
 
-## ✨ Features
+## 🤖 Agent Capabilities
 
-### 🏥 Complete Healthcare Dashboard
-- **Wellness Tracking**: Sleep, steps, water, mood, exercise logging
-- **Doctor Booking**: Search specialists, book appointments
-- **Pharmacy**: Medicine search, prescription management, online ordering
-- **Health Profile**: Personal info, medical history, preferences
-- **AI Chat**: Natural language health assistance
+### **Health Agent** (Main)
+- AI-powered symptom analysis
+- Intent classification and routing
+- Emergency response protocols
+- Natural language understanding
 
-### 🤖 AI-Powered Agents
-- **Natural Language Processing**: ASI1 LLM for intent classification
-- **Real-time Communication**: Event-driven agent architecture
-- **Request Correlation**: UUID-based request/response tracking
-- **Error Handling**: Graceful fallbacks and timeout management
+### **Doctor Agent**
+- Appointment scheduling
+- Specialist matching
+- Medical consultation booking
 
-### 🔐 Security & Privacy
-- **ICP Blockchain**: Secure health data storage
-- **Internet Identity**: Decentralized authentication
-- **End-to-end Encryption**: Private health information
-- **GDPR Compliant**: Privacy controls and data management
+### **Pharmacy Agent**
+- Medicine availability checking
+- Prescription management
+- Drug interaction analysis
+
+### **Wellness Agent**
+- Activity and sleep tracking
+- Health metrics logging
+- Wellness insights and advice
+
+## 🧠 AI Features
+
+- **ASI1 LLM Integration** for intelligent analysis
+- **Natural Language Processing** for user queries
+- **Smart Intent Classification** for accurate routing
+- **Context-Aware Conversations** with memory
+- **ICP Blockchain Storage** for secure health data
+
+## 🛠️ Development
+
+### **Agent Development**
+- Each agent runs independently with REST endpoints
+- Agents communicate via uAgents protocols
+- Health data stored on ICP blockchain
+- AI analysis powered by ASI1
+
+### **Frontend Development**
+- React with TypeScript
+- Direct REST API communication
+- Real-time health agent responses
+- Responsive healthcare UI
+
+## 📋 Troubleshooting
+
+### **Agents Not Responding**
+1. Ensure all agents are running in separate terminals
+2. Check each agent shows "Starting server on http://0.0.0.0:XXXX"
+3. Verify ports 8000-8003 are available
+
+### **Frontend Connection Issues**
+1. Confirm agent.py is running on port 8000
+2. Check browser console for CORS errors
+3. Ensure frontend is on http://localhost:5173
+
+### **ICP Backend Issues**
+1. Verify `dfx start` is running
+2. Check `dfx deploy backend` completed successfully
+3. Confirm canister is accessible
 
 ## 🎯 Usage Examples
 
-### Wellness Tracking
+### **Symptom Analysis**
 ```
-"I slept 8 hours and walked 5000 steps today"
-→ WellnessAgent processes and stores to ICP blockchain
-```
-
-### Doctor Appointments
-```
-"I need to see a cardiologist next week"
-→ DoctorAgent searches and books appointment
+User: "I have a headache and feel tired"
+Agent: 🔍 Detected symptoms: headache, fatigue
+       🏥 AI Analysis - Likely conditions:
+       • 🟢 Tension-type headache (70% confidence)
+       💡 Recommendations: Rest, hydration, OTC pain relief
 ```
 
-### Medicine Queries
+### **Wellness Tracking**
 ```
-"Do you have paracetamol in stock?"
-→ PharmacyAgent checks availability and pricing
-```
-
-## 📁 Project Structure
-
-```
-monkeysicp/
-├── fetch/                    # Agent system
-│   ├── agent.py             # Main HealthAgent
-│   ├── doctor.py            # Doctor booking agent
-│   ├── pharmacy.py          # Medicine agent
-│   ├── wellness.py          # Health tracking agent
-│   ├── agentverse_bridge.py # API integration
-│   └── AGENTVERSE_GUIDE.md  # Setup documentation
-├── frontend/                # React UI
-│   ├── src/
-│   │   ├── chat.tsx         # AI chat interface
-│   │   ├── wellness.tsx     # Wellness dashboard
-│   │   ├── doctor.tsx       # Doctor booking
-│   │   ├── pharmacy.tsx     # Medicine search
-│   │   └── profile.tsx      # Health profile
-│   └── package.json
-└── ic/                      # ICP blockchain
-    └── src/backend/         # Motoko canisters
+User: "I slept 8 hours and walked 5000 steps"
+Agent: 😴 Sleep Analysis: Excellent (8 hours)
+       🚶 Activity: Great job on 5000 steps!
+       📊 Health insights and optimization tips
 ```
 
-## 🔧 Configuration
-
-### Agentverse API Setup
-1. Get API key from [Agentverse](https://agentverse.ai)
-2. Configure in `setup_agentverse.py`
-3. Deploy agents to cloud or run locally
-
-### Environment Variables
-```bash
-# Frontend
-VITE_API_BASE_URL=http://localhost:8080
-VITE_ICP_HOST=http://localhost:4943
-
-# Agents
-ASI1_API_KEY=your_asi1_key
-AGENTVERSE_API_KEY=your_agentverse_key
+### **Pharmacy Services**
+```
+User: "Do you have ibuprofen?"
+Agent: ✅ Ibuprofen is available at HealthPlus Pharmacy
+       📦 Stock: 150 units | 💰 Price: $5.99
+       💡 Usage: reducing inflammation, pain, and fever
 ```
 
-## 🔒 Privacy & Compliance
+## 🔒 Security & Privacy
 
-- **HIPAA Aligned**: Healthcare data protection standards
-- **Decentralized Storage**: User controls their data via ICP
-- **Anonymous Options**: Privacy-first health tracking
-- **Audit Trail**: Blockchain-based access logging
-
-## 🚀 Deployment
-
-### Production Setup
-1. Deploy ICP canisters to mainnet
-2. Deploy agents to Agentverse cloud
-3. Configure production frontend with environment variables
-4. Set up monitoring and alerting
-
-### Cloud Integration
-- **Agentverse**: AI agent hosting and management
-- **ICP Mainnet**: Production blockchain deployment
-- **CDN**: Frontend asset distribution
-
-## 📊 Monitoring
-
-Check system health:
-```bash
-# Agent status
-curl http://localhost:8080/health
-
-# Frontend build
-npm run build
-
-# ICP canister status
-dfx canister status --all
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Make changes following code style
-4. Test thoroughly
-5. Submit pull request
-
-## 📄 License
-
-MIT License - see LICENSE file for details.
+- Health data encrypted and stored on ICP blockchain
+- AI analysis performed locally with ASI1
+- No sensitive data sent to external services
+- HIPAA-compliant data handling practices
 
 ---
 
-**Built with ❤️ using Fetch.ai Agents, ICP Blockchain, and React**
-
-*Empowering personalized healthcare through AI and blockchain technology.*
+**🚀 Start with the ICP backend, then agents, then frontend for the complete healthcare experience!**

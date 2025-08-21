@@ -1,3 +1,5 @@
+import os
+from dotenv import load_dotenv
 import requests
 import json
 import re
@@ -15,9 +17,12 @@ from uuid import uuid4
 from typing import List, Optional
 from pydantic import BaseModel
 
+# Load environment variables
+load_dotenv()
+
 # ICP Canister settings for healthcare backend
-CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"
-BASE_URL = "http://127.0.0.1:4943"
+CANISTER_ID = os.getenv("CANISTER_ID", "uxrrr-q7777-77774-qaaaq-cai")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:4943")
 
 HEADERS = {
     "Host": f"{CANISTER_ID}.localhost",
@@ -26,8 +31,12 @@ HEADERS = {
 
 # ASI1 API settings
 # Create yours at: https://asi1.ai/dashboard/api-keys
-ASI1_API_KEY = "sk_0ccc42224b8b45be81d4dee26203ab5a086eca11c56741758fd1fcea4060b823" # your_asi1_api_key" # Replace with your ASI1 key
+ASI1_API_KEY = os.getenv("ASI1_API_KEY")
 ASI1_BASE_URL = "https://api.asi1.ai/v1"
+
+if not ASI1_API_KEY:
+    raise ValueError("ASI1_API_KEY not found in environment variables. Please check your .env file.")
+
 ASI1_HEADERS = {
     "Authorization": f"Bearer {ASI1_API_KEY}",
     "Content-Type": "application/json"
@@ -137,10 +146,10 @@ pharmacy_protocol = Protocol(name="PharmacyProtocol", version="1.0")
 wellness_protocol = Protocol(name="WellnessProtocol", version="1.0")
 ack_protocol = Protocol(name="ACKProtocol", version="1.0")
 
-# Agent addresses - update these with actual addresses from agent startup logs
-DOCTOR_AGENT_ADDRESS = "agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru"  # Fixed to exact sender from warning logs
-PHARMACY_AGENT_ADDRESS = "agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c"  # PharmacyAgent actual address
-WELLNESS_AGENT_ADDRESS = "agent1q0vpdcvka3dyzvcc4vs9m8wy0rvh9r39v0wfk04f25nckmkt5cqmvhedtyt"
+# Agent addresses - loaded from environment variables
+DOCTOR_AGENT_ADDRESS = os.getenv("DOCTOR_AGENT_ADDRESS")
+PHARMACY_AGENT_ADDRESS = os.getenv("PHARMACY_AGENT_ADDRESS") 
+WELLNESS_AGENT_ADDRESS = os.getenv("WELLNESS_AGENT_ADDRESS")
 
 # Agent communication with request tracking
 class RequestACK(Model):
