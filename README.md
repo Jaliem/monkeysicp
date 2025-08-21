@@ -29,7 +29,7 @@ BASE_URL=http://127.0.0.1:4943
 ASI1_API_KEY=your_actual_api_key_here
 ```
 
-🔧 **How to get required values:**
+**How to get required values:**
 
 - **For CANISTER_ID & BASE_URL:**
   ```bash
@@ -54,19 +54,8 @@ ASI1_API_KEY=your_actual_api_key_here
 
 ---
 
-## 🌐 Access Points
 
-Once running, access your services at:
-
-- Frontend UI: [http://localhost:3000](http://localhost:3000)
-- Agent API: [http://localhost:8000](http://localhost:8000)
-- Doctor API: [http://localhost:8001](http://localhost:8001)
-- Pharmacy API: [http://localhost:8002](http://localhost:8002)
-- Wellness API: [http://localhost:8003](http://localhost:8003)
-
----
-
-## ⚡ Need Help?
+## Need Help?
 
 **Common Issues:**
 
@@ -81,7 +70,7 @@ Once running, access your services at:
 
 ---
 
-## 🔄 Reset System
+## Reset System
 
 ```bash
 # Stop services (Ctrl+C), then:
@@ -92,4 +81,4 @@ rm -rf venv
 
 ---
 
-✅ You’re all set! The system should now be running locally.
+You’re all set! The system should now be running locally.
