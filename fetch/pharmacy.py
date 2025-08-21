@@ -126,14 +126,14 @@ async def search_medicine_by_name(medicine_name: str, ctx: Context) -> dict:
     try:
         import time
         search_start = time.time()
-        ctx.logger.info(f"⏱️ [ICP] Starting ICP search for: {medicine_name}")
+        ctx.logger.info(f"[ICP] Starting ICP search for: {medicine_name}")
         
         # Search medicines by name using ICP backend
         search_params = {"medicine_name": medicine_name}
         icp_start = time.time()
         icp_result = await post_to_icp("search-medicines-by-name", search_params)
         icp_end = time.time()
-        ctx.logger.info(f"⏱️ [ICP] ICP call took {icp_end - icp_start:.2f}s")
+        ctx.logger.info(f"[ICP] ICP call took {icp_end - icp_start:.2f}s")
         
         if "error" in icp_result:
             ctx.logger.error(f"ICP search error: {icp_result['error']}")
@@ -146,14 +146,14 @@ async def search_medicine_by_name(medicine_name: str, ctx: Context) -> dict:
         parse_start = time.time()
         parsed_medicines = [parse_medicine_data(med) for med in medicines]
         parse_end = time.time()
-        ctx.logger.info(f"⏱️ [PARSE] Parsing took {parse_end - parse_start:.2f}s")
+        ctx.logger.info(f"[PARSE] Parsing took {parse_end - parse_start:.2f}s")
         
         # Debug: Log first medicine details if found
         if parsed_medicines:
             ctx.logger.info(f"First parsed medicine: {parsed_medicines[0]}")
         
         total_time = parse_end - search_start
-        ctx.logger.info(f"⏱️ [TOTAL] Search function completed in {total_time:.2f}s")
+        ctx.logger.info(f"[TOTAL] Search function completed in {total_time:.2f}s")
         
         return {"medicines": parsed_medicines, "total_count": len(parsed_medicines)}
         
@@ -260,7 +260,7 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
     
     import time
     start_time = time.time()
-    ctx.logger.info(f"⏱️ [TIMING] Started processing request at {start_time}")
+    ctx.logger.info(f"[TIMING] Started processing request at {start_time}")
     ctx.logger.info(f"Received medicine check request from {sender}: {msg.medicine_name}")
     
     try:
@@ -275,14 +275,14 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
                 status="available",
                 message="Test response - no ICP call made"
             )
-            ctx.logger.info(f"⏱️ [TEST] Using test response, skipping ICP")
+            ctx.logger.info(f"[TEST] Using test response, skipping ICP")
         else:
             # Normal ICP flow
             # Search for the medicine by name
             search_start = time.time()
             search_result = await search_medicine_by_name(msg.medicine_name, ctx)
             search_end = time.time()
-            ctx.logger.info(f"⏱️ [TIMING] Medicine search took {search_end - search_start:.2f}s")
+            ctx.logger.info(f"[TIMING] Medicine search took {search_end - search_start:.2f}s")
             
             if "error" in search_result:
                 response = MedicineCheckResponse(
@@ -423,7 +423,7 @@ async def handle_medicine_order(ctx: Context, sender: str, msg: MedicineOrderReq
 @ack_protocol.on_message(model=RequestACK)
 async def handle_request_ack(ctx: Context, sender: str, msg: RequestACK):
     """Handle ACK responses from HealthAgent"""
-    ctx.logger.info(f"✅ Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
+    ctx.logger.info(f"Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
 
 # Include protocols in agent
 agent.include(pharmacy_protocol)
@@ -431,19 +431,19 @@ agent.include(ack_protocol)
 
 @agent.on_event("startup")
 async def pharmacy_agent_startup(ctx: Context):
-    ctx.logger.info(f"🏥 PharmacyAgent started")
-    ctx.logger.info(f"📋 Agent address: {agent.address}")
-    ctx.logger.info(f"🔗 Protocol: PharmacyProtocol v1.0")
-    ctx.logger.info(f"💊 Connected to medicine inventory canister: {CANISTER_ID}")
-    ctx.logger.info(f"🔍 Ready for medicine check and order requests from HealthAgent")
+    ctx.logger.info(f"PharmacyAgent started")
+    ctx.logger.info(f"Agent address: {agent.address}")
+    ctx.logger.info(f"Protocol: PharmacyProtocol v1.0")
+    ctx.logger.info(f"Connected to medicine inventory canister: {CANISTER_ID}")
+    ctx.logger.info(f"Ready for medicine check and order requests from HealthAgent")
     
     # Test connection to ICP backend
     try:
         available_medicines = await get_available_medicines(ctx)
         medicine_count = available_medicines.get("total_count", 0)
-        ctx.logger.info(f"✅ Successfully connected to medicine inventory: {medicine_count} medicines available")
+        ctx.logger.info(f"Successfully connected to medicine inventory: {medicine_count} medicines available")
     except Exception as e:
-        ctx.logger.warning(f"⚠️ Could not connect to medicine inventory: {str(e)}")
+        ctx.logger.warning(f"Could not connect to medicine inventory: {str(e)}")
 
 if __name__ == "__main__":
     print("Starting PharmacyAgent...")
