@@ -62,6 +62,7 @@ pip install -r requirements.txt
 
 1. **Copy the example file:**
    ```bash
+   cd fetch
    cp .env.example .env
    ```
 
