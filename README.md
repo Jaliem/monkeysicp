@@ -36,6 +36,7 @@ mops --version
 
 ```bash
 dfx start --clean --background
+cd id
 dfx deploy backend
 ```
 
@@ -83,6 +84,7 @@ pip install -r requirements.txt
 Run each agent in separate terminal windows:
 
 ```bash
+cd fetch
 # Terminal 1 - Main Health Agent (port 8000)
 python agent.py
 
