@@ -36,7 +36,7 @@ mops --version
 
 ```bash
 dfx start --clean --background
-cd id
+cd ic
 dfx deploy backend
 ```
 

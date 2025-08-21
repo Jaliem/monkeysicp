@@ -1,9 +1,10 @@
 import { AuthClient } from '@dfinity/auth-client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 // Side Navigation Component
 const Navbar = () => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     const logout = async () => {
         const client = await AuthClient.create();
@@ -77,13 +78,13 @@ const Navbar = () => {
               key={item.name}
               href={item.path}
               className={`group flex items-center px-6 py-4 rounded-xl transition-all duration-300 font-light text-lg ${
-                item.name === 'Chat' 
+                location.pathname === item.path
                   ? 'text-emerald-600 bg-emerald-50' 
                   : 'text-stone-600 hover:text-emerald-600 hover:bg-emerald-50'
               }`}
             >
               <div className={`transition-colors duration-300 mr-4 ${
-                item.name === 'Chat' 
+                location.pathname === item.path
                   ? 'text-emerald-600' 
                   : 'text-stone-400 group-hover:text-emerald-600'
               }`}>
