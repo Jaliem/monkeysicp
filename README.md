@@ -17,13 +17,13 @@ dfx deploy backend
 
 ```bash
 cd fetch
-python -m venv venv
+python -m venv .venv
 
 # Activate virtual environment
 # Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
+.venv\Scripts\activate
+# Unix/macOS/Linux:
+source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
