@@ -1,491 +1,486 @@
-import React, { useState, useEffect } from 'react';
-import { AuthClient } from '@dfinity/auth-client';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import Navbar from './nav';
 
-// Side Navigation Component matching your styling
-const Navbar = () => {
-  const navigate = useNavigate();
-  const logout = async () => {
-    const client = await AuthClient.create();
-    await client.logout();
-    navigate('/');
-  };
+interface Doctor {
+  id: string;
+  name: string;
+  specialty: string;
+  rating: number;
+  reviews: number;
+  experience: number;
+  location: string;
+  availability: string[];
+  price: number;
+  image: string;
+  bio: string;
+  languages: string[];
+}
 
-  const navItems = [
-    {
-      name: 'Chat',
-      path: '/chat',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-        </svg>
-      )
-    },
-    {
-      name: 'Doctor',
-      path: '/doctor',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-      )
-    },
-    {
-      name: 'Pharmacy',
-      path: '/pharmacy',
-      icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-        </svg>
-      )
-    }
+interface Appointment {
+  id: string;
+  doctorId: string;
+  doctorName: string;
+  specialty: string;
+  date: string;
+  time: string;
+  type: 'consultation' | 'follow-up' | 'emergency';
+  status: 'scheduled' | 'completed' | 'cancelled';
+}
+
+const Doctor = () => {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedSpecialty, setSelectedSpecialty] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [bookingData, setBookingData] = useState({
+    date: '',
+    time: '',
+    type: 'consultation' as const,
+    symptoms: '',
+    notes: ''
+  });
+  const [isBooking, setIsBooking] = useState(false);
+
+  const specialties = [
+    'all', 'cardiology', 'dermatology', 'neurology', 'orthopedics', 
+    'pediatrics', 'psychiatry', 'general-practice'
   ];
-
-  return (
-    <nav className="w-64 h-screen bg-white shadow-xl border-r border-stone-200 flex flex-col font-serif">
-      {/* Logo Section */}
-      <div className="p-8 border-b border-stone-100">
-        <div className="text-3xl font-light text-emerald-700 tracking-wide">
-          Cura.
-        </div>
-        <div className="w-12 h-1 bg-emerald-400 mt-2 rounded-full"></div>
-      </div>
-
-      {/* Navigation Items */}
-      <div className="flex-1 py-8">
-        <div className="space-y-2 px-4">
-          {navItems.map((item) => (
-            <a
-              key={item.name}
-              href={item.path}
-              className={`group flex items-center px-6 py-4 rounded-xl transition-all duration-300 font-light text-lg ${
-                item.name === 'Doctor'
-                  ? 'text-emerald-600 bg-emerald-50'
-                  : 'text-stone-600 hover:text-emerald-600 hover:bg-emerald-50'
-              }`}
-            >
-              <div className={`transition-colors duration-300 mr-4 ${
-                item.name === 'Doctor'
-                  ? 'text-emerald-600'
-                  : 'text-stone-400 group-hover:text-emerald-600'
-              }`}>
-                {item.icon}
-              </div>
-              <span className="group-hover:translate-x-1 transition-transform duration-300">
-                {item.name}
-              </span>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {/* Logout Section */}
-      <div className="p-4 border-t border-stone-100">
-        <button
-          onClick={logout}
-          className="w-full flex items-center px-6 py-4 text-stone-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-300 font-light text-lg group"
-        >
-          <div className="text-stone-400 group-hover:text-red-600 transition-colors duration-300 mr-4">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-          </div>
-          <span className="group-hover:translate-x-1 transition-transform duration-300">
-            Logout
-          </span>
-        </button>
-      </div>
-    </nav>
-  );
-};
-
-// Configuration for the health agent backend
-const CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai";
-const BASE_URL = "http://127.0.0.1:4943";
-const USER_ID = "user123"; // In a real app, this would come from authentication
-
-const HEADERS = {
-  "Host": `${CANISTER_ID}.localhost`,
-  "Content-Type": "application/json"
-};
-
-export default function Doctor() {
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  // Fetch user appointments from the health agent backend
-  const fetchAppointments = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const response = await fetch(`${BASE_URL}/get-user-appointments`, {
-        method: 'POST',
-        headers: HEADERS,
-        body: JSON.stringify({ user_id: USER_ID })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const appointmentsList = Array.isArray(data) ? data : [];
-      setAppointments(appointmentsList);
-      
-    } catch (err) {
-      console.error('Error fetching appointments:', err);
-      setError(err.message);
-      // Load mock data on error for demonstration
-      setAppointments(getMockAppointments());
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Mock data for demonstration when backend is unavailable
-  const getMockAppointments = () => [
-    {
-      appointment_id: "APT-20250821-ABC123",
-      doctor_id: "card_001",
-      doctor_name: "Dr. Amir Hassan",
-      specialty: "Cardiology",
-      patient_symptoms: "Chest pain, shortness of breath",
-      appointment_date: "2025-08-25",
-      appointment_time: "09:00",
-      status: "confirmed",
-      urgency: "high",
-      created_at: "2025-08-21T10:30:00Z",
-      user_id: "user123"
-    },
-    {
-      appointment_id: "APT-20250821-DEF456",
-      doctor_id: "derm_001", 
-      doctor_name: "Dr. Bella Rodriguez",
-      specialty: "Dermatology",
-      patient_symptoms: "Skin rash, itching",
-      appointment_date: "2025-08-23",
-      appointment_time: "14:00",
-      status: "confirmed",
-      urgency: "normal",
-      created_at: "2025-08-21T08:15:00Z",
-      user_id: "user123"
-    },
-    {
-      appointment_id: "APT-20250820-GHI789",
-      doctor_id: "neuro_001",
-      doctor_name: "Dr. Chen Wang", 
-      specialty: "Neurology",
-      patient_symptoms: "Frequent headaches, dizziness",
-      appointment_date: "2025-08-22",
-      appointment_time: "13:00",
-      status: "completed",
-      urgency: "normal",
-      created_at: "2025-08-20T16:45:00Z",
-      user_id: "user123"
-    }
-  ];
-
-  // Get status styling
-  const getStatusStyle = (status) => {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-      case 'completed':
-        return 'bg-stone-50 text-stone-700 border border-stone-200';
-      case 'cancelled':
-        return 'bg-red-50 text-red-700 border border-red-200';
-      case 'pending':
-        return 'bg-amber-50 text-amber-700 border border-amber-200';
-      default:
-        return 'bg-stone-50 text-stone-700 border border-stone-200';
-    }
-  };
-
-  // Get urgency styling
-  const getUrgencyStyle = (urgency) => {
-    switch (urgency.toLowerCase()) {
-      case 'high':
-        return 'bg-red-50 text-red-700 border border-red-200';
-      case 'medium':
-        return 'bg-amber-50 text-amber-700 border border-amber-200';
-      case 'normal':
-      case 'low':
-        return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
-      default:
-        return 'bg-stone-50 text-stone-700 border border-stone-200';
-    }
-  };
-
-  // Get status icon
-  const getStatusIcon = (status) => {
-    switch (status.toLowerCase()) {
-      case 'confirmed':
-        return (
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case 'completed':
-        return (
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      case 'cancelled':
-        return (
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-      default:
-        return (
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
-    }
-  };
-
-  // Format date for display
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  // Format time for display
-  const formatTime = (timeString) => {
-    const [hours, minutes] = timeString.split(':');
-    const time = new Date();
-    time.setHours(parseInt(hours), parseInt(minutes));
-    return time.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
 
   useEffect(() => {
-    fetchAppointments();
+    // Mock data - in real app, this would come from ICP backend
+    const mockDoctors: Doctor[] = [
+      {
+        id: '1',
+        name: 'Dr. Sarah Chen',
+        specialty: 'cardiology',
+        rating: 4.9,
+        reviews: 127,
+        experience: 12,
+        location: 'Medical Center Downtown',
+        availability: ['2024-08-22', '2024-08-23', '2024-08-26'],
+        price: 150,
+        image: '👩‍⚕️',
+        bio: 'Specialized in preventive cardiology and heart disease management.',
+        languages: ['English', 'Mandarin']
+      },
+      {
+        id: '2',
+        name: 'Dr. Michael Rodriguez',
+        specialty: 'dermatology',
+        rating: 4.8,
+        reviews: 89,
+        experience: 8,
+        location: 'Skin Care Clinic',
+        availability: ['2024-08-22', '2024-08-24', '2024-08-25'],
+        price: 120,
+        image: '👨‍⚕️',
+        bio: 'Expert in cosmetic dermatology and skin cancer prevention.',
+        languages: ['English', 'Spanish']
+      },
+      {
+        id: '3',
+        name: 'Dr. Emily Watson',
+        specialty: 'neurology',
+        rating: 4.7,
+        reviews: 156,
+        experience: 15,
+        location: 'Neuro Wellness Center',
+        availability: ['2024-08-23', '2024-08-25', '2024-08-27'],
+        price: 200,
+        image: '👩‍⚕️',
+        bio: 'Specialized in headache disorders and neurological diagnostics.',
+        languages: ['English', 'French']
+      },
+      {
+        id: '4',
+        name: 'Dr. James Park',
+        specialty: 'orthopedics',
+        rating: 4.6,
+        reviews: 203,
+        experience: 18,
+        location: 'Sports Medicine Institute',
+        availability: ['2024-08-22', '2024-08-26', '2024-08-28'],
+        price: 175,
+        image: '👨‍⚕️',
+        bio: 'Sports medicine specialist focused on injury prevention and recovery.',
+        languages: ['English', 'Korean']
+      }
+    ];
+
+    const mockAppointments: Appointment[] = [
+      {
+        id: '1',
+        doctorId: '1',
+        doctorName: 'Dr. Sarah Chen',
+        specialty: 'cardiology',
+        date: '2024-08-25',
+        time: '14:00',
+        type: 'consultation',
+        status: 'scheduled'
+      }
+    ];
+
+    setDoctors(mockDoctors);
+    setAppointments(mockAppointments);
   }, []);
 
+  const filteredDoctors = doctors.filter(doctor => {
+    const matchesSpecialty = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
+    const matchesSearch = doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesSpecialty && matchesSearch;
+  });
+
+  const handleBookAppointment = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    setShowBookingModal(true);
+  };
+
+  const handleConfirmBooking = async () => {
+    if (!selectedDoctor || !bookingData.date || !bookingData.time) return;
+
+    setIsBooking(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const newAppointment: Appointment = {
+      id: Date.now().toString(),
+      doctorId: selectedDoctor.id,
+      doctorName: selectedDoctor.name,
+      specialty: selectedDoctor.specialty,
+      date: bookingData.date,
+      time: bookingData.time,
+      type: bookingData.type,
+      status: 'scheduled'
+    };
+
+    setAppointments(prev => [...prev, newAppointment]);
+    setShowBookingModal(false);
+    setBookingData({ date: '', time: '', type: 'consultation', symptoms: '', notes: '' });
+    setIsBooking(false);
+  };
+
+  const getSpecialtyColor = (specialty: string) => {
+    const colors: Record<string, string> = {
+      cardiology: 'bg-red-100 text-red-700 border-red-200',
+      dermatology: 'bg-pink-100 text-pink-700 border-pink-200',
+      neurology: 'bg-purple-100 text-purple-700 border-purple-200',
+      orthopedics: 'bg-blue-100 text-blue-700 border-blue-200',
+      pediatrics: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+      psychiatry: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+      'general-practice': 'bg-green-100 text-green-700 border-green-200'
+    };
+    return colors[specialty] || 'bg-stone-100 text-stone-700 border-stone-200';
+  };
+
+  const formatSpecialty = (specialty: string) => {
+    return specialty.split('-').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+  };
+
   return (
-    <div className="flex h-screen bg-stone-50 font-serif">
+    <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">
       <Navbar />
       
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-auto">
-        <div className="p-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-light text-stone-800 mb-3 tracking-wide">
-              Doctor Appointments
+      <div className="flex-1 overflow-y-auto">
+        {/* Header */}
+        <div className="bg-white shadow-sm border-b border-stone-200">
+          <div className="px-8 py-6">
+            <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
+              Find a Doctor
             </h1>
-            <div className="w-16 h-1 bg-emerald-400 rounded-full mb-4"></div>
-            <p className="text-stone-600 font-light text-lg">
-              View and manage your scheduled medical consultations
+            <p className="text-stone-500 font-light mt-2">
+              Book appointments with healthcare specialists
             </p>
           </div>
+        </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-8 bg-amber-50 border border-amber-200 rounded-xl p-6">
-              <div className="flex items-center">
-                <svg className="h-6 w-6 text-amber-600 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <span className="text-amber-800 font-light">
-                  Unable to connect to backend. Showing demo data. Error: {error}
-                </span>
-              </div>
-            </div>
-          )}
-
-          {/* Refresh Button */}
-          <div className="mb-8">
-            <button
-              onClick={fetchAppointments}
-              disabled={loading}
-              className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white px-6 py-3 rounded-xl font-light text-lg transition-all duration-300 hover:shadow-lg"
-            >
-              {loading ? 'Refreshing...' : 'Refresh Appointments'}
-            </button>
-          </div>
-
-          {/* Loading State */}
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin rounded-full h-12 w-12 border-2 border-emerald-400 border-t-transparent"></div>
-            </div>
-          ) : appointments.length === 0 ? (
-            /* Empty State */
-            <div className="text-center py-16">
-              <svg className="mx-auto h-16 w-16 text-stone-400 mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              <h3 className="text-2xl font-light text-stone-700 mb-3">No appointments found</h3>
-              <p className="text-stone-500 font-light text-lg">You don't have any booked appointments yet.</p>
-            </div>
-          ) : (
-            /* Appointments List */
-            <div className="space-y-6">
-              {appointments.map((appointment) => (
-                <div key={appointment.appointment_id} className="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md transition-all duration-300">
-                  <div className="p-8">
-                    {/* Header with status and urgency */}
-                    <div className="flex justify-between items-start mb-6">
-                      <div>
-                        <h3 className="text-2xl font-light text-stone-800 mb-2 tracking-wide">
-                          {appointment.doctor_name}
-                        </h3>
-                        <p className="text-stone-600 font-light text-lg">{appointment.specialty}</p>
+        <div className="p-8 max-w-7xl mx-auto">
+          {/* My Appointments Section */}
+          {appointments.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-light text-stone-800 font-serif mb-4">
+                📅 Upcoming Appointments
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+                {appointments.map((appointment) => (
+                  <div key={appointment.id} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">
+                          👨‍⚕️
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-stone-800">{appointment.doctorName}</h3>
+                          <p className="text-sm text-stone-500 font-light">{formatSpecialty(appointment.specialty)}</p>
+                        </div>
                       </div>
-                      <div className="flex space-x-3">
-                        <span className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-light ${getStatusStyle(appointment.status)}`}>
-                          {getStatusIcon(appointment.status)}
-                          <span className="ml-2 capitalize">{appointment.status}</span>
-                        </span>
-                        <span className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-light ${getUrgencyStyle(appointment.urgency)}`}>
-                          <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                          <span className="capitalize">{appointment.urgency} Priority</span>
-                        </span>
-                      </div>
+                      <span className={`px-3 py-1 rounded-lg text-xs font-medium border ${getSpecialtyColor(appointment.specialty)}`}>
+                        {formatSpecialty(appointment.specialty)}
+                      </span>
                     </div>
-
-                    {/* Appointment Details */}
-                    <div className="grid md:grid-cols-2 gap-8">
-                      {/* Left Column */}
-                      <div className="space-y-6">
-                        <div className="flex items-center text-stone-700">
-                          <svg className="h-6 w-6 text-emerald-600 mr-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 4l6 6m0-6l-6 6" />
-                          </svg>
-                          <div>
-                            <p className="font-light text-lg mb-1">Date</p>
-                            <p className="text-stone-600 font-light">{formatDate(appointment.appointment_date)}</p>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center text-stone-700">
-                          <svg className="h-6 w-6 text-emerald-600 mr-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <div>
-                            <p className="font-light text-lg mb-1">Time</p>
-                            <p className="text-stone-600 font-light">{formatTime(appointment.appointment_time)}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center text-stone-700">
-                          <svg className="h-6 w-6 text-emerald-600 mr-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                          </svg>
-                          <div>
-                            <p className="font-light text-lg mb-1">Doctor ID</p>
-                            <p className="text-stone-600 font-light font-mono text-sm bg-stone-50 px-3 py-1 rounded-lg">
-                              {appointment.doctor_id}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right Column */}
-                      <div className="space-y-6">
-                        <div>
-                          <p className="font-light text-lg text-stone-700 mb-2">Appointment ID</p>
-                          <p className="text-stone-600 font-light font-mono text-sm bg-stone-50 px-3 py-2 rounded-lg">
-                            {appointment.appointment_id}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="font-light text-lg text-stone-700 mb-2">Symptoms</p>
-                          <p className="text-stone-600 font-light">
-                            {appointment.patient_symptoms || 'No symptoms specified'}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="font-light text-lg text-stone-700 mb-2">Booked On</p>
-                          <p className="text-stone-600 font-light">
-                            {new Date(appointment.created_at).toLocaleDateString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="mt-8 pt-6 border-t border-stone-100">
-                      <div className="flex space-x-4">
-                        {appointment.status.toLowerCase() === 'confirmed' && (
-                          <>
-                            <button className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-light text-lg transition-all duration-300 hover:shadow-lg">
-                              Reschedule
-                            </button>
-                            <button className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-xl font-light text-lg transition-all duration-300 hover:shadow-lg">
-                              Cancel
-                            </button>
-                          </>
-                        )}
-                        <button className="bg-stone-100 hover:bg-stone-200 text-stone-700 px-6 py-3 rounded-xl font-light text-lg transition-all duration-300 hover:shadow-sm">
-                          View Details
-                        </button>
-                      </div>
+                    
+                    <div className="flex items-center text-stone-600 space-x-4">
+                      <span className="flex items-center">
+                        📅 {new Date(appointment.date).toLocaleDateString()}
+                      </span>
+                      <span className="flex items-center">
+                        🕐 {appointment.time}
+                      </span>
+                      <span className={`px-2 py-1 rounded text-xs ${
+                        appointment.status === 'scheduled' ? 'bg-green-100 text-green-700' :
+                        appointment.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {appointment.status}
+                      </span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Summary Stats */}
-          {appointments.length > 0 && (
-            <div className="mt-12 bg-white rounded-xl shadow-sm border border-stone-200 p-8">
-              <h3 className="text-2xl font-light text-stone-800 mb-6 tracking-wide">Appointment Summary</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                <div className="text-center">
-                  <p className="text-3xl font-light text-emerald-600 mb-2">
-                    {appointments.length}
-                  </p>
-                  <p className="text-stone-600 font-light">Total Appointments</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-light text-emerald-600 mb-2">
-                    {appointments.filter(a => a.status.toLowerCase() === 'confirmed').length}
-                  </p>
-                  <p className="text-stone-600 font-light">Confirmed</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-light text-stone-600 mb-2">
-                    {appointments.filter(a => a.status.toLowerCase() === 'completed').length}
-                  </p>
-                  <p className="text-stone-600 font-light">Completed</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-3xl font-light text-red-600 mb-2">
-                    {appointments.filter(a => a.urgency.toLowerCase() === 'high').length}
-                  </p>
-                  <p className="text-stone-600 font-light">High Priority</p>
-                </div>
+                ))}
               </div>
             </div>
           )}
+
+          {/* Search and Filters */}
+          <div className="mb-8">
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  placeholder="Search doctors by name or specialty..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
+                />
+              </div>
+              <select
+                value={selectedSpecialty}
+                onChange={(e) => setSelectedSpecialty(e.target.value)}
+                className="px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
+              >
+                <option value="all">All Specialties</option>
+                {specialties.slice(1).map(specialty => (
+                  <option key={specialty} value={specialty}>
+                    {formatSpecialty(specialty)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Doctor Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {filteredDoctors.map((doctor) => (
+              <div key={doctor.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 hover:shadow-lg transition-all duration-300">
+                <div className="p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl">
+                        {doctor.image}
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-light text-stone-800 mb-1">{doctor.name}</h3>
+                        <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getSpecialtyColor(doctor.specialty)}`}>
+                          {formatSpecialty(doctor.specialty)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center text-amber-500 mb-1">
+                        ⭐ {doctor.rating}
+                        <span className="text-stone-400 font-light ml-1">({doctor.reviews})</span>
+                      </div>
+                      <p className="text-sm text-stone-500 font-light">{doctor.experience}+ years</p>
+                    </div>
+                  </div>
+
+                  <p className="text-stone-600 font-light mb-4 leading-relaxed">{doctor.bio}</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <p className="text-sm text-stone-500 font-light mb-1">📍 Location</p>
+                      <p className="text-stone-700">{doctor.location}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-stone-500 font-light mb-1">💰 Consultation</p>
+                      <p className="text-stone-700">${doctor.price}</p>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <p className="text-sm text-stone-500 font-light mb-2">🗣️ Languages</p>
+                    <div className="flex flex-wrap gap-2">
+                      {doctor.languages.map((language, index) => (
+                        <span key={index} className="px-2 py-1 bg-stone-100 text-stone-600 rounded text-xs font-light">
+                          {language}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <p className="text-sm text-stone-500 font-light mb-2">📅 Next Available</p>
+                    <div className="flex flex-wrap gap-2">
+                      {doctor.availability.slice(0, 3).map((date, index) => (
+                        <span key={index} className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-light border border-emerald-200">
+                          {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleBookAppointment(doctor)}
+                    className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200"
+                  >
+                    Book Appointment
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Booking Modal */}
+      {showBookingModal && selectedDoctor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-stone-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-light text-stone-800 font-serif">
+                  Book Appointment
+                </h2>
+                <button
+                  onClick={() => setShowBookingModal(false)}
+                  className="text-stone-400 hover:text-stone-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex items-center space-x-3 mt-4">
+                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">
+                  {selectedDoctor.image}
+                </div>
+                <div>
+                  <h3 className="font-medium text-stone-800">{selectedDoctor.name}</h3>
+                  <p className="text-sm text-stone-500 font-light">{formatSpecialty(selectedDoctor.specialty)}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div>
+                <label className="block text-stone-700 font-light mb-2">📅 Select Date</label>
+                <select
+                  value={bookingData.date}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                >
+                  <option value="">Choose a date</option>
+                  {selectedDoctor.availability.map((date) => (
+                    <option key={date} value={date}>
+                      {new Date(date).toLocaleDateString('en-US', { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-light mb-2">🕐 Select Time</label>
+                <select
+                  value={bookingData.time}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, time: e.target.value }))}
+                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                >
+                  <option value="">Choose a time</option>
+                  <option value="09:00">9:00 AM</option>
+                  <option value="10:00">10:00 AM</option>
+                  <option value="11:00">11:00 AM</option>
+                  <option value="14:00">2:00 PM</option>
+                  <option value="15:00">3:00 PM</option>
+                  <option value="16:00">4:00 PM</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-light mb-2">🩺 Appointment Type</label>
+                <select
+                  value={bookingData.type}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, type: e.target.value as any }))}
+                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                >
+                  <option value="consultation">Consultation</option>
+                  <option value="follow-up">Follow-up</option>
+                  <option value="emergency">Emergency</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-light mb-2">📝 Symptoms/Reason</label>
+                <textarea
+                  value={bookingData.symptoms}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, symptoms: e.target.value }))}
+                  placeholder="Describe your symptoms or reason for visit..."
+                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                  rows={3}
+                />
+              </div>
+
+              <div>
+                <label className="block text-stone-700 font-light mb-2">💭 Additional Notes</label>
+                <textarea
+                  value={bookingData.notes}
+                  onChange={(e) => setBookingData(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Any additional information..."
+                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                  rows={2}
+                />
+              </div>
+
+              <div className="bg-stone-50 rounded-lg p-4">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-stone-600 font-light">Consultation Fee:</span>
+                  <span className="font-medium text-stone-800">${selectedDoctor.price}</span>
+                </div>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowBookingModal(false)}
+                  className="flex-1 py-3 border border-stone-200 text-stone-600 rounded-lg font-medium hover:bg-stone-50 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmBooking}
+                  disabled={!bookingData.date || !bookingData.time || isBooking}
+                  className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isBooking ? (
+                    <span className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Booking...
+                    </span>
+                  ) : (
+                    'Confirm Booking'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default Doctor;

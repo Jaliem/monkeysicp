@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AuthClient } from '@dfinity/auth-client';
 import { useNavigate } from 'react-router-dom';
-import { healthService } from './services/healthService';
+import { logWellnessData } from './services/flaskService';
 
 const NameInput = () => {
   const [principal, setPrincipal] = useState<string>('');
@@ -47,17 +47,16 @@ const NameInput = () => {
       localStorage.setItem(`userName_${principal}`, tempName.trim());
       setUserName(tempName.trim());
       
-      // Store name in the backend canister
+      // Store registration in wellness agent
       const wellnessData = {
-        user_id: principal,
-        date: new Date().toISOString().split('T')[0],
-        sleep: `UserName: ${tempName.trim()}`,
+        sleep: 0,
         steps: 0,
-        exercise: 'Registration',
+        water: 0,
         mood: 'Good',
-        water_intake: 0
+        exercise: `User ${tempName.trim()} registered`,
+        date: new Date().toISOString().split('T')[0]
       };
-      await healthService.storeWellnessLog(wellnessData);
+      await logWellnessData(wellnessData, principal);
       
       // Redirect to chat page
       navigate('/chat');

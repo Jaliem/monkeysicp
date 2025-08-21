@@ -9,6 +9,7 @@ from uagents_core.contrib.protocols.chat import (
     StartSessionContent,
 )
 from uagents import Agent, Context, Protocol, Model
+from typing import Any, Dict
 from datetime import datetime, timezone
 from uuid import uuid4
 from typing import List, Optional
@@ -41,6 +42,21 @@ emergency_status = False
 user_contexts = {}  # Store user conversation states
 
 # Removed hard-coded symptom mappings - now using ASI1 LLM for all analysis
+
+# REST endpoint models for Flask API integration
+class ChatRequest(Model):
+    message: str
+    user_id: str = "frontend_user"
+
+class ChatResponse(Model):
+    response: str
+    intent: str
+    confidence: float
+    timestamp: str
+    request_id: str
+    sender: str
+    user_id: str
+    communication_status: str
 
 # Protocol definitions for inter-agent communication
 class DoctorBookingRequest(Model):
@@ -1221,12 +1237,70 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
         ctx.logger.error(f"Error processing health query: {str(e)}")
         return "I'm having trouble processing your request. Please try again or rephrase your question."
 
-# Create the HealthAgent
+# Create the HealthAgent with REST endpoints enabled
 agent = Agent(
     name='health-agent',
     port=8000,
     mailbox=True,
 )
+
+# Add REST endpoint for Flask API integration
+@agent.on_rest_post("/api/chat", ChatRequest, ChatResponse)
+async def handle_rest_chat(ctx: Context, req: ChatRequest) -> ChatResponse:
+    """Handle chat messages from Flask API via REST endpoint"""
+    try:
+        ctx.logger.info(f"📨 REST API request from user {req.user_id}: {req.message}")
+        
+        # Process the health-related query using existing logic
+        response_text = await process_health_query(req.message, ctx, req.user_id)
+        
+        # Classify intent for response metadata
+        intent = await classify_user_intent_with_llm(req.message, ctx)
+        
+        # Create structured response
+        response = ChatResponse(
+            response=response_text,
+            intent=intent,
+            confidence=0.95,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            request_id=str(uuid4()),
+            sender=agent.address,
+            user_id=req.user_id,
+            communication_status="success"
+        )
+        
+        ctx.logger.info(f"✅ REST API response sent to user {req.user_id}")
+        return response
+        
+    except Exception as e:
+        ctx.logger.error(f"❌ REST API error: {str(e)}")
+        
+        # Return error response
+        return ChatResponse(
+            response=f"I'm experiencing technical difficulties: {str(e)}. Please try again.",
+            intent="error",
+            confidence=0.0,
+            timestamp=datetime.now(timezone.utc).isoformat(),
+            request_id=str(uuid4()),
+            sender=agent.address,
+            user_id=req.user_id,
+            communication_status="error"
+        )
+
+# Add health check endpoint for Flask API
+@agent.on_rest_get("/health", ChatResponse)
+async def handle_rest_health(ctx: Context) -> Dict[str, Any]:
+    """Health check endpoint for Flask API integration"""
+    return {
+        "response": "HealthAgent is running and ready to process requests",
+        "intent": "health_check",
+        "confidence": 1.0,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "request_id": str(uuid4()),
+        "sender": agent.address,
+        "user_id": "system",
+        "communication_status": "online"
+    }
 
 # Initialize chat protocol
 chat_proto = Protocol(spec=chat_protocol_spec)
