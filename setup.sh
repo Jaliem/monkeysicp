@@ -47,6 +47,11 @@ if [ ! -f ".env" ]; then
         echo "Creating .env template file..."
         cat > .env << EOL
 # ICP Configuration - Get from 'dfx deploy backend' output
+
+DOCTOR_AGENT_ADDRESS=agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru
+PHARMACY_AGENT_ADDRESS=agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c
+WELLNESS_AGENT_ADDRESS=agent1q0vpdcvka3dyzvcc4vs9m8wy0rvh9r39v0wfk04f25nckmkt5cqmvhedtyt
+
 CANISTER_ID=your_canister_id_here
 BASE_URL=http://127.0.0.1:4943
 
@@ -72,13 +77,12 @@ fi
 echo "Setup complete!"
 echo ""
 echo "If you haven't already, please update the .env file with your:"
-echo "1. CANISTER_ID and BASE_URL from 'dfx deploy backend'"
-echo "2. ASI1_API_KEY from https://asi1.ai/dashboard/api-keys"
+echo "1. cd ic && dfx start --clean --background"
+echo "2. CANISTER_ID and BASE_URL from 'dfx deploy backend'"
+echo "3. ASI1_API_KEY from https://asi1.ai/dashboard/api-keys"
 echo ""
 echo "To start all services:"
 echo "1. Run: ./start.sh"
-echo "2. Open http://localhost:3000 for frontend"
-echo "3. APIs will be available on ports 8000-8003"
 
 # Make start script executable
 chmod +x start.sh

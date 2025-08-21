@@ -17,9 +17,9 @@ fi
 # Validate that API key is set (not the example value)
 if grep -q "your_actual_api_key_here" .env || grep -q "your_canister_id_here" .env; then
     echo "ERROR: Please update your .env file with actual values:"
-    echo "cd ic && dfx start --clean --background"
-    echo "1. Get CANISTER_ID and BASE_URL from 'dfx deploy backend' output"
-    echo "2. Get ASI1_API_KEY from https://asi1.ai/dashboard/api-keys"
+    echo "1. cd ic && dfx start --clean --background"
+    echo "2. Get CANISTER_ID and BASE_URL from 'dfx deploy backend' output"
+    echo "3. Get ASI1_API_KEY from https://asi1.ai/dashboard/api-keys"
     exit 1
 fi
 
