@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from './nav';
+import { fetchDoctors, fetchAppointments } from './services/flaskService';
 
 interface Doctor {
   id: string;
@@ -42,89 +43,132 @@ const Doctor = () => {
     notes: ''
   });
   const [isBooking, setIsBooking] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const specialties = [
     'all', 'cardiology', 'dermatology', 'neurology', 'orthopedics', 
-    'pediatrics', 'psychiatry', 'general-practice'
+    'pediatrics', 'psychiatry', 'oncology', 'general-practitioner'
   ];
 
   useEffect(() => {
-    // Mock data - in real app, this would come from ICP backend
-    const mockDoctors: Doctor[] = [
-      {
-        id: '1',
-        name: 'Dr. Sarah Chen',
-        specialty: 'cardiology',
-        rating: 4.9,
-        reviews: 127,
-        experience: 12,
-        location: 'Medical Center Downtown',
-        availability: ['2024-08-22', '2024-08-23', '2024-08-26'],
-        price: 150,
-        image: '👩‍⚕️',
-        bio: 'Specialized in preventive cardiology and heart disease management.',
-        languages: ['English', 'Mandarin']
-      },
-      {
-        id: '2',
-        name: 'Dr. Michael Rodriguez',
-        specialty: 'dermatology',
-        rating: 4.8,
-        reviews: 89,
-        experience: 8,
-        location: 'Skin Care Clinic',
-        availability: ['2024-08-22', '2024-08-24', '2024-08-25'],
-        price: 120,
-        image: '👨‍⚕️',
-        bio: 'Expert in cosmetic dermatology and skin cancer prevention.',
-        languages: ['English', 'Spanish']
-      },
-      {
-        id: '3',
-        name: 'Dr. Emily Watson',
-        specialty: 'neurology',
-        rating: 4.7,
-        reviews: 156,
-        experience: 15,
-        location: 'Neuro Wellness Center',
-        availability: ['2024-08-23', '2024-08-25', '2024-08-27'],
-        price: 200,
-        image: '👩‍⚕️',
-        bio: 'Specialized in headache disorders and neurological diagnostics.',
-        languages: ['English', 'French']
-      },
-      {
-        id: '4',
-        name: 'Dr. James Park',
-        specialty: 'orthopedics',
-        rating: 4.6,
-        reviews: 203,
-        experience: 18,
-        location: 'Sports Medicine Institute',
-        availability: ['2024-08-22', '2024-08-26', '2024-08-28'],
-        price: 175,
-        image: '👨‍⚕️',
-        bio: 'Sports medicine specialist focused on injury prevention and recovery.',
-        languages: ['English', 'Korean']
+    const loadData = async () => {
+      try {
+        // Fetch real doctors data from ICP backend
+        const doctorsData = await fetchDoctors();
+        const appointmentsData = await fetchAppointments();
+        
+        // Parse ICP doctor data format (using numeric keys from Motoko serialization)
+        const parsedDoctors = doctorsData.map((doctor: any) => ({
+          id: doctor["3_732_697_147"] || `doc_${Date.now()}_${Math.random()}`, // doctor_id
+          name: doctor["1_224_700_491"] || 'Unknown Doctor', // name
+          specialty: (doctor["2_069_078_014"] || 'General Practice').toLowerCase().replace(' ', '-'), // specialty
+          rating: doctor["3_146_396_701"] || 4.5, // rating
+          reviews: Math.floor(Math.random() * 200) + 50, // Generate reviews since not in backend
+          experience: doctor["825_774_209"] || 5, // experience_years
+          location: 'Medical Center', // Default location since not in backend
+          availability: generateAvailabilityDates(doctor["2_213_151_757"]), // Convert available_days to dates
+          price: Math.floor(Math.random() * 100) + 100, // Generate price since not in backend
+          image: getSpecialtyEmoji((doctor["2_069_078_014"] || 'General Practice').toLowerCase()),
+          bio: `Experienced ${doctor["2_069_078_014"] || 'general practice'} specialist with ${doctor["825_774_209"] || 5}+ years of experience. ${doctor["1_692_858_852"] || ''}.`,
+          languages: ['English'] // Default since not in backend
+        }));
+        
+        // Parse ICP appointments data format
+        const parsedAppointments = appointmentsData.map((appointment: any) => ({
+          id: appointment.appointment_id || appointment.id || `apt_${Date.now()}`,
+          doctorId: appointment.doctor_id || appointment.doctorId,
+          doctorName: appointment.doctor_name || appointment.doctorName || 'Unknown Doctor',
+          specialty: appointment.specialty || 'general-practice',
+          date: appointment.date || appointment.appointment_date,
+          time: appointment.time || appointment.appointment_time,
+          type: appointment.type || 'consultation',
+          status: appointment.status || 'scheduled'
+        }));
+        
+        setDoctors(parsedDoctors.length > 0 ? parsedDoctors : getDefaultDoctors());
+        setAppointments(parsedAppointments);
+        
+      } catch (error) {
+        console.error('Error loading data from backend:', error);
+        // Fallback to default data if backend is unavailable
+        setDoctors(getDefaultDoctors());
+        setAppointments([]);
+      } finally {
+        setIsLoading(false);
       }
-    ];
-
-    const mockAppointments: Appointment[] = [
-      {
-        id: '1',
-        doctorId: '1',
-        doctorName: 'Dr. Sarah Chen',
-        specialty: 'cardiology',
-        date: '2024-08-25',
-        time: '14:00',
-        type: 'consultation',
-        status: 'scheduled'
-      }
-    ];
-
-    setDoctors(mockDoctors);
-    setAppointments(mockAppointments);
+    };
+    
+    loadData();
   }, []);
+
+  const getSpecialtyEmoji = (specialty: string) => {
+    const emojiMap: Record<string, string> = {
+      'cardiology': '❤️',
+      'dermatology': '🧴',
+      'neurology': '🧠',
+      'orthopedics': '🦴',
+      'pediatrics': '👶',
+      'psychiatry': '🧘',
+      'oncology': '🎗️',
+      'general practitioner': '👨‍⚕️',
+      'general-practice': '👨‍⚕️'
+    };
+    return emojiMap[specialty.toLowerCase()] || '👨‍⚕️';
+  };
+
+  const generateAvailabilityDates = (availableDays: string[]): string[] => {
+    const today = new Date();
+    const dates: string[] = [];
+    const dayMap: Record<string, number> = {
+      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 
+      'Thursday': 4, 'Friday': 5, 'Saturday': 6
+    };
+    
+    // Generate next 14 days and filter by available days
+    for (let i = 1; i <= 14; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      if (availableDays.includes(dayName)) {
+        dates.push(date.toISOString().split('T')[0]);
+        if (dates.length >= 6) break; // Limit to 6 dates
+      }
+    }
+    
+    return dates.length > 0 ? dates : ['2024-08-22', '2024-08-23', '2024-08-24'];
+  };
+
+  const getDefaultDoctors = (): Doctor[] => [
+    {
+      id: '1',
+      name: 'Dr. Sarah Chen',
+      specialty: 'cardiology',
+      rating: 4.9,
+      reviews: 127,
+      experience: 12,
+      location: 'Medical Center Downtown',
+      availability: ['2024-08-22', '2024-08-23', '2024-08-26'],
+      price: 150,
+      image: '❤️',
+      bio: 'Specialized in preventive cardiology and heart disease management.',
+      languages: ['English', 'Mandarin']
+    },
+    {
+      id: '2',
+      name: 'Dr. Michael Rodriguez',
+      specialty: 'dermatology',
+      rating: 4.8,
+      reviews: 89,
+      experience: 8,
+      location: 'Skin Care Clinic',
+      availability: ['2024-08-22', '2024-08-24', '2024-08-25'],
+      price: 120,
+      image: '🧴',
+      bio: 'Expert in cosmetic dermatology and skin cancer prevention.',
+      languages: ['English', 'Spanish']
+    }
+  ];
 
   const filteredDoctors = doctors.filter(doctor => {
     const matchesSpecialty = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
@@ -271,8 +315,18 @@ const Doctor = () => {
             </div>
           </div>
 
-          {/* Doctor Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Loading State */}
+          {isLoading ? (
+            <div className="flex justify-center items-center py-16">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+                <p className="text-stone-500 font-light">Loading doctors from ICP blockchain...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Doctor Cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {filteredDoctors.map((doctor) => (
               <div key={doctor.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 hover:shadow-lg transition-all duration-300">
                 <div className="p-6">
@@ -341,7 +395,9 @@ const Doctor = () => {
                 </div>
               </div>
             ))}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

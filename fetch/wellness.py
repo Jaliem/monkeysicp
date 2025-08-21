@@ -100,17 +100,51 @@ def parse_wellness_from_icp(log_data: dict) -> dict:
 
 # --- LLM Function (Unchanged) ---
 async def get_llm_advice(prompt: str, ctx: Context) -> List[str]:
-    # This function remains the same, providing simulated advice
+    """Enhanced wellness advice with detailed sleep analysis and recommendations"""
     ctx.logger.info(f"Generated LLM Prompt: {prompt}")
     advice = []
+    
     sleep_match = re.search(r"- (?:Hours Slept|Average Sleep): (\d+\.?\d*)", prompt)
     steps_match = re.search(r"- (?:Steps Taken|Average Steps): (\d+)", prompt)
     sleep = float(sleep_match.group(1)) if sleep_match else 99
     steps = int(steps_match.group(1)) if steps_match else 99999
-    if sleep < 6: advice.append(f"Your sleep of {sleep:.1f} hours is a bit short. Aiming for 7-8 hours can make a huge difference!")
-    if steps < 5000: advice.append(f"With {steps} steps, you're on your way! A short walk could be a great way to boost that number.")
-    if "daily log" in prompt and "Exercise Done: Not logged" in prompt: advice.append("Remembering to get some exercise is a great goal.")
-    if not advice: advice.append("Fantastic work on your wellness today! Keep up the amazing consistency!")
+    
+    # Enhanced sleep analysis with detailed feedback
+    if sleep_match:
+        if sleep >= 8.5:
+            advice.append(f"😴 **Excellent sleep quality!** {sleep:.1f} hours is outstanding - you're in the optimal range for recovery and mental performance.")
+            advice.append("💡 **Sleep insight:** Your body had ample time for deep sleep cycles and REM recovery. This supports immune function and cognitive performance.")
+        elif sleep >= 7:
+            advice.append(f"😊 **Great sleep!** {sleep:.1f} hours falls in the healthy range recommended by sleep experts.")
+            advice.append("💡 **Sleep insight:** You're getting quality restorative sleep. This supports mood regulation and physical recovery.")
+        elif sleep >= 6:
+            advice.append(f"⚠️ **Moderate sleep:** {sleep:.1f} hours is on the lower end. Consider aiming for 7-8 hours for optimal health benefits.")
+            advice.append("💡 **Sleep tip:** Try establishing a consistent bedtime routine 30 minutes before sleep to improve sleep quality.")
+        else:
+            advice.append(f"🚨 **Sleep deficit detected:** {sleep:.1f} hours is below recommended levels. Prioritizing sleep can significantly improve your health.")
+            advice.append("💡 **Sleep recovery:** Consider power naps (20-30 min) and avoid caffeine after 2PM to improve tonight's sleep.")
+    
+    # Enhanced steps analysis
+    if steps_match:
+        if steps >= 10000:
+            advice.append(f"🚶‍♂️ **Activity champion!** {steps:,} steps is excellent - you're exceeding daily activity goals!")
+            advice.append("💪 **Fitness insight:** This level of activity supports cardiovascular health and helps maintain healthy weight.")
+        elif steps >= 5000:
+            advice.append(f"👍 **Good activity level:** {steps:,} steps shows you're staying active throughout the day.")
+            advice.append("🎯 **Activity tip:** Try to reach 10,000 steps by adding short walks after meals or taking stairs when possible.")
+        else:
+            advice.append(f"📈 **Activity opportunity:** {steps:,} steps is a good start! Small increases in daily movement can have big health benefits.")
+            advice.append("💡 **Movement tip:** Even 10-minute walks can boost energy and improve circulation. Start small and build consistency!")
+    
+    # General wellness encouragement if no specific data
+    if "daily log" in prompt and "Exercise Done: Not logged" in prompt:
+        advice.append("🏃‍♀️ **Exercise reminder:** Regular movement is key to wellness. Even light stretching or a 5-minute walk counts!")
+    
+    # Default positive reinforcement
+    if not advice:
+        advice.append("✨ **Wellness tracking active!** You're building healthy habits by monitoring your daily activities. Consistency is key to long-term health!")
+        advice.append("📊 **Pro tip:** Regular logging helps identify patterns and optimize your health routine over time.")
+    
     return advice
 
 # --- Agent Setup ---

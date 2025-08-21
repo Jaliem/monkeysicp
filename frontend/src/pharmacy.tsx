@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from './nav';
+import { fetchMedicines, fetchOrders } from './services/flaskService';
 
 interface Medicine {
   id: string;
@@ -43,123 +44,115 @@ const Pharmacy = () => {
   const [showMedicineModal, setShowMedicineModal] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [isOrdering, setIsOrdering] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const categories = [
-    'all', 'pain-relief', 'antibiotics', 'vitamins', 'allergy', 
-    'diabetes', 'heart', 'mental-health', 'digestive'
+    'all', 'pain relief', 'antibiotic', 'vitamin', 'allergy', 
+    'diabetes', 'heart', 'mental-health', 'digestive health'
   ];
 
   useEffect(() => {
-    // Mock data - in real app, this would come from ICP backend
-    const mockMedicines: Medicine[] = [
-      {
-        id: '1',
-        name: 'Paracetamol',
-        genericName: 'Acetaminophen',
-        category: 'pain-relief',
-        dosage: '500mg',
-        price: 5.99,
-        stock: 150,
-        manufacturer: 'HealthPlus',
-        prescriptionRequired: false,
-        description: 'Effective pain reliever and fever reducer for mild to moderate pain.',
-        sideEffects: ['Nausea', 'Stomach upset', 'Allergic reactions (rare)'],
-        activeIngredients: ['Acetaminophen 500mg'],
-        image: '💊'
-      },
-      {
-        id: '2',
-        name: 'Amoxicillin',
-        genericName: 'Amoxicillin Trihydrate',
-        category: 'antibiotics',
-        dosage: '250mg',
-        price: 12.50,
-        stock: 80,
-        manufacturer: 'MediCore',
-        prescriptionRequired: true,
-        description: 'Penicillin-based antibiotic for bacterial infections.',
-        sideEffects: ['Diarrhea', 'Nausea', 'Skin rash', 'Vomiting'],
-        activeIngredients: ['Amoxicillin Trihydrate 250mg'],
-        image: '💊'
-      },
-      {
-        id: '3',
-        name: 'Vitamin D3',
-        genericName: 'Cholecalciferol',
-        category: 'vitamins',
-        dosage: '1000 IU',
-        price: 8.99,
-        stock: 200,
-        manufacturer: 'NutriWell',
-        prescriptionRequired: false,
-        description: 'Essential vitamin for bone health and immune system support.',
-        sideEffects: ['Constipation', 'Loss of appetite', 'Weakness'],
-        activeIngredients: ['Cholecalciferol 1000 IU'],
-        image: '🟡'
-      },
-      {
-        id: '4',
-        name: 'Cetirizine',
-        genericName: 'Cetirizine Hydrochloride',
-        category: 'allergy',
-        dosage: '10mg',
-        price: 7.25,
-        stock: 120,
-        manufacturer: 'AllerFree',
-        prescriptionRequired: false,
-        description: 'Antihistamine for allergies, hay fever, and hives.',
-        sideEffects: ['Drowsiness', 'Dry mouth', 'Headache', 'Fatigue'],
-        activeIngredients: ['Cetirizine Hydrochloride 10mg'],
-        image: '💊'
-      },
-      {
-        id: '5',
-        name: 'Metformin',
-        genericName: 'Metformin Hydrochloride',
-        category: 'diabetes',
-        dosage: '500mg',
-        price: 15.99,
-        stock: 90,
-        manufacturer: 'DiabCare',
-        prescriptionRequired: true,
-        description: 'First-line treatment for type 2 diabetes mellitus.',
-        sideEffects: ['Nausea', 'Diarrhea', 'Metallic taste', 'Loss of appetite'],
-        activeIngredients: ['Metformin Hydrochloride 500mg'],
-        image: '💊'
-      },
-      {
-        id: '6',
-        name: 'Lisinopril',
-        genericName: 'Lisinopril',
-        category: 'heart',
-        dosage: '10mg',
-        price: 18.50,
-        stock: 60,
-        manufacturer: 'CardioMed',
-        prescriptionRequired: true,
-        description: 'ACE inhibitor for high blood pressure and heart failure.',
-        sideEffects: ['Dry cough', 'Dizziness', 'Headache', 'Fatigue'],
-        activeIngredients: ['Lisinopril 10mg'],
-        image: '💊'
+    const loadData = async () => {
+      try {
+        // Fetch real medicines and orders data from ICP backend
+        const medicinesData = await fetchMedicines();
+        const ordersData = await fetchOrders();
+        
+        // Parse ICP medicine data format (using numeric keys from Motoko serialization)
+        const parsedMedicines = medicinesData.map((medicine: any) => ({
+          id: medicine["1_098_344_064"] || `med_${Date.now()}_${Math.random()}`, // medicine_id
+          name: medicine["1_224_700_491"] || 'Unknown Medicine', // name
+          genericName: medicine["1_026_369_715"] || medicine["1_224_700_491"] || 'N/A', // generic_name
+          category: (medicine["2_909_547_262"] || 'general').toLowerCase(), // category
+          dosage: medicine["829_945_655"] || 'N/A', // dosage
+          price: medicine["3_364_572_809"] || 0, // price
+          stock: medicine["2_216_036_054"] || 0, // stock
+          manufacturer: medicine["341_121_617"] || 'Unknown', // manufacturer
+          prescriptionRequired: medicine["3_699_773_643"] || false, // requires_prescription
+          description: medicine["1_595_738_364"] || 'Medicine description not available.', // description
+          sideEffects: ['Consult doctor for side effects'], // Default since not in response
+          activeIngredients: medicine["819_652_970"] ? [medicine["819_652_970"]] : ['N/A'], // active_ingredient
+          image: getCategoryEmoji((medicine["2_909_547_262"] || 'general').toLowerCase())
+        }));
+        
+        // Parse ICP orders data format
+        const parsedOrders = ordersData.map((order: any) => ({
+          id: order.order_id || order.id || `ord_${Date.now()}`,
+          medicineId: order.medicine_id || order.medicineId,
+          medicineName: order.medicine_name || order.medicineName || 'Unknown Medicine',
+          quantity: order.quantity || order.qty || 1,
+          totalPrice: order.total_price || order.totalPrice || order.price || 0,
+          status: order.status || 'pending',
+          orderDate: order.order_date || order.orderDate || new Date().toISOString().split('T')[0],
+          pharmacyName: order.pharmacy_name || order.pharmacyName || 'HealthPlus Pharmacy'
+        }));
+        
+        setMedicines(parsedMedicines.length > 0 ? parsedMedicines : getDefaultMedicines());
+        setOrders(parsedOrders);
+        
+      } catch (error) {
+        console.error('Error loading pharmacy data from backend:', error);
+        // Fallback to default data if backend is unavailable
+        setMedicines(getDefaultMedicines());
+        setOrders([]);
+      } finally {
+        setIsLoading(false);
       }
-    ];
-
-    const mockOrders: Order[] = [
-      {
-        id: '1',
-        medicineId: '1',
-        medicineName: 'Paracetamol 500mg',
-        quantity: 2,
-        totalPrice: 11.98,
-        status: 'ready',
-        orderDate: '2024-08-20',
-        pharmacyName: 'HealthPlus Pharmacy'
-      }
-    ];
-
-    setMedicines(mockMedicines);
-    setOrders(mockOrders);
+    };
+    
+    loadData();
   }, []);
+
+  const getCategoryEmoji = (category: string) => {
+    const emojiMap: Record<string, string> = {
+      'pain relief': '💊',
+      'pain-relief': '💊',
+      'antibiotic': '🩹',
+      'antibiotics': '🩹',
+      'vitamin': '🟡',
+      'vitamins': '🟡',
+      'allergy': '🤧',
+      'diabetes': '💉',
+      'heart': '❤️',
+      'mental-health': '🧘',
+      'digestive health': '🍃',
+      'digestive': '🍃'
+    };
+    return emojiMap[category.toLowerCase()] || '💊';
+  };
+
+  const getDefaultMedicines = (): Medicine[] => [
+    {
+      id: '1',
+      name: 'Paracetamol',
+      genericName: 'Acetaminophen',
+      category: 'pain-relief',
+      dosage: '500mg',
+      price: 5.99,
+      stock: 150,
+      manufacturer: 'HealthPlus',
+      prescriptionRequired: false,
+      description: 'Effective pain reliever and fever reducer for mild to moderate pain.',
+      sideEffects: ['Nausea', 'Stomach upset', 'Allergic reactions (rare)'],
+      activeIngredients: ['Acetaminophen 500mg'],
+      image: '💊'
+    },
+    {
+      id: '2',
+      name: 'Amoxicillin',
+      genericName: 'Amoxicillin Trihydrate',
+      category: 'antibiotics',
+      dosage: '250mg',
+      price: 12.50,
+      stock: 80,
+      manufacturer: 'MediCore',
+      prescriptionRequired: true,
+      description: 'Penicillin-based antibiotic for bacterial infections.',
+      sideEffects: ['Diarrhea', 'Nausea', 'Skin rash', 'Vomiting'],
+      activeIngredients: ['Amoxicillin Trihydrate 250mg'],
+      image: '🩹'
+    }
+  ];
 
   const filteredMedicines = medicines.filter(medicine => {
     const matchesCategory = selectedCategory === 'all' || medicine.category === selectedCategory;
@@ -342,8 +335,18 @@ const Pharmacy = () => {
             </div>
           </div>
 
-          {/* Medicine Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Loading State */}
+          {isLoading ? (
+            <div className="flex justify-center items-center py-16">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+                <p className="text-stone-500 font-light">Loading medicines from ICP blockchain...</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Medicine Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredMedicines.map((medicine) => (
               <div key={medicine.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 hover:shadow-lg transition-all duration-300 cursor-pointer">
                 <div className="p-6" onClick={() => handleMedicineClick(medicine)}>
@@ -410,7 +413,9 @@ const Pharmacy = () => {
                 </div>
               </div>
             ))}
-          </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

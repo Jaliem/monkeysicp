@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from './nav';
-import { logWellnessData } from './services/flaskService';
+import { logWellnessData, fetchWellnessData } from './services/flaskService';
 
 interface WellnessData {
   sleep: number;
@@ -30,14 +30,92 @@ const Wellness = () => {
   });
 
   const [weeklySummary, setWeeklySummary] = useState<WeeklySummary>({
-    avgSleep: 7.2,
-    totalSteps: 28400,
-    avgWater: 6.8,
-    mostCommonMood: 'Good',
-    exerciseDays: 4
+    avgSleep: 0,
+    totalSteps: 0,
+    avgWater: 0,
+    mostCommonMood: 'No data',
+    exerciseDays: 0
   });
 
+  const [wellnessHistory, setWellnessHistory] = useState<WellnessData[]>([]);
   const [isLogging, setIsLogging] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadWellnessData = async () => {
+      try {
+        // Fetch wellness data from ICP backend
+        const wellnessResponse = await fetchWellnessData('user123', 30); // Get 30 days of data
+        
+        if (wellnessResponse.logs && wellnessResponse.logs.length > 0) {
+          // Parse wellness logs (handle numeric keys from Motoko serialization)
+          const parsedLogs = wellnessResponse.logs.map((log: any) => {
+            // Extract data from numeric keys based on WellnessLog key order: ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"]
+            const user_id = log["1_869_947_023"] || log.user_id || 'user123'; // user_id field (index 0)
+            const date = log["1_113_806_382"] || log.date || new Date().toISOString().split('T')[0]; // date field (index 1)
+            const sleep = log["1_152_427_284"] || log.sleep || 0; // sleep field (index 2)
+            const steps = log["2_215_541_671"] || log.steps || 0; // steps field (index 3)  
+            const exercise = log["1_214_307_575"] || log.exercise || 'Not logged'; // exercise field (index 4)
+            const mood = log["1_450_210_392"] || log.mood || 'Unknown'; // mood field (index 5)
+            const water = log["2_126_822_679"] || log.water_intake || 0; // water_intake field (index 6)
+            
+            return {
+              sleep: typeof sleep === 'number' ? sleep : (sleep !== null ? parseFloat(sleep) || 0 : 0),
+              steps: typeof steps === 'number' ? steps : (steps !== null ? parseInt(steps) || 0 : 0),
+              water: typeof water === 'number' ? water : (water !== null ? parseFloat(water) || 0 : 0),
+              mood: typeof mood === 'string' ? mood : (mood !== null ? mood : 'Unknown'),
+              exercise: typeof exercise === 'string' ? exercise : (exercise !== null ? exercise : 'Not logged'),
+              date: typeof date === 'string' ? date : new Date().toISOString().split('T')[0]
+            };
+          });
+          
+          setWellnessHistory(parsedLogs);
+          
+          // Calculate weekly summary from real data
+          if (parsedLogs.length > 0) {
+            const recentLogs = parsedLogs.slice(-7); // Last 7 days
+            const totalSleep = recentLogs.reduce((sum, log) => sum + log.sleep, 0);
+            const totalSteps = recentLogs.reduce((sum, log) => sum + log.steps, 0);
+            const totalWater = recentLogs.reduce((sum, log) => sum + log.water, 0);
+            const exerciseDays = recentLogs.filter(log => log.exercise && log.exercise !== 'Not logged').length;
+            
+            // Find most common mood
+            const moodCounts: Record<string, number> = {};
+            recentLogs.forEach(log => {
+              if (log.mood && log.mood !== 'Unknown') {
+                moodCounts[log.mood] = (moodCounts[log.mood] || 0) + 1;
+              }
+            });
+            const mostCommonMood = Object.keys(moodCounts).reduce((a, b) => 
+              moodCounts[a] > moodCounts[b] ? a : b, 'Good'
+            );
+            
+            setWeeklySummary({
+              avgSleep: recentLogs.length > 0 ? totalSleep / recentLogs.length : 0,
+              totalSteps: totalSteps,
+              avgWater: recentLogs.length > 0 ? totalWater / recentLogs.length : 0,
+              mostCommonMood: mostCommonMood,
+              exerciseDays: exerciseDays
+            });
+            
+            // Set today's data if available
+            const todayLog = parsedLogs.find(log => log.date === new Date().toISOString().split('T')[0]);
+            if (todayLog) {
+              setTodayData(todayLog);
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error('Error loading wellness data from backend:', error);
+        // Keep default/empty state if backend is unavailable
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadWellnessData();
+  }, []);
 
   const handleQuickLog = (type: string, value: number | string) => {
     setTodayData(prev => ({

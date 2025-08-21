@@ -32,7 +32,6 @@ interface HealthProfile {
 }
 
 const Profile = () => {
-  const [authClient, setAuthClient] = useState<AuthClient | null>(null);
   const [principal, setPrincipal] = useState<string | null>(null);
   const [profile, setProfile] = useState<HealthProfile>({
     personalInfo: {
@@ -72,7 +71,6 @@ const Profile = () => {
 
   const initAuth = async () => {
     const client = await AuthClient.create();
-    setAuthClient(client);
 
     const isAuthenticated = await client.isAuthenticated();
     if (isAuthenticated) {

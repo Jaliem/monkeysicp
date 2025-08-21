@@ -118,3 +118,118 @@ export const checkAgentStatus = async (): Promise<any> => {
 export const checkApiHealth = async (): Promise<any> => {
   return await checkAgentStatus();
 };
+
+// Fetch doctors data from ICP backend
+export const fetchDoctors = async (): Promise<any> => {
+  try {
+    // Fetch all doctors by searching for "general" (which matches all specialties per the backend logic)
+    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-doctors-by-specialty', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ specialty: "general" })
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      return data.doctors || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching doctors:', error);
+    return [];
+  }
+};
+
+// Fetch user appointments from ICP backend
+export const fetchAppointments = async (userId: string = 'user123'): Promise<any> => {
+  try {
+    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-user-appointments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ user_id: userId })
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      return data || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching appointments:', error);
+    return [];
+  }
+};
+
+// Fetch medicines from ICP backend
+export const fetchMedicines = async (): Promise<any> => {
+  try {
+    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-available-medicines', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      return data.medicines || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching medicines:', error);
+    return [];
+  }
+};
+
+// Fetch user orders from ICP backend
+export const fetchOrders = async (userId: string = 'user123'): Promise<any> => {
+  try {
+    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-user-medicine-orders', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ user_id: userId })
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      return data || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    return [];
+  }
+};
+
+// Fetch wellness data from ICP backend
+export const fetchWellnessData = async (userId: string = 'user123', days: number = 7): Promise<any> => {
+  try {
+    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-wellness-summary', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ user_id: userId, days: days })
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      return data || { logs: [], total_count: 0 };
+    }
+    
+    return { logs: [], total_count: 0 };
+  } catch (error) {
+    console.error('Error fetching wellness data:', error);
+    return { logs: [], total_count: 0 };
+  }
+};

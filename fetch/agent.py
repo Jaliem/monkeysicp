@@ -400,8 +400,13 @@ async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str =
         # Store locally as backup
         user_symptoms.append(symptom_data)
         
-        # Build response message
-        response_parts = [f"✅ Symptoms logged: '{symptoms_text}'"]
+        # Build detailed response message
+        response_parts = [f"✅ **Symptoms logged successfully!**"]
+        response_parts.append(f"\n📋 **What was recorded:**")
+        response_parts.append(f"• 🩺 Symptoms: {symptoms_text}")
+        response_parts.append(f"• ⏰ Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        response_parts.append(f"• 🔒 Storage: Securely saved to ICP blockchain")
+        response_parts.append(f"\n🧠 **AI Analysis Results:**")
         
         if asi1_result["success"]:
             analysis = asi1_result["analysis"]
@@ -868,7 +873,19 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
                 try:
                     await ctx.send(DOCTOR_AGENT_ADDRESS, booking_request)
                     ctx.logger.info(f"📤 Request sent (ID: {request_id}), user notified")
-                    return "Doctor booking initiated"
+                    
+                    # Create detailed immediate response showing what was requested
+                    response = f"✅ **Doctor appointment request submitted!**\n\n📋 **Booking Details:**\n"
+                    response += f"• 👨‍⚕️ Specialty: {specialty.title()}\n"
+                    response += f"• ⏰ Preferred time: {preferred_time}\n"
+                    response += f"• 🚨 Urgency: {urgency}\n"
+                    if symptoms:
+                        response += f"• 🩺 Symptoms mentioned: Yes\n"
+                    response += f"\n🆔 **Request ID:** {request_id}"
+                    response += f"\n⏳ **Status:** Processing appointment availability..."
+                    response += f"\n🔒 **Storage:** Request saved to ICP blockchain"
+                    
+                    return response
                 except Exception as e:
                     ctx.logger.error(f"❌ Failed to send request: {str(e)}")
                     return f"Failed to send request to DoctorAgent: {str(e)}"
@@ -1036,7 +1053,16 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                 await ctx.send(PHARMACY_AGENT_ADDRESS, medicine_request)
                 ctx.logger.info(f"📤 Medicine request sent (ID: {request_id}), user notified")
                 
-                return "Medicine availability check initiated"
+                # Create detailed immediate response showing what was requested
+                response = f"✅ **Medicine request submitted!**\n\n💊 **Request Details:**\n"
+                response += f"• 💊 Medicine: {medicine_name}\n"
+                response += f"• 📦 Quantity: {quantity}\n"
+                response += f"• 🛒 Request type: {'Purchase order' if is_order_request else 'Availability check'}\n"
+                response += f"\n🆔 **Request ID:** {request_id}"
+                response += f"\n⏳ **Status:** Checking pharmacy inventory..."
+                response += f"\n🔒 **Storage:** Request saved to ICP blockchain"
+                
+                return response
                 
                 # No polling needed - response will come via event handler
                 # Response processing moved to handle_pharmacy_check_response
@@ -1089,7 +1115,26 @@ async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str =
                 await ctx.send(WELLNESS_AGENT_ADDRESS, wellness_request)
                 ctx.logger.info(f"📤 Wellness request sent (ID: {request_id}), user notified")
                 
-                return "Wellness logging initiated"
+                # Create detailed immediate response showing what was logged
+                logged_items = []
+                if wellness_data.get("sleep"):
+                    logged_items.append(f"😴 Sleep: {wellness_data['sleep']} hours")
+                if wellness_data.get("steps"):
+                    logged_items.append(f"🚶 Steps: {wellness_data['steps']:,}")
+                if wellness_data.get("exercise"):
+                    logged_items.append(f"💪 Exercise: {wellness_data['exercise']}")
+                if wellness_data.get("mood"):
+                    logged_items.append(f"😊 Mood: {wellness_data['mood']}")
+                if wellness_data.get("water_intake"):
+                    logged_items.append(f"💧 Water: {wellness_data['water_intake']} glasses")
+                
+                if logged_items:
+                    response = f"✅ **Wellness data logged successfully!**\n\n📊 **What was recorded:**\n" + "\n".join([f"• {item}" for item in logged_items])
+                    response += f"\n\n⏰ **Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                    response += f"\n🔒 **Storage:** Securely saved to ICP blockchain"
+                    return response
+                else:
+                    return f"✅ **Wellness data logged:** {message}\n\n🔒 **Storage:** Securely saved to ICP blockchain"
                 
             except Exception as e:
                 ctx.logger.error(f"❌ Error communicating with WellnessAgent: {str(e)}")

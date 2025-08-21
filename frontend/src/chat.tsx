@@ -30,17 +30,24 @@ const Chat = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const quickActions: QuickAction[] = [
-    { label: 'Log Sleep', icon: '😴', prompt: 'I slept 8 hours last night', category: 'wellness' },
-    { label: 'Steps Today', icon: '👟', prompt: 'I walked 5000 steps today', category: 'wellness' },
-    { label: 'Book Doctor', icon: '👨‍⚕️', prompt: 'I need to see a cardiologist', category: 'doctor' },
-    { label: 'Check Medicine', icon: '💊', prompt: 'Do you have paracetamol available?', category: 'pharmacy' },
-    { label: 'Symptom Check', icon: '🩺', prompt: 'I have a headache and feel tired', category: 'symptom' },
-    { label: 'Water Intake', icon: '💧', prompt: 'I drank 6 glasses of water', category: 'wellness' },
-  ];
-
+  // Load messages from localStorage on component mount
   useEffect(() => {
-    // Initialize with welcome message
+    const savedMessages = localStorage.getItem('healthchat-messages');
+    if (savedMessages) {
+      try {
+        const parsedMessages = JSON.parse(savedMessages).map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        setMessages(parsedMessages);
+        setIsConnected(true);
+        return;
+      } catch (error) {
+        console.error('Failed to load saved messages:', error);
+      }
+    }
+    
+    // Initialize with welcome message if no saved messages
     const welcomeMessage: Message = {
       id: 'welcome',
       content: `Hello! I'm your HealthAgent powered by ASI1 AI. I'm connected to a network of specialized agents to help you with:
@@ -65,8 +72,26 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     
     setMessages([welcomeMessage]);
     setIsConnected(true);
-    
-    // Auto-focus input
+  }, []);
+
+  // Save messages to localStorage whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem('healthchat-messages', JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  const quickActions: QuickAction[] = [
+    { label: 'Log Sleep', icon: '😴', prompt: 'I slept 8 hours last night', category: 'wellness' },
+    { label: 'Steps Today', icon: '👟', prompt: 'I walked 5000 steps today', category: 'wellness' },
+    { label: 'Book Doctor', icon: '👨‍⚕️', prompt: 'I need to see a cardiologist', category: 'doctor' },
+    { label: 'Check Medicine', icon: '💊', prompt: 'Do you have paracetamol available?', category: 'pharmacy' },
+    { label: 'Symptom Check', icon: '🩺', prompt: 'I have a headache and feel tired', category: 'symptom' },
+    { label: 'Water Intake', icon: '💧', prompt: 'I drank 6 glasses of water', category: 'wellness' },
+  ];
+
+  // Auto-focus input after messages are loaded
+  useEffect(() => {
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -78,6 +103,32 @@ Just speak naturally - I'll understand and connect you with the right healthcare
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const clearChatHistory = () => {
+    localStorage.removeItem('healthchat-messages');
+    const welcomeMessage: Message = {
+      id: 'welcome',
+      content: `Hello! I'm your HealthAgent powered by ASI1 AI. I'm connected to a network of specialized agents to help you with:
+
+🩺 **Symptom Analysis** - AI-powered symptom assessment and recommendations
+👨‍⚕️ **Doctor Appointments** - Connected to DoctorAgent for specialist booking
+💊 **Medicine & Pharmacy** - Connected to PharmacyAgent for medication availability
+💪 **Wellness Tracking** - Connected to WellnessAgent for health data logging
+🚨 **Emergency Support** - 24/7 emergency assistance and guidance
+
+**Connected Services:**
+• 🔗 DoctorAgent (Port 8001) - Appointment scheduling & specialist matching
+• 🔗 PharmacyAgent (Port 8002) - Medicine availability & ordering
+• 🔗 WellnessAgent (Port 8003) - Health data tracking & insights
+• 🔗 ICP Blockchain - Secure health data storage
+
+Just speak naturally - I'll understand and connect you with the right healthcare service!`,
+      timestamp: new Date(),
+      isUser: false,
+      type: 'text'
+    };
+    setMessages([welcomeMessage]);
   };
 
   const handleSendMessage = async (content: string) => {
@@ -150,7 +201,7 @@ Just speak naturally - I'll understand and connect you with the right healthcare
 
       return {
         id: `agent-${Date.now()}`,
-        content: data.response,
+        content: data.response || 'No response received',
         timestamp: new Date(),
         isUser: false,
         type,
@@ -249,8 +300,16 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                 </span>
               </div>
             </div>
-            <div className="text-sm text-stone-500 font-light">
-              🤖 Powered by ASI1 • 🔐 ICP Secure
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={clearChatHistory}
+                className="px-3 py-1 text-xs text-stone-500 hover:text-stone-700 border border-stone-300 rounded-md hover:bg-stone-50 transition-colors"
+              >
+                Clear Chat
+              </button>
+              <div className="text-sm text-stone-500 font-light">
+                🤖 Powered by ASI1 • 🔐 ICP Secure
+              </div>
             </div>
           </div>
         </div>
@@ -272,6 +331,76 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                       <div className="flex items-center space-x-3">
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-stone-400"></div>
                         <span className="text-stone-600 font-light">{message.content}</span>
+                      </div>
+                    ) : ['wellness', 'appointment', 'medicine'].includes(message.type || '') ? (
+                      <div className="space-y-3">
+                        <div className="whitespace-pre-wrap font-light leading-relaxed">
+                          {message.content}
+                        </div>
+                        {/* Enhanced display for all structured responses */}
+                        <div className="mt-4 space-y-3">
+                          {/* What was logged/requested section */}
+                          {(message.content.includes('**What was recorded:**') || 
+                            message.content.includes('**Booking Details:**') || 
+                            message.content.includes('**Request Details:**')) && (
+                            <div className={`p-3 rounded-lg border ${
+                              message.type === 'wellness' ? 'bg-emerald-50 border-emerald-100' :
+                              message.type === 'appointment' ? 'bg-blue-50 border-blue-100' :
+                              'bg-purple-50 border-purple-100'
+                            }`}>
+                              <div className="flex items-center space-x-2 mb-2">
+                                <span className={
+                                  message.type === 'wellness' ? 'text-emerald-600' :
+                                  message.type === 'appointment' ? 'text-blue-600' :
+                                  'text-purple-600'
+                                }>
+                                  {message.type === 'wellness' ? '📝' : message.type === 'appointment' ? '📅' : '💊'}
+                                </span>
+                                <span className={`text-sm font-medium ${
+                                  message.type === 'wellness' ? 'text-emerald-700' :
+                                  message.type === 'appointment' ? 'text-blue-700' :
+                                  'text-purple-700'
+                                }`}>
+                                  {message.type === 'wellness' ? 'Data Logged' : 
+                                   message.type === 'appointment' ? 'Booking Request' : 
+                                   'Medicine Request'}
+                                </span>
+                              </div>
+                              <div className={`text-xs ${
+                                message.type === 'wellness' ? 'text-emerald-600' :
+                                message.type === 'appointment' ? 'text-blue-600' :
+                                'text-purple-600'
+                              }`}>
+                                <div className="space-y-1">
+                                  {/* Extract details from the response */}
+                                  {(message.content.includes('**What was recorded:**') ? 
+                                    message.content.split('**What was recorded:**')[1]?.split('\n\n')[0] :
+                                    message.content.includes('**Booking Details:**') ?
+                                    message.content.split('**Booking Details:**')[1]?.split('\n\n')[0] :
+                                    message.content.split('**Request Details:**')[1]?.split('\n\n')[0]
+                                  )?.split('\n').filter(line => line.trim().startsWith('•')).map((item, idx) => (
+                                    <div key={idx}>{item.trim()}</div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Insights section */}
+                          {message.type === 'wellness' && (
+                            <div className="p-4 bg-emerald-25 rounded-lg border border-emerald-100">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <span className="text-emerald-600">💪</span>
+                                <span className="text-sm font-medium text-emerald-700">Wellness Insights</span>
+                              </div>
+                              <div className="text-xs text-emerald-600 space-y-1">
+                                <div>✅ Data logged to secure blockchain storage</div>
+                                <div>📊 Contributing to your long-term health patterns</div>
+                                <div>🎯 Keep logging daily for personalized recommendations</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ) : (
                       <div className="whitespace-pre-wrap font-light leading-relaxed">
@@ -332,7 +461,7 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Tell me about your health... (e.g., 'I slept 8 hours', 'Book me a doctor', 'Do you have aspirin?')"
+                placeholder="Tell me about your health... (e.g., 'I slept 8 hours last night', 'Book me a doctor', 'Do you have aspirin?')"
                 className="flex-1 px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
                 disabled={isTyping}
               />
