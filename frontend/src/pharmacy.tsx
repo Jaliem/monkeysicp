@@ -253,15 +253,14 @@ const Pharmacy = () => {
               <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
                 Pharmacy
               </h1>
-              <p className="text-stone-500 font-light mt-2">
-                Search and order medicines online
-              </p>
+
+
             </div>
             <button
               onClick={() => setShowCart(true)}
               className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors duration-200"
             >
-              <span>🛒</span>
+        
               <span>Cart ({cart.length})</span>
             </button>
           </div>
@@ -272,7 +271,7 @@ const Pharmacy = () => {
           {orders.length > 0 && (
             <div className="mb-8">
               <h2 className="text-2xl font-light text-stone-800 font-serif mb-4">
-                📦 Recent Orders
+                Recent Orders
               </h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
                 {orders.slice(0, 2).map((order) => (
@@ -317,7 +316,7 @@ const Pharmacy = () => {
                   placeholder="Search medicines by name, generic name, or category..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
+                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 font-light text-lg placeholder:opacity-30"
                 />
               </div>
               <select
@@ -340,7 +339,7 @@ const Pharmacy = () => {
             <div className="flex justify-center items-center py-16">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
-                <p className="text-stone-500 font-light">Loading medicines from ICP blockchain...</p>
+                <p className="text-stone-500 font-light">Loading medicines...</p>
               </div>
             </div>
           ) : (
@@ -379,17 +378,17 @@ const Pharmacy = () => {
 
                   <div className="grid grid-cols-2 gap-4 mb-4">
                     <div>
-                      <p className="text-xs text-stone-500 font-light mb-1">💊 Dosage</p>
+                      <p className="text-xs text-stone-500 font-light mb-1">Dosage</p>
                       <p className="text-stone-700 text-sm">{medicine.dosage}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-stone-500 font-light mb-1">📦 Stock</p>
+                      <p className="text-xs text-stone-500 font-light mb-1">Stock</p>
                       <p className="text-stone-700 text-sm">{medicine.stock} units</p>
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <p className="text-xs text-stone-500 font-light mb-1">🏭 Manufacturer</p>
+                    <p className="text-xs text-stone-500 font-light mb-1">Manufacturer</p>
                     <p className="text-stone-700 text-sm">{medicine.manufacturer}</p>
                   </div>
                 </div>
@@ -426,7 +425,7 @@ const Pharmacy = () => {
             <div className="p-6 border-b border-stone-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-light text-stone-800 font-serif">
-                  🛒 Shopping Cart
+                  Shopping Cart
                 </h2>
                 <button
                   onClick={() => setShowCart(false)}
@@ -607,7 +606,7 @@ const Pharmacy = () => {
                     }}
                     className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200"
                   >
-                    Add to Cart - ${selectedMedicine.price.toFixed(2)}
+                  Add to Cart - ${selectedMedicine.price.toFixed(2)}
                   </button>
                 </div>
               )}
@@ -615,7 +614,7 @@ const Pharmacy = () => {
               {selectedMedicine.prescriptionRequired && (
                 <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                   <p className="text-orange-800 font-light text-center">
-                    🩺 This medicine requires a prescription. Please consult with a doctor first.
+                    This medicine requires a prescription. Please consult with a doctor first.
                   </p>
                 </div>
               )}

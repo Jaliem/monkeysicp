@@ -52,17 +52,17 @@ const Chat = () => {
       id: 'welcome',
       content: `Hello! I'm your HealthAgent powered by ASI1 AI. I'm connected to a network of specialized agents to help you with:
 
-🩺 **Symptom Analysis** - AI-powered symptom assessment and recommendations
-👨‍⚕️ **Doctor Appointments** - Connected to DoctorAgent for specialist booking
-💊 **Medicine & Pharmacy** - Connected to PharmacyAgent for medication availability
-💪 **Wellness Tracking** - Connected to WellnessAgent for health data logging
-🚨 **Emergency Support** - 24/7 emergency assistance and guidance
+ **Symptom Analysis** - AI-powered symptom assessment and recommendations
+ **Doctor Appointments** - Connected to DoctorAgent for specialist booking
+ **Medicine & Pharmacy** - Connected to PharmacyAgent for medication availability
+ **Wellness Tracking** - Connected to WellnessAgent for health data logging
+ **Emergency Support** - 24/7 emergency assistance and guidance
 
 **Connected Services:**
-• 🔗 DoctorAgent (Port 8001) - Appointment scheduling & specialist matching
-• 🔗 PharmacyAgent (Port 8002) - Medicine availability & ordering
-• 🔗 WellnessAgent (Port 8003) - Health data tracking & insights
-• 🔗 ICP Blockchain - Secure health data storage
+• DoctorAgent (Port 8001) - Appointment scheduling & specialist matching
+• PharmacyAgent (Port 8002) - Medicine availability & ordering
+• WellnessAgent (Port 8003) - Health data tracking & insights
+• ICP Blockchain - Secure health data storage
 
 Just speak naturally - I'll understand and connect you with the right healthcare service!`,
       timestamp: new Date(),
@@ -82,12 +82,12 @@ Just speak naturally - I'll understand and connect you with the right healthcare
   }, [messages]);
 
   const quickActions: QuickAction[] = [
-    { label: 'Log Sleep', icon: '😴', prompt: 'I slept 8 hours last night', category: 'wellness' },
-    { label: 'Steps Today', icon: '👟', prompt: 'I walked 5000 steps today', category: 'wellness' },
-    { label: 'Book Doctor', icon: '👨‍⚕️', prompt: 'I need to see a cardiologist', category: 'doctor' },
-    { label: 'Check Medicine', icon: '💊', prompt: 'Do you have paracetamol available?', category: 'pharmacy' },
-    { label: 'Symptom Check', icon: '🩺', prompt: 'I have a headache and feel tired', category: 'symptom' },
-    { label: 'Water Intake', icon: '💧', prompt: 'I drank 6 glasses of water', category: 'wellness' },
+    { label: 'Log Sleep', icon: '', prompt: 'I slept 8 hours last night', category: 'wellness' },
+    { label: 'Steps Today', icon: '', prompt: 'I walked 5000 steps today', category: 'wellness' },
+    { label: 'Book Doctor', icon: '', prompt: 'I need to see a cardiologist', category: 'doctor' },
+    { label: 'Check Medicine', icon: '', prompt: 'Do you have paracetamol available?', category: 'pharmacy' },
+    { label: 'Symptom Check', icon: '', prompt: 'I have a headache and feel tired', category: 'symptom' },
+    { label: 'Water Intake', icon: '', prompt: 'I drank 6 glasses of water', category: 'wellness' },
   ];
 
   // Auto-focus input after messages are loaded
@@ -111,17 +111,17 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       id: 'welcome',
       content: `Hello! I'm your HealthAgent powered by ASI1 AI. I'm connected to a network of specialized agents to help you with:
 
-🩺 **Symptom Analysis** - AI-powered symptom assessment and recommendations
-👨‍⚕️ **Doctor Appointments** - Connected to DoctorAgent for specialist booking
-💊 **Medicine & Pharmacy** - Connected to PharmacyAgent for medication availability
-💪 **Wellness Tracking** - Connected to WellnessAgent for health data logging
-🚨 **Emergency Support** - 24/7 emergency assistance and guidance
+**Symptom Analysis** - AI-powered symptom assessment and recommendations
+**Doctor Appointments** - Connected to DoctorAgent for specialist booking
+**Medicine & Pharmacy** - Connected to PharmacyAgent for medication availability
+**Wellness Tracking** - Connected to WellnessAgent for health data logging
+**Emergency Support** - 24/7 emergency assistance and guidance
 
 **Connected Services:**
-• 🔗 DoctorAgent (Port 8001) - Appointment scheduling & specialist matching
-• 🔗 PharmacyAgent (Port 8002) - Medicine availability & ordering
-• 🔗 WellnessAgent (Port 8003) - Health data tracking & insights
-• 🔗 ICP Blockchain - Secure health data storage
+• DoctorAgent (Port 8001) - Appointment scheduling & specialist matching
+• PharmacyAgent (Port 8002) - Medicine availability & ordering
+• WellnessAgent (Port 8003) - Health data tracking & insights
+• ICP Blockchain - Secure health data storage
 
 Just speak naturally - I'll understand and connect you with the right healthcare service!`,
       timestamp: new Date(),
@@ -218,7 +218,7 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       // Fallback response if API is not available
       return {
         id: `agent-${Date.now()}`,
-        content: `🔧 **HealthAgent Connection Issue**
+        content: `**HealthAgent Connection Issue**
 
 I'm having trouble connecting to the HealthAgent service. This might be because:
 
@@ -308,7 +308,7 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                 Clear Chat
               </button>
               <div className="text-sm text-stone-500 font-light">
-                🤖 Powered by ASI1 • 🔐 ICP Secure
+                Powered by ASI1 • ICP Secure
               </div>
             </div>
           </div>
@@ -354,7 +354,6 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                                   message.type === 'appointment' ? 'text-blue-600' :
                                   'text-purple-600'
                                 }>
-                                  {message.type === 'wellness' ? '📝' : message.type === 'appointment' ? '📅' : '💊'}
                                 </span>
                                 <span className={`text-sm font-medium ${
                                   message.type === 'wellness' ? 'text-emerald-700' :
@@ -390,13 +389,13 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                           {message.type === 'wellness' && (
                             <div className="p-4 bg-emerald-25 rounded-lg border border-emerald-100">
                               <div className="flex items-center space-x-2 mb-2">
-                                <span className="text-emerald-600">💪</span>
+                           
                                 <span className="text-sm font-medium text-emerald-700">Wellness Insights</span>
                               </div>
                               <div className="text-xs text-emerald-600 space-y-1">
-                                <div>✅ Data logged to secure blockchain storage</div>
-                                <div>📊 Contributing to your long-term health patterns</div>
-                                <div>🎯 Keep logging daily for personalized recommendations</div>
+                                <div>Data logged to secure blockchain storage</div>
+                                <div>Contributing to your long-term health patterns</div>
+                                <div>Keep logging daily for personalized recommendations</div>
                               </div>
                             </div>
                           )}
@@ -462,13 +461,13 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Tell me about your health... (e.g., 'I slept 8 hours last night', 'Book me a doctor', 'Do you have aspirin?')"
-                className="flex-1 px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
+                className="flex-1 px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-100 font-light text-lg placeholder:opacity-30"
                 disabled={isTyping}
               />
               <button
                 onClick={() => handleSendMessage(inputValue)}
                 disabled={!inputValue.trim() || isTyping}
-                className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-medium hover:bg-emerald-700 transition-colors duration-200  disabled:cursor-not-allowed"
               >
                 {isTyping ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>

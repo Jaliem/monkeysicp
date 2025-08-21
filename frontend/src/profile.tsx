@@ -155,11 +155,9 @@ const Profile = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
-                  Health Profile
+                  Profile
                 </h1>
-                <p className="text-stone-500 font-light mt-2">
-                  Manage your personal health information securely on ICP
-                </p>
+               
               </div>
               {principal && (
                 <div className="text-right">
@@ -180,19 +178,19 @@ const Profile = () => {
               onClick={() => setActiveTab('personal')}
               className={tabClasses('personal')}
             >
-              👤 Personal Info
+              Personal Info
             </button>
             <button
               onClick={() => setActiveTab('medical')}
               className={tabClasses('medical')}
             >
-              🏥 Medical History
+              Medical History
             </button>
             <button
               onClick={() => setActiveTab('preferences')}
               className={tabClasses('preferences')}
             >
-              ⚙️ Preferences
+              Preferences
             </button>
           </div>
 
@@ -319,7 +317,7 @@ const Profile = () => {
                 <div className="space-y-8">
                   {/* Allergies */}
                   <div>
-                    <label className="block text-stone-700 font-light mb-3 text-lg">🚫 Allergies</label>
+                    <label className="block text-stone-700 font-light mb-3 text-lg">Allergies</label>
                     <div className="space-y-3">
                       <div className="flex flex-wrap gap-2 mb-3">
                         {profile.medicalHistory.allergies.map((allergy, index) => (
@@ -352,7 +350,7 @@ const Profile = () => {
 
                   {/* Medications */}
                   <div>
-                    <label className="block text-stone-700 font-light mb-3 text-lg">💊 Current Medications</label>
+                    <label className="block text-stone-700 font-light mb-3 text-lg">Current Medications</label>
                     <div className="space-y-3">
                       <div className="flex flex-wrap gap-2 mb-3">
                         {profile.medicalHistory.medications.map((medication, index) => (
@@ -385,7 +383,7 @@ const Profile = () => {
 
                   {/* Medical Conditions */}
                   <div>
-                    <label className="block text-stone-700 font-light mb-3 text-lg">🏥 Medical Conditions</label>
+                    <label className="block text-stone-700 font-light mb-3 text-lg">Medical Conditions</label>
                     <div className="space-y-3">
                       <div className="flex flex-wrap gap-2 mb-3">
                         {profile.medicalHistory.conditions.map((condition, index) => (
@@ -418,7 +416,7 @@ const Profile = () => {
 
                   {/* Surgeries */}
                   <div>
-                    <label className="block text-stone-700 font-light mb-3 text-lg">🔪 Past Surgeries</label>
+                    <label className="block text-stone-700 font-light mb-3 text-lg">Past Surgeries</label>
                     <div className="space-y-3">
                       <div className="flex flex-wrap gap-2 mb-3">
                         {profile.medicalHistory.surgeries.map((surgery, index) => (
@@ -463,7 +461,7 @@ const Profile = () => {
                   {/* Preferred Providers */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-stone-700 font-light mb-2">👨‍⚕️ Preferred Doctor</label>
+                      <label className="block text-stone-700 font-light mb-2">Preferred Doctor</label>
                       <input
                         type="text"
                         value={profile.preferences.preferredDoctor}
@@ -474,7 +472,7 @@ const Profile = () => {
                     </div>
 
                     <div>
-                      <label className="block text-stone-700 font-light mb-2">💊 Preferred Pharmacy</label>
+                      <label className="block text-stone-700 font-light mb-2">Preferred Pharmacy</label>
                       <input
                         type="text"
                         value={profile.preferences.preferredPharmacy}
@@ -487,7 +485,7 @@ const Profile = () => {
 
                   {/* Notification Settings */}
                   <div>
-                    <h3 className="text-xl font-light text-stone-700 mb-4">🔔 Notification Preferences</h3>
+                    <h3 className="text-xl font-light text-stone-700 mb-4">Notification Preferences</h3>
                     <div className="space-y-4">
                       <label className="flex items-center">
                         <input
@@ -532,7 +530,7 @@ const Profile = () => {
 
                   {/* Privacy Settings */}
                   <div>
-                    <h3 className="text-xl font-light text-stone-700 mb-4">🔐 Privacy Level</h3>
+                    <h3 className="text-xl font-light text-stone-700 mb-4">Privacy Level</h3>
                     <div className="space-y-3">
                       <label className="flex items-center p-3 border border-stone-200 rounded-lg hover:bg-stone-50 cursor-pointer">
                         <input
@@ -544,7 +542,7 @@ const Profile = () => {
                           className="mr-3 w-4 h-4 text-emerald-600"
                         />
                         <div>
-                          <div className="font-medium text-stone-700">🔒 Private</div>
+                          <div className="font-medium text-stone-700">Private</div>
                           <div className="text-sm text-stone-500 font-light">Your data is fully encrypted and only you can access it</div>
                         </div>
                       </label>
@@ -559,7 +557,7 @@ const Profile = () => {
                           className="mr-3 w-4 h-4 text-emerald-600"
                         />
                         <div>
-                          <div className="font-medium text-stone-700">👤 Anonymous</div>
+                          <div className="font-medium text-stone-700">Anonymous</div>
                           <div className="text-sm text-stone-500 font-light">Data is anonymized for research purposes</div>
                         </div>
                       </label>
@@ -571,10 +569,8 @@ const Profile = () => {
 
             {/* Save Button */}
             <div className="px-8 py-6 bg-stone-50 border-t border-stone-100 rounded-b-2xl">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-stone-500 font-light">
-                  🔐 All data is securely stored on the ICP blockchain
-                </p>
+              <div className="flex justify-end items-center">
+              
                 <button
                   onClick={handleSave}
                   disabled={isSaving}

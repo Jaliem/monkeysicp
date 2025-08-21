@@ -168,9 +168,6 @@ const Wellness = () => {
             <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
               Wellness Dashboard
             </h1>
-            <p className="text-stone-500 font-light mt-2">
-              Track your daily wellness journey
-            </p>
           </div>
         </div>
 
@@ -251,7 +248,7 @@ const Wellness = () => {
                 {/* Sleep */}
                 <div>
                   <label className="block text-stone-700 font-light mb-3 text-lg">
-                    😴 Sleep Hours
+                    Sleep Hours
                   </label>
                   <div className="flex items-center space-x-4">
                     <input
@@ -282,7 +279,7 @@ const Wellness = () => {
                 {/* Steps */}
                 <div>
                   <label className="block text-stone-700 font-light mb-3 text-lg">
-                    👟 Steps Walked
+                    Steps Walked
                   </label>
                   <div className="flex items-center space-x-4">
                     <input
@@ -311,7 +308,7 @@ const Wellness = () => {
                 {/* Water */}
                 <div>
                   <label className="block text-stone-700 font-light mb-3 text-lg">
-                    💧 Water Intake
+                    Water Intake
                   </label>
                   <div className="flex items-center space-x-4">
                     <input
@@ -341,7 +338,7 @@ const Wellness = () => {
                 {/* Mood */}
                 <div>
                   <label className="block text-stone-700 font-light mb-3 text-lg">
-                    😊 How are you feeling?
+                    How are you feeling?
                   </label>
                   <div className="grid grid-cols-3 gap-3">
                     {Object.entries(moodEmojis).map(([mood, emoji]) => (
@@ -364,13 +361,13 @@ const Wellness = () => {
                 {/* Exercise */}
                 <div>
                   <label className="block text-stone-700 font-light mb-3 text-lg">
-                    💪 Exercise Activity
+                    Exercise Activity
                   </label>
                   <textarea
                     value={todayData.exercise}
                     onChange={(e) => handleQuickLog('exercise', e.target.value)}
                     placeholder="e.g., 30 minutes yoga, ran 3 miles, gym workout..."
-                    className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                    className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-1 focus:ring-emerald-200 focus:border-emerald-500 font-light placeholder:opacity-50"
                     rows={3}
                   />
                 </div>
@@ -399,7 +396,7 @@ const Wellness = () => {
             <div className="bg-white rounded-2xl shadow-sm border border-stone-100">
               <div className="p-6 border-b border-stone-100">
                 <h3 className="text-xl font-light text-stone-800 font-serif">
-                  🤖 AI Wellness Insights
+                  AI Wellness Insights
                 </h3>
               </div>
               <div className="p-6 space-y-4">

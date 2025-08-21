@@ -327,10 +327,10 @@ Examples:
                            "book_doctor", "pharmacy", "medication_reminder", "wellness", "general"]
             
             if intent in valid_intents:
-                ctx.logger.info(f"🤖 LLM classified '{message}' as: {intent}")
+                ctx.logger.info(f"LLM classified '{message}' as: {intent}")
                 return intent
             else:
-                ctx.logger.warning(f"🤖 LLM returned invalid intent: {intent}, using fallback")
+                ctx.logger.warning(f"LLM returned invalid intent: {intent}, using fallback")
                 return classify_user_intent_fallback(message)
         else:
             ctx.logger.warning(f"ASI1 API error: {response.status_code}, using fallback")
@@ -401,49 +401,49 @@ async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str =
         user_symptoms.append(symptom_data)
         
         # Build detailed response message
-        response_parts = [f"✅ **Symptoms logged successfully!**"]
-        response_parts.append(f"\n📋 **What was recorded:**")
-        response_parts.append(f"• 🩺 Symptoms: {symptoms_text}")
-        response_parts.append(f"• ⏰ Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        response_parts.append(f"• 🔒 Storage: Securely saved to ICP blockchain")
-        response_parts.append(f"\n🧠 **AI Analysis Results:**")
+        response_parts = [f"**Symptoms logged successfully!**"]
+        response_parts.append(f"\n**What was recorded:**")
+        response_parts.append(f"• Symptoms: {symptoms_text}")
+        response_parts.append(f"• Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        response_parts.append(f"• Storage: Securely saved to ICP blockchain")
+        response_parts.append(f"\n**AI Analysis Results:**")
         
         if asi1_result["success"]:
             analysis = asi1_result["analysis"]
             
             # Detected symptoms
             if analysis.get("detected_symptoms"):
-                response_parts.append(f"\n🔍 Detected symptoms: {', '.join(analysis['detected_symptoms'])}")
+                response_parts.append(f"\nDetected symptoms: {', '.join(analysis['detected_symptoms'])}")
             
             # Likely conditions from ASI1
             if analysis.get("likely_conditions"):
-                response_parts.append(f"\n🏥 **AI Analysis - Likely conditions:**")
+                response_parts.append(f"\n**AI Analysis - Likely conditions:**")
                 for condition in analysis["likely_conditions"][:3]:
                     confidence = condition.get("confidence", 0)
                     severity = condition.get("severity", "moderate")
-                    severity_emoji = {"emergency": "🚨", "urgent": "⚠️", "serious": "🟡", "moderate": "🔵", "mild": "🟢"}.get(severity, "🔵")
+                    #severity_emoji = {"emergency": "🚨", "urgent": "⚠️", "serious": "🟡", "moderate": "🔵", "mild": "🟢"}.get(severity, "🔵")
                     response_parts.append(f"  • {severity_emoji} **{condition['condition']}** ({confidence}% confidence)")
             
             # Recommended doctors from ASI1
             if analysis.get("recommended_doctors"):
                 doctors_list = ", ".join(analysis["recommended_doctors"][:3])
-                response_parts.append(f"\n👨‍⚕️ **Recommended specialists:** {doctors_list}")
+                response_parts.append(f"\n**Recommended specialists:** {doctors_list}")
             
             # ASI1 explanation
             if analysis.get("explanation"):
-                response_parts.append(f"\n💡 **AI Insight:** {analysis['explanation']}")
+                response_parts.append(f"\n**AI Insight:** {analysis['explanation']}")
             
             # Urgency assessment
             urgency = analysis.get("urgency", "moderate")
             if urgency in ["emergency", "urgent"]:
-                response_parts.append(f"\n🚨 **URGENCY LEVEL: {urgency.upper()}** - Consider seeking immediate medical attention!")
+                response_parts.append(f"\n**URGENCY LEVEL: {urgency.upper()}** - Consider seeking immediate medical attention!")
             else:
-                response_parts.append(f"\n⚕️ Please consult a healthcare professional for proper diagnosis.")
+                response_parts.append(f"\nPlease consult a healthcare professional for proper diagnosis.")
             
             # Offer appointment booking and set context
             if analysis.get("recommended_doctors"):
                 primary_doctor = analysis["recommended_doctors"][0]
-                response_parts.append(f"\n📅 Would you like me to book an appointment with a {primary_doctor}?")
+                response_parts.append(f"\nWould you like me to book an appointment with a {primary_doctor}?")
                 
                 # Set context for follow-up response
                 set_user_context(sender, {
@@ -455,10 +455,10 @@ async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str =
             # Simple fallback when ASI1 fails
             ctx.logger.warning(f"ASI1 analysis failed: {asi1_result['error']}, using basic fallback")
             
-            response_parts.append(f"\n⚠️ AI analysis temporarily unavailable")
-            response_parts.append(f"\n👨‍⚕️ Recommend consulting: General Practitioner")
-            response_parts.append(f"\n💡 Your symptoms have been logged for future analysis")
-            response_parts.append(f"\n⚕️ Please consult a healthcare professional for proper diagnosis.")
+            response_parts.append(f"\nAI analysis temporarily unavailable")
+            response_parts.append(f"\nRecommend consulting: General Practitioner")
+            response_parts.append(f"\nYour symptoms have been logged for future analysis")
+            response_parts.append(f"\nPlease consult a healthcare professional for proper diagnosis.")
         
         return "\n".join(response_parts)
             
@@ -485,7 +485,7 @@ async def handle_medication_reminder(reminder_text: str, ctx: Context) -> str:
         # Store locally as backup
         user_reminders.append(reminder_data)
         
-        return f"✅ Reminder set: Take {reminder_info['medicine']} at {reminder_info['time']}. You'll be notified at the scheduled time."
+        return f"Reminder set: Take {reminder_info['medicine']} at {reminder_info['time']}. You'll be notified at the scheduled time."
         
     except Exception as e:
         ctx.logger.error(f"Error setting medication reminder: {str(e)}")
@@ -507,11 +507,11 @@ async def handle_emergency(ctx: Context) -> str:
         # Set local emergency flag
         emergency_status = True
         
-        return "🚨 EMERGENCY RECORDED. Please call emergency services (911/112) immediately if you need urgent medical assistance. This alert has been logged in your health record."
+        return "EMERGENCY RECORDED. Please call emergency services (911/112) immediately if you need urgent medical assistance. This alert has been logged in your health record."
         
     except Exception as e:
         ctx.logger.error(f"Error handling emergency: {str(e)}")
-        return "🚨 EMERGENCY ALERT: Please call emergency services immediately. There was an error logging this emergency, but your safety is the priority."
+        return "EMERGENCY ALERT: Please call emergency services immediately. There was an error logging this emergency, but your safety is the priority."
 
 async def analyze_historical_symptoms(ctx: Context, sender: str = "default_user") -> str:
     """Analyze all past symptoms to provide health summary and disease suggestions"""
@@ -529,7 +529,7 @@ async def analyze_historical_symptoms(ctx: Context, sender: str = "default_user"
         all_symptoms.extend([entry["symptoms"] for entry in user_symptoms])
         
         if not all_symptoms:
-            return "📊 No symptom history found. Start logging your symptoms by telling me how you feel!"
+            return "No symptom history found. Start logging your symptoms by telling me how you feel!"
         
         # Combine all symptoms text for analysis
         combined_symptoms = " | ".join(all_symptoms)
@@ -553,24 +553,24 @@ async def analyze_historical_symptoms(ctx: Context, sender: str = "default_user"
             frequent_symptoms = sorted(term_frequency.items(), key=lambda x: x[1], reverse=True)[:5]
         
         # Build comprehensive health summary
-        response_parts = ["📊 **AI-POWERED HEALTH ANALYSIS SUMMARY**"]
-        response_parts.append(f"\n📝 Total symptom logs: {len(all_symptoms)}")
+        response_parts = ["**AI-POWERED HEALTH ANALYSIS SUMMARY**"]
+        response_parts.append(f"\nTotal symptom logs: {len(all_symptoms)}")
         
         if frequent_symptoms:
             freq_list = [f"{symptom} ({count}x)" for symptom, count in frequent_symptoms]
-            response_parts.append(f"\n🔄 Most frequent symptoms: {', '.join(freq_list)}")
+            response_parts.append(f"\nMost frequent symptoms: {', '.join(freq_list)}")
         
         if asi1_result["success"]:
             analysis = asi1_result["analysis"]
             
             # Pattern analysis from ASI1
             if analysis.get("pattern_analysis"):
-                response_parts.append(f"\n📈 **AI PATTERN ANALYSIS:**")
+                response_parts.append(f"\n**AI PATTERN ANALYSIS:**")
                 response_parts.append(f"  {analysis['pattern_analysis']}")
             
             # Likely conditions from ASI1
             if analysis.get("likely_conditions"):
-                response_parts.append(f"\n🏥 **AI-IDENTIFIED LIKELY CONDITIONS:**")
+                response_parts.append(f"\n**AI-IDENTIFIED LIKELY CONDITIONS:**")
                 for condition in analysis["likely_conditions"][:3]:
                     confidence = condition.get("confidence", 0)
                     reasoning = condition.get("reasoning", "")
@@ -580,43 +580,43 @@ async def analyze_historical_symptoms(ctx: Context, sender: str = "default_user"
             
             # Health insights from ASI1
             if analysis.get("health_insights"):
-                response_parts.append(f"\n💡 **HEALTH INSIGHTS:**")
+                response_parts.append(f"\n**HEALTH INSIGHTS:**")
                 for insight in analysis["health_insights"][:3]:
                     response_parts.append(f"  • {insight}")
             
             # Recommended doctors from ASI1
             if analysis.get("recommended_doctors"):
                 doctors_list = ", ".join(analysis["recommended_doctors"][:3])
-                response_parts.append(f"\n👨‍⚕️ **RECOMMENDED SPECIALISTS:** {doctors_list}")
+                response_parts.append(f"\n**RECOMMENDED SPECIALISTS:** {doctors_list}")
             
             # AI recommendations
             if analysis.get("recommendations"):
-                response_parts.append(f"\n📋 **AI RECOMMENDATIONS:**")
+                response_parts.append(f"\n**AI RECOMMENDATIONS:**")
                 for rec in analysis["recommendations"][:3]:
                     response_parts.append(f"  • {rec}")
             
             # Urgency assessment
             urgency = analysis.get("urgency", "moderate")
             if urgency in ["emergency", "urgent"]:
-                response_parts.append(f"\n🚨 **URGENCY ASSESSMENT: {urgency.upper()}**")
-                response_parts.append(f"  ⚠️ Your symptom pattern suggests need for prompt medical evaluation!")
+                response_parts.append(f"\n**URGENCY ASSESSMENT: {urgency.upper()}**")
+                response_parts.append(f"  Your symptom pattern suggests need for prompt medical evaluation!")
             
         else:
             # Simple fallback when ASI1 fails
             ctx.logger.warning(f"ASI1 historical analysis failed: {asi1_result['error']}")
             
-            response_parts.append(f"\n⚠️ **AI ANALYSIS TEMPORARILY UNAVAILABLE**")
-            response_parts.append(f"\n📋 **BASIC SUMMARY:**")
+            response_parts.append(f"\n**AI ANALYSIS TEMPORARILY UNAVAILABLE**")
+            response_parts.append(f"\n**BASIC SUMMARY:**")
             response_parts.append(f"  • Your symptom history has been preserved")
             response_parts.append(f"  • Consider discussing patterns with your doctor")
-            response_parts.append(f"\n👨‍⚕️ **GENERAL RECOMMENDATION:** Consult General Practitioner")
+            response_parts.append(f"\n **GENERAL RECOMMENDATION:** Consult General Practitioner")
         
-        response_parts.append(f"\n⚕️ **DISCLAIMER:** This AI analysis is for informational purposes only. Please consult a healthcare professional for proper diagnosis.")
+        response_parts.append(f"\n**DISCLAIMER:** This AI analysis is for informational purposes only. Please consult a healthcare professional for proper diagnosis.")
         
         # Offer appointment booking and set context
         if asi1_result["success"] and asi1_result["analysis"].get("recommended_doctors"):
             primary_doctor = asi1_result["analysis"]["recommended_doctors"][0]
-            response_parts.append(f"\n📅 Would you like me to book an appointment with a {primary_doctor}?")
+            response_parts.append(f"\nWould you like me to book an appointment with a {primary_doctor}?")
             
             # Set context for follow-up response
             set_user_context(sender, {
@@ -652,7 +652,7 @@ async def handle_doctor_booking_cancellation(sender: str, ctx: Context) -> str:
     # Clear the context
     clear_user_context(sender)
     
-    return "👍 No problem! Your symptoms are still logged. You can ask for a doctor booking anytime by saying 'book me a doctor appointment'."
+    return "No problem! Your symptoms are still logged. You can ask for a doctor booking anytime by saying 'book me a doctor appointment'."
 
 async def get_medicine_usage_hint(medicine_name: str, ctx: Context) -> str:
     """Use ASI1 LLM to provide intelligent medicine usage insights"""
@@ -790,10 +790,10 @@ Only respond with the specialty name, nothing else."""
                                "pediatrics", "oncology", "psychiatry", "general practitioner"]
             
             if specialty in valid_specialties:
-                ctx.logger.info(f"🤖 LLM extracted specialty: {specialty}")
+                ctx.logger.info(f"LLM extracted specialty: {specialty}")
                 return specialty
             else:
-                ctx.logger.warning(f"🤖 LLM returned invalid specialty: {specialty}, using fallback")
+                ctx.logger.warning(f"LLM returned invalid specialty: {specialty}, using fallback")
                 return "general practitioner"
         else:
             ctx.logger.warning(f"ASI1 API error: {response.status_code}")
@@ -807,7 +807,7 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
     """Route doctor booking request to DoctorAgent"""
     try:
         # Use LLM to intelligently extract specialty
-        ctx.logger.info(f"🧠 Analyzing booking request with AI: '{message}'")
+        ctx.logger.info(f" Analyzing booking request with AI: '{message}'")
         specialty = await extract_specialty_with_llm(message, ctx)
         
         # Also extract timing and urgency with simple parsing (can enhance with LLM later)
@@ -855,16 +855,16 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
         
         if DOCTOR_AGENT_ADDRESS:
             try:
-                ctx.logger.info(f"📤 Booking {specialty} appointment ({urgency})")
+                ctx.logger.info(f"Booking {specialty} appointment ({urgency})")
                 
                 # Note: For REST API users, immediate notifications are handled via the API response
                 # No need to send chat messages to REST API user IDs
                 
                 # Events no longer needed - using pure event-driven architecture
                 
-                ctx.logger.info(f"⏰ Sending booking request at: {datetime.now()}")
-                ctx.logger.info(f"📋 Sending to address: {DOCTOR_AGENT_ADDRESS}")
-                ctx.logger.info(f"📋 Message content: {booking_request}")
+                ctx.logger.info(f"Sending booking request at: {datetime.now()}")
+                ctx.logger.info(f"Sending to address: {DOCTOR_AGENT_ADDRESS}")
+                ctx.logger.info(f"Message content: {booking_request}")
                 send_id = str(uuid4())[:8]
                 ctx.logger.info(f"[SEND-{send_id}] Sending booking request to DoctorAgent")
                 ctx.logger.info(f"🔍 About to send message type: {type(booking_request)}")
@@ -872,31 +872,31 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
                 
                 try:
                     await ctx.send(DOCTOR_AGENT_ADDRESS, booking_request)
-                    ctx.logger.info(f"📤 Request sent (ID: {request_id}), user notified")
+                    ctx.logger.info(f"Request sent (ID: {request_id}), user notified")
                     
                     # Create detailed immediate response showing what was requested
-                    response = f"✅ **Doctor appointment request submitted!**\n\n📋 **Booking Details:**\n"
-                    response += f"• 👨‍⚕️ Specialty: {specialty.title()}\n"
-                    response += f"• ⏰ Preferred time: {preferred_time}\n"
-                    response += f"• 🚨 Urgency: {urgency}\n"
+                    response = f"**Doctor appointment request submitted!**\n\n**Booking Details:**\n"
+                    response += f"• Specialty: {specialty.title()}\n"
+                    response += f"• Preferred time: {preferred_time}\n"
+                    response += f"• Urgency: {urgency}\n"
                     if symptoms:
-                        response += f"• 🩺 Symptoms mentioned: Yes\n"
-                    response += f"\n🆔 **Request ID:** {request_id}"
-                    response += f"\n⏳ **Status:** Processing appointment availability..."
-                    response += f"\n🔒 **Storage:** Request saved to ICP blockchain"
+                        response += f"• Symptoms mentioned: Yes\n"
+                    response += f"\n**Request ID:** {request_id}"
+                    response += f"\n**Status:** Processing appointment availability..."
+                    response += f"\n**Storage:** Request saved to ICP blockchain"
                     
                     return response
                 except Exception as e:
-                    ctx.logger.error(f"❌ Failed to send request: {str(e)}")
+                    ctx.logger.error(f"Failed to send request: {str(e)}")
                     return f"Failed to send request to DoctorAgent: {str(e)}"
                 
                 # No polling needed - response will come via event handler
                     
             except Exception as e:
-                ctx.logger.error(f"❌ Error communicating with DoctorAgent: {str(e)}")
+                ctx.logger.error(f"Error communicating with DoctorAgent: {str(e)}")
                 return "Sorry, there was an error connecting to the doctor booking service. Please try again."
         else:
-            ctx.logger.error("❌ DOCTOR_AGENT_ADDRESS not configured")
+            ctx.logger.error("DOCTOR_AGENT_ADDRESS not configured")
             return "Sorry, the doctor booking service is not properly configured. Please contact support."
         
     except Exception as e:
@@ -945,7 +945,7 @@ If medicine name is unclear, use the closest match or "medication"."""
             
             try:
                 medicine_info = json.loads(content)
-                ctx.logger.info(f"🤖 LLM extracted medicine info: {medicine_info}")
+                ctx.logger.info(f" LLM extracted medicine info: {medicine_info}")
                 
                 # Validate and sanitize the response
                 validated_info = {
@@ -970,7 +970,7 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
     """Route medicine check/order to PharmacyAgent using ASI1 LLM for intelligent parsing"""
     try:
         # Use ASI1 LLM to intelligently extract medicine information
-        ctx.logger.info(f"🧠 Analyzing medicine request with AI: '{message}'")
+        ctx.logger.info(f"Analyzing medicine request with AI: '{message}'")
         medicine_info = await extract_medicine_info_with_llm(message, ctx)
         
         medicine_name = medicine_info.get("medicine_name", "medication")
@@ -986,7 +986,7 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
         # Create request based on LLM-extracted information
         is_order_request = request_type == "order"
         
-        ctx.logger.info(f"📋 Creating MedicineCheckRequest with: medicine_name='{medicine_name}' (type: {type(medicine_name)}), quantity={quantity} (type: {type(quantity)})")
+        ctx.logger.info(f"Creating MedicineCheckRequest with: medicine_name='{medicine_name}' (type: {type(medicine_name)}), quantity={quantity} (type: {type(quantity)})")
         
         try:
             if is_order_request:
@@ -1032,10 +1032,10 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                 if user_sender:
                     user_request_mapping[request_id] = user_sender
             
-            ctx.logger.info(f"✅ Successfully created MedicineCheckRequest: {type(medicine_request)}")
+            ctx.logger.info(f"Successfully created MedicineCheckRequest: {type(medicine_request)}")
             
         except Exception as e:
-            ctx.logger.error(f"❌ Failed to create MedicineCheckRequest: {str(e)}")
+            ctx.logger.error(f"   Failed to create MedicineCheckRequest: {str(e)}")
             ctx.logger.error(f"   Medicine name: '{medicine_name}' (type: {type(medicine_name)})")
             ctx.logger.error(f"   Quantity: {quantity} (type: {type(quantity)})")
             raise
@@ -1043,7 +1043,7 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
         # Send request to PharmacyAgent if available
         if PHARMACY_AGENT_ADDRESS:
             try:
-                ctx.logger.info(f"📤 Sending medicine request to PharmacyAgent")
+                ctx.logger.info(f"Sending medicine request to PharmacyAgent")
                 
                 # Events no longer needed - using pure event-driven architecture
                 
@@ -1051,16 +1051,16 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                 # No need to send chat messages to REST API user IDs
                 
                 await ctx.send(PHARMACY_AGENT_ADDRESS, medicine_request)
-                ctx.logger.info(f"📤 Medicine request sent (ID: {request_id}), user notified")
+                ctx.logger.info(f"Medicine request sent (ID: {request_id}), user notified")
                 
                 # Create detailed immediate response showing what was requested
-                response = f"✅ **Medicine request submitted!**\n\n💊 **Request Details:**\n"
-                response += f"• 💊 Medicine: {medicine_name}\n"
-                response += f"• 📦 Quantity: {quantity}\n"
-                response += f"• 🛒 Request type: {'Purchase order' if is_order_request else 'Availability check'}\n"
-                response += f"\n🆔 **Request ID:** {request_id}"
-                response += f"\n⏳ **Status:** Checking pharmacy inventory..."
-                response += f"\n🔒 **Storage:** Request saved to ICP blockchain"
+                response = f"**Medicine request submitted!**\n\n **Request Details:**\n"
+                response += f"• Medicine: {medicine_name}\n"
+                response += f"• Quantity: {quantity}\n"
+                response += f"• Request type: {'Purchase order' if is_order_request else 'Availability check'}\n"
+                response += f"\n**Request ID:** {request_id}"
+                response += f"\n**Status:** Checking pharmacy inventory..."
+                response += f"\n**Storage:** Request saved to ICP blockchain"
                 
                 return response
                 
@@ -1068,10 +1068,10 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                 # Response processing moved to handle_pharmacy_check_response
                     
             except Exception as e:
-                ctx.logger.error(f"❌ Error communicating with PharmacyAgent: {str(e)}")
+                ctx.logger.error(f"Error communicating with PharmacyAgent: {str(e)}")
                 return "Sorry, there was an error connecting to the pharmacy service. Please try again."
         else:
-            ctx.logger.error("❌ PHARMACY_AGENT_ADDRESS not configured")
+            ctx.logger.error("PHARMACY_AGENT_ADDRESS not configured")
             return "Sorry, the pharmacy service is not properly configured. Please contact support."
         
     except Exception as e:
@@ -1113,34 +1113,34 @@ async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str =
                 # No need to send chat messages to REST API user IDs
                 
                 await ctx.send(WELLNESS_AGENT_ADDRESS, wellness_request)
-                ctx.logger.info(f"📤 Wellness request sent (ID: {request_id}), user notified")
+                ctx.logger.info(f"Wellness request sent (ID: {request_id}), user notified")
                 
                 # Create detailed immediate response showing what was logged
                 logged_items = []
                 if wellness_data.get("sleep"):
-                    logged_items.append(f"😴 Sleep: {wellness_data['sleep']} hours")
+                    logged_items.append(f"Sleep: {wellness_data['sleep']} hours")
                 if wellness_data.get("steps"):
                     logged_items.append(f"🚶 Steps: {wellness_data['steps']:,}")
                 if wellness_data.get("exercise"):
-                    logged_items.append(f"💪 Exercise: {wellness_data['exercise']}")
+                    logged_items.append(f"Exercise: {wellness_data['exercise']}")
                 if wellness_data.get("mood"):
-                    logged_items.append(f"😊 Mood: {wellness_data['mood']}")
+                    logged_items.append(f"Mood: {wellness_data['mood']}")
                 if wellness_data.get("water_intake"):
-                    logged_items.append(f"💧 Water: {wellness_data['water_intake']} glasses")
+                    logged_items.append(f"Water: {wellness_data['water_intake']} glasses")
                 
                 if logged_items:
-                    response = f"✅ **Wellness data logged successfully!**\n\n📊 **What was recorded:**\n" + "\n".join([f"• {item}" for item in logged_items])
-                    response += f"\n\n⏰ **Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M')}"
-                    response += f"\n🔒 **Storage:** Securely saved to ICP blockchain"
+                    response = f"**Wellness data logged successfully!**\n\n**What was recorded:**\n" + "\n".join([f"• {item}" for item in logged_items])
+                    response += f"\n\n **Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                    response += f"\n **Storage:** Securely saved to ICP blockchain"
                     return response
                 else:
-                    return f"✅ **Wellness data logged:** {message}\n\n🔒 **Storage:** Securely saved to ICP blockchain"
+                    return f"**Wellness data logged:** {message}\n\n **Storage:** Securely saved to ICP blockchain"
                 
             except Exception as e:
-                ctx.logger.error(f"❌ Error communicating with WellnessAgent: {str(e)}")
+                ctx.logger.error(f" Error communicating with WellnessAgent: {str(e)}")
                 return "Sorry, there was an error connecting to the wellness service. Please try again."
         else:
-            ctx.logger.error("❌ WELLNESS_AGENT_ADDRESS not configured")
+            ctx.logger.error(" WELLNESS_AGENT_ADDRESS not configured")
             return "Sorry, the wellness service is not properly configured. Please contact support."
         
     except Exception as e:
@@ -1234,31 +1234,31 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
                    "• 'I have a headache and feel tired'\n"
                    "• 'My chest hurts when I breathe'\n"
                    "• 'What might be causing my symptoms?'\n\n"
-                   "💊 **Pharmacy & Medications:**\n"
+                   " **Pharmacy & Medications:**\n"
                    "• 'Do you have paracetamol available?'\n"
                    "• 'I need insulin for my diabetes'\n"
                    "• 'Can I buy 2 ibuprofen tablets?'\n\n"
-                   "👨‍⚕️ **Doctor Appointments:**\n"
+                   " **Doctor Appointments:**\n"
                    "• 'I need to see a heart doctor'\n"
                    "• 'Book me an appointment for my back pain'\n"
                    "• 'Schedule me with a skin specialist'\n\n"
-                   "💪 **Complete Wellness Tracking - I can log:**\n\n"
-                   "😴 **Sleep:** 'I slept 8 hours', '7.5 hrs sleep', 'got 6 hours of sleep'\n"
-                   "🚶 **Steps:** 'I walked 5,000 steps', '3000 steps today', 'walked 2 miles'\n"
-                   "🏃 **Exercise:** 'I did a 30-minute workout', 'went for a run', 'hit the gym'\n"
-                   "💧 **Water:** 'I drank 8 glasses', '2 liters today', '6 cups of water'\n"
-                   "😊 **Mood:** 'I feel happy today', 'feeling stressed', 'I'm anxious'\n\n"
-                   "💊 **Medication Reminders:**\n"
+                   " **Complete Wellness Tracking - I can log:**\n\n"
+                   " **Sleep:** 'I slept 8 hours', '7.5 hrs sleep', 'got 6 hours of sleep'\n"
+                   " **Steps:** 'I walked 5,000 steps', '3000 steps today', 'walked 2 miles'\n"
+                   " **Exercise:** 'I did a 30-minute workout', 'went for a run', 'hit the gym'\n"
+                   " **Water:** 'I drank 8 glasses', '2 liters today', '6 cups of water'\n"
+                   " **Mood:** 'I feel happy today', 'feeling stressed', 'I'm anxious'\n\n"
+                   " **Medication Reminders:**\n"
                    "• 'Remind me to take my pills at 8PM'\n\n"
-                   "🚨 **Emergency Support:**\n"
+                   " **Emergency Support:**\n"
                    "• Just type 'emergency' for urgent help\n\n"
-                   "🤖 **Smart AI Features:**\n"
+                   " **Smart AI Features:**\n"
                    "• ASI1-powered natural language understanding\n"
                    "• Context-aware conversations & follow-ups\n"
                    "• Intelligent intent classification\n"
                    "• Handles typos, synonyms & different phrasings\n"
                    "• Real-time data logging to secure ICP blockchain\n\n"
-                   "💬 **Just speak naturally - I understand everything!**")
+                   " **Just speak naturally - I understand everything!**")
         
     except Exception as e:
         ctx.logger.error(f"Error processing health query: {str(e)}")
@@ -1276,7 +1276,7 @@ agent = Agent(
 async def handle_rest_chat(ctx: Context, req: ChatRequest) -> ChatResponse:
     """Handle chat messages from Flask API via REST endpoint"""
     try:
-        ctx.logger.info(f"📨 REST API request from user {req.user_id}: {req.message}")
+        ctx.logger.info(f" REST API request from user {req.user_id}: {req.message}")
         
         # Process the health-related query using existing logic
         response_text = await process_health_query(req.message, ctx, req.user_id)
@@ -1296,11 +1296,11 @@ async def handle_rest_chat(ctx: Context, req: ChatRequest) -> ChatResponse:
             communication_status="success"
         )
         
-        ctx.logger.info(f"✅ REST API response sent to user {req.user_id}")
+        ctx.logger.info(f" REST API response sent to user {req.user_id}")
         return response
         
     except Exception as e:
-        ctx.logger.error(f"❌ REST API error: {str(e)}")
+        ctx.logger.error(f" REST API error: {str(e)}")
         
         # Return error response
         return ChatResponse(
@@ -1348,23 +1348,23 @@ async def handle_chat_message(ctx: Context, sender: str, msg: ChatMessage):
             if isinstance(item, StartSessionContent):
                 ctx.logger.info(f"Health session started with {sender}")
                 welcome_msg = (
-                    "👋 Welcome to **HealthAgent** powered by ASI1 AI! I'm your intelligent healthcare assistant.\n\n"
-                    "🤖 **AI-Enhanced Capabilities:**\n\n"
-                    "🩺 **Smart Health Analysis**\n"
+                    " Welcome to **HealthAgent** powered by ASI1 AI! I'm your intelligent healthcare assistant.\n\n"
+                    " **AI-Enhanced Capabilities:**\n\n"
+                    " **Smart Health Analysis**\n"
                     "• AI-powered symptom analysis and condition predictions\n"
                     "• Intelligent specialist recommendations\n\n"
-                    "💊 **Intelligent Pharmacy Services**\n"
+                    " **Intelligent Pharmacy Services**\n"
                     "• AI medicine name recognition from natural language\n"
                     "• Real-time inventory checking with smart alternatives\n"
                     "• Usage insights and safety recommendations\n\n"
-                    "👨‍⚕️ **Smart Appointment Booking**\n"
+                    " **Smart Appointment Booking**\n"
                     "• AI specialty matching from symptom descriptions\n"
                     "• Automated doctor selection and scheduling\n\n"
-                    "💊 **Medication Management**\n"
+                    " **Medication Management**\n"
                     "• Intelligent reminder scheduling\n\n"
-                    "💪 **Wellness Tracking**\n"
+                    " **Wellness Tracking**\n"
                     "• Health data logging and insights\n\n"
-                    "🚨 **Emergency Support**\n"
+                    " **Emergency Support**\n"
                     "• Immediate emergency response protocols\n\n"
                     "**How can I assist you with your healthcare needs today?**"
                 )
@@ -1417,9 +1417,9 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
     global DOCTOR_AGENT_ADDRESS
     
     try:
-        ctx.logger.info(f"🎯 DOCTOR PROTOCOL HANDLER TRIGGERED!")
-        ctx.logger.info(f"📨 Received booking response: {msg.status} - {msg.doctor_name}")
-        ctx.logger.info(f"📨 Response sender: {sender}, Request ID: {msg.request_id}")
+        ctx.logger.info(f" DOCTOR PROTOCOL HANDLER TRIGGERED!")
+        ctx.logger.info(f" Received booking response: {msg.status} - {msg.doctor_name}")
+        ctx.logger.info(f" Response sender: {sender}, Request ID: {msg.request_id}")
         
         # Store the DoctorAgent address for future communications
         if DOCTOR_AGENT_ADDRESS != sender:
@@ -1428,7 +1428,7 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
         
         # Check if this is a pending request
         if msg.request_id not in pending_requests:
-            ctx.logger.warning(f"⚠️ Received response for unknown request ID: {msg.request_id}")
+            ctx.logger.warning(f" Received response for unknown request ID: {msg.request_id}")
             return
         
         request_info = pending_requests[msg.request_id]
@@ -1446,9 +1446,9 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
         # Send result to user (only for direct chat users, not REST API users)
         if user_sender and not user_sender.startswith("frontend_"):
             if msg.status == "success":
-                success_message = f"✅ Appointment booked! {msg.doctor_name} ({request_info['specialty']}) on {msg.appointment_time}. Reference: {msg.appointment_id}"
+                success_message = f" Appointment booked! {msg.doctor_name} ({request_info['specialty']}) on {msg.appointment_time}. Reference: {msg.appointment_id}"
             else:
-                success_message = f"❌ Booking failed: {msg.message}"
+                success_message = f" Booking failed: {msg.message}"
             
             chat_response = ChatMessage(
                 timestamp=datetime.now(timezone.utc),
@@ -1457,17 +1457,17 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
             )
             await ctx.send(user_sender, chat_response)
         else:
-            ctx.logger.info(f"📝 Result for REST API user {user_sender}: {msg.status} - {msg.message}")
+            ctx.logger.info(f" Result for REST API user {user_sender}: {msg.status} - {msg.message}")
         
         # Clean up pending request
         del pending_requests[msg.request_id]
         if msg.request_id in user_request_mapping:
             del user_request_mapping[msg.request_id]
         
-        ctx.logger.info(f"✅ Doctor response processed successfully")
+        ctx.logger.info(f" Doctor response processed successfully")
         
     except Exception as e:
-        ctx.logger.error(f"❌ Error in doctor response handler: {str(e)}")
+        ctx.logger.error(f" Error in doctor response handler: {str(e)}")
 
 # Handler for pharmacy medicine check responses  
 @pharmacy_protocol.on_message(model=MedicineCheckResponse)
@@ -1476,10 +1476,10 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
     global PHARMACY_AGENT_ADDRESS
     
     try:
-        ctx.logger.info(f"🎯 PHARMACY PROTOCOL HANDLER TRIGGERED!")
-        ctx.logger.info(f"📨 Received medicine check response: {msg.status} - {msg.medicine}")
-        ctx.logger.info(f"📨 Response sender: {sender}, Request ID: {msg.request_id}")
-        ctx.logger.info(f"📨 Available: {msg.available}, Stock: {msg.stock}, Price: ${msg.price}")
+        ctx.logger.info(f" PHARMACY PROTOCOL HANDLER TRIGGERED!")
+        ctx.logger.info(f" Received medicine check response: {msg.status} - {msg.medicine}")
+        ctx.logger.info(f" Response sender: {sender}, Request ID: {msg.request_id}")
+        ctx.logger.info(f" Available: {msg.available}, Stock: {msg.stock}, Price: ${msg.price}")
         
         # Store the PharmacyAgent address for future communications
         if PHARMACY_AGENT_ADDRESS != sender:
@@ -1488,7 +1488,7 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
         
         # Check if this is a pending request
         if msg.request_id not in pending_requests:
-            ctx.logger.warning(f"⚠️ Received response for unknown request ID: {msg.request_id}")
+            ctx.logger.warning(f" Received response for unknown request ID: {msg.request_id}")
             return
         
         request_info = pending_requests[msg.request_id]
@@ -1511,29 +1511,29 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
             if msg.available:
                 if is_order_request:
                     # User wants to order - provide comprehensive ordering information
-                    order_message = f"✅ **{msg.medicine}** is available for purchase!\n\n"
-                    order_message += f"📦 **Stock:** {msg.stock} units available\n"
-                    order_message += f"💰 **Price:** ${msg.price:.2f} per unit\n"
-                    order_message += f"🏥 **Pharmacy:** {msg.pharmacy_name}\n\n"
+                    order_message = f" **{msg.medicine}** is available for purchase!\n\n"
+                    order_message += f" **Stock:** {msg.stock} units available\n"
+                    order_message += f" **Price:** ${msg.price:.2f} per unit\n"
+                    order_message += f" **Pharmacy:** {msg.pharmacy_name}\n\n"
                     order_message += f"**To complete your order:**\n"
                     order_message += f"• Specify quantity needed (you requested {quantity})\n"
                     order_message += f"• Example: 'Order {quantity} units of {msg.medicine}'"
                 else:
                     # Just availability check
-                    order_message = f"✅ **{msg.medicine}** is available at {msg.pharmacy_name}\n\n"
-                    order_message += f"📦 **Stock:** {msg.stock} units in inventory\n"
-                    order_message += f"💰 **Price:** ${msg.price:.2f} per unit\n\n"
+                    order_message = f" **{msg.medicine}** is available at {msg.pharmacy_name}\n\n"
+                    order_message += f" **Stock:** {msg.stock} units in inventory\n"
+                    order_message += f" **Price:** ${msg.price:.2f} per unit\n\n"
                     order_message += f"Would you like me to help you place an order for this medicine?"
             else:
                 # Unavailable message
-                order_message = f"❌ **{msg.medicine}** is currently {msg.status}\n\n"
-                order_message += f"🏥 **Pharmacy:** {msg.pharmacy_name}\n"
-                order_message += f"📝 **Details:** {msg.message}\n\n"
+                order_message = f" **{msg.medicine}** is currently {msg.status}\n\n"
+                order_message += f" **Pharmacy:** {msg.pharmacy_name}\n"
+                order_message += f" **Details:** {msg.message}\n\n"
                 
                 # Add alternative suggestions
                 alternatives = await get_medicine_alternatives(medicine_name, ctx)
                 if alternatives:
-                    order_message += f"💡 **AI Suggestions - Similar medicines you might consider:**\n"
+                    order_message += f" **AI Suggestions - Similar medicines you might consider:**\n"
                     for alt in alternatives[:3]:
                         order_message += f"• {alt}\n"
                     order_message += f"\nWould you like me to check availability for any of these alternatives?"
@@ -1545,23 +1545,23 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
             )
             await ctx.send(user_sender, chat_response)
         else:
-            ctx.logger.info(f"📝 Pharmacy result for REST API user {user_sender}: {msg.status} - {msg.medicine}")
+            ctx.logger.info(f" Pharmacy result for REST API user {user_sender}: {msg.status} - {msg.medicine}")
         
         # Clean up pending request
         del pending_requests[msg.request_id]
         if msg.request_id in user_request_mapping:
             del user_request_mapping[msg.request_id]
         
-        ctx.logger.info(f"✅ Pharmacy response processed successfully")
+        ctx.logger.info(f" Pharmacy response processed successfully")
         
     except Exception as e:
-        ctx.logger.error(f"❌ Error in pharmacy response handler: {str(e)}")
+        ctx.logger.error(f" Error in pharmacy response handler: {str(e)}")
 
 # Handler for pharmacy medicine order responses
 @pharmacy_protocol.on_message(model=MedicineOrderResponse)
 async def handle_pharmacy_order_response(ctx: Context, sender: str, msg: MedicineOrderResponse):
     """Handle medicine order responses from PharmacyAgent"""
-    ctx.logger.info(f"📨 Received medicine order response: {msg.status} - {msg.medicine}")
+    ctx.logger.info(f" Received medicine order response: {msg.status} - {msg.medicine}")
     ctx.logger.info(f"Order ID: {msg.order_id}, Total: ${msg.price}")
     # For now, just log the order response - could be extended to relay back to user
 
@@ -1572,9 +1572,9 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
     global WELLNESS_AGENT_ADDRESS
     
     try:
-        ctx.logger.info(f"🎯 WELLNESS PROTOCOL HANDLER TRIGGERED!")
-        ctx.logger.info(f"📨 Received wellness response: {msg.success} - {msg.message}")
-        ctx.logger.info(f"📨 Response sender: {sender}, Request ID: {msg.request_id}")
+        ctx.logger.info(f" WELLNESS PROTOCOL HANDLER TRIGGERED!")
+        ctx.logger.info(f" Received wellness response: {msg.success} - {msg.message}")
+        ctx.logger.info(f" Response sender: {sender}, Request ID: {msg.request_id}")
         
         # Store the WellnessAgent address for future communications
         if WELLNESS_AGENT_ADDRESS != sender:
@@ -1583,7 +1583,7 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
         
         # Check if this is a pending request
         if msg.request_id not in pending_requests:
-            ctx.logger.warning(f"⚠️ Received response for unknown request ID: {msg.request_id}")
+            ctx.logger.warning(f" Received response for unknown request ID: {msg.request_id}")
             return
         
         request_info = pending_requests[msg.request_id]
@@ -1602,16 +1602,16 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
         # Send result to user (only for direct chat users, not REST API users)
         if user_sender and not user_sender.startswith("frontend_"):
             if msg.success:
-                wellness_message = f"✅ **Wellness Data Logged Successfully!**\n\n"
+                wellness_message = f" **Wellness Data Logged Successfully!**\n\n"
                 if msg.summary:
-                    wellness_message += f"📊 **Summary:** {msg.summary}\n\n"
+                    wellness_message += f" **Summary:** {msg.summary}\n\n"
                 if msg.advice:
-                    wellness_message += f"💡 **AI Wellness Advice:**\n"
+                    wellness_message += f" **AI Wellness Advice:**\n"
                     for advice in msg.advice:
                         wellness_message += f"• {advice}\n"
             else:
-                wellness_message = f"❌ **Wellness Logging Failed**\n\n"
-                wellness_message += f"📝 **Error:** {msg.message}"
+                wellness_message = f" **Wellness Logging Failed**\n\n"
+                wellness_message += f" **Error:** {msg.message}"
             
             chat_response = ChatMessage(
                 timestamp=datetime.now(timezone.utc),
@@ -1620,23 +1620,23 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
             )
             await ctx.send(user_sender, chat_response)
         else:
-            ctx.logger.info(f"📝 Wellness result for REST API user {user_sender}: {msg.success} - {msg.message}")
+            ctx.logger.info(f" Wellness result for REST API user {user_sender}: {msg.success} - {msg.message}")
         
         # Clean up pending request
         del pending_requests[msg.request_id]
         if msg.request_id in user_request_mapping:
             del user_request_mapping[msg.request_id]
         
-        ctx.logger.info(f"✅ Wellness response processed successfully")
+        ctx.logger.info(f" Wellness response processed successfully")
         
     except Exception as e:
-        ctx.logger.error(f"❌ Error in wellness response handler: {str(e)}")
+        ctx.logger.error(f" Error in wellness response handler: {str(e)}")
 
 # ACK handler
 @ack_protocol.on_message(model=RequestACK)
 async def handle_request_ack(ctx: Context, sender: str, msg: RequestACK):
     """Handle ACK responses from other agents"""
-    ctx.logger.info(f"✅ Received ACK from {msg.agent_type} agent: {msg.message} (Request: {msg.request_id})")
+    ctx.logger.info(f" Received ACK from {msg.agent_type} agent: {msg.message} (Request: {msg.request_id})")
 
 # Include all protocols in the agent
 agent.include(chat_proto)
@@ -1649,25 +1649,25 @@ agent.include(ack_protocol)
 
 @agent.on_event("startup")
 async def health_agent_startup(ctx: Context):
-    ctx.logger.info(f"🏥 HealthAgent started")
-    ctx.logger.info(f"📋 Agent address: {agent.address}")
-    ctx.logger.info(f"🔗 Protocols registered: chat, doctor, pharmacy, wellness")
-    ctx.logger.info(f"🔍 Ready for inter-agent communication")
+    ctx.logger.info(f" HealthAgent started")
+    ctx.logger.info(f" Agent address: {agent.address}")
+    ctx.logger.info(f" Protocols registered: chat, doctor, pharmacy, wellness")
+    ctx.logger.info(f" Ready for inter-agent communication")
     
     # Initialize manual connections
     global DOCTOR_AGENT_ADDRESS
     
     if DOCTOR_AGENT_ADDRESS:
         connected_agents[DOCTOR_AGENT_ADDRESS] = "DoctorAgent"
-        ctx.logger.info(f"✅ DoctorAgent configured: {DOCTOR_AGENT_ADDRESS}")
+        ctx.logger.info(f" DoctorAgent configured: {DOCTOR_AGENT_ADDRESS}")
     else:
-        ctx.logger.info("⚠️  DoctorAgent address not configured - update DOCTOR_AGENT_ADDRESS in code")
+        ctx.logger.info("  DoctorAgent address not configured - update DOCTOR_AGENT_ADDRESS in code")
     
     if PHARMACY_AGENT_ADDRESS:
         connected_agents[PHARMACY_AGENT_ADDRESS] = "PharmacyAgent"
-        ctx.logger.info(f"✅ PharmacyAgent configured: {PHARMACY_AGENT_ADDRESS}")
+        ctx.logger.info(f" PharmacyAgent configured: {PHARMACY_AGENT_ADDRESS}")
     else:
-        ctx.logger.info("⚠️  PharmacyAgent address not configured - will be set when PharmacyAgent connects")
+        ctx.logger.info("  PharmacyAgent address not configured - will be set when PharmacyAgent connects")
 
 if __name__ == "__main__":
     print("Starting HealthAgent...")
@@ -1678,7 +1678,7 @@ if __name__ == "__main__":
 """
 HEALTH AGENT - ASI1 AI-ENHANCED SAMPLE CONVERSATIONS
 
-🧠 **AI-Powered Symptom Analysis:**
+ **AI-Powered Symptom Analysis:**
 - "I have fever and cough" → AI provides detailed condition analysis with confidence scores
 - "I'm experiencing headache and fatigue" → Smart specialist recommendations
 - "I have chest pain and shortness of breath" → Urgency assessment with emergency protocols

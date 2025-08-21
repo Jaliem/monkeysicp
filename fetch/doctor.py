@@ -330,7 +330,7 @@ async def handle_doctor_search(ctx: Context, sender: str, msg: DoctorSearchReque
 @ack_protocol.on_message(model=RequestACK)
 async def handle_request_ack(ctx: Context, sender: str, msg: RequestACK):
     """Handle ACK responses from HealthAgent"""
-    ctx.logger.info(f"✅ Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
+    ctx.logger.info(f"Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
 
 agent.include(doctor_protocol)
 agent.include(ack_protocol)

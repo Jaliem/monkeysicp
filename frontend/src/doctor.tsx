@@ -236,9 +236,6 @@ const Doctor = () => {
             <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
               Find a Doctor
             </h1>
-            <p className="text-stone-500 font-light mt-2">
-              Book appointments with healthcare specialists
-            </p>
           </div>
         </div>
 
@@ -247,7 +244,7 @@ const Doctor = () => {
           {appointments.length > 0 && (
             <div className="mb-8">
               <h2 className="text-2xl font-light text-stone-800 font-serif mb-4">
-                📅 Upcoming Appointments
+                Upcoming Appointments
               </h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
                 {appointments.map((appointment) => (
@@ -269,10 +266,10 @@ const Doctor = () => {
                     
                     <div className="flex items-center text-stone-600 space-x-4">
                       <span className="flex items-center">
-                        📅 {new Date(appointment.date).toLocaleDateString()}
+                        {new Date(appointment.date).toLocaleDateString()}
                       </span>
                       <span className="flex items-center">
-                        🕐 {appointment.time}
+                        {appointment.time}
                       </span>
                       <span className={`px-2 py-1 rounded text-xs ${
                         appointment.status === 'scheduled' ? 'bg-green-100 text-green-700' :
@@ -297,7 +294,7 @@ const Doctor = () => {
                   placeholder="Search doctors by name or specialty..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
+                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-200 font-light text-lg placeholder:opacity-30"
                 />
               </div>
               <select
@@ -355,17 +352,17 @@ const Doctor = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                      <p className="text-sm text-stone-500 font-light mb-1">📍 Location</p>
+                      <p className="text-sm text-stone-500 font-light mb-1">Location</p>
                       <p className="text-stone-700">{doctor.location}</p>
                     </div>
                     <div>
-                      <p className="text-sm text-stone-500 font-light mb-1">💰 Consultation</p>
+                      <p className="text-sm text-stone-500 font-light mb-1">Consultation</p>
                       <p className="text-stone-700">${doctor.price}</p>
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <p className="text-sm text-stone-500 font-light mb-2">🗣️ Languages</p>
+                    <p className="text-sm text-stone-500 font-light mb-2">Languages</p>
                     <div className="flex flex-wrap gap-2">
                       {doctor.languages.map((language, index) => (
                         <span key={index} className="px-2 py-1 bg-stone-100 text-stone-600 rounded text-xs font-light">
@@ -376,7 +373,7 @@ const Doctor = () => {
                   </div>
 
                   <div className="mb-6">
-                    <p className="text-sm text-stone-500 font-light mb-2">📅 Next Available</p>
+                    <p className="text-sm text-stone-500 font-light mb-2">Next Available</p>
                     <div className="flex flex-wrap gap-2">
                       {doctor.availability.slice(0, 3).map((date, index) => (
                         <span key={index} className="px-3 py-1 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-light border border-emerald-200">
@@ -430,7 +427,7 @@ const Doctor = () => {
 
             <div className="p-6 space-y-6">
               <div>
-                <label className="block text-stone-700 font-light mb-2">📅 Select Date</label>
+                <label className="block text-stone-700 font-light mb-2">Select Date</label>
                 <select
                   value={bookingData.date}
                   onChange={(e) => setBookingData(prev => ({ ...prev, date: e.target.value }))}
@@ -451,7 +448,7 @@ const Doctor = () => {
               </div>
 
               <div>
-                <label className="block text-stone-700 font-light mb-2">🕐 Select Time</label>
+                <label className="block text-stone-700 font-light mb-2">Select Time</label>
                 <select
                   value={bookingData.time}
                   onChange={(e) => setBookingData(prev => ({ ...prev, time: e.target.value }))}
@@ -468,7 +465,7 @@ const Doctor = () => {
               </div>
 
               <div>
-                <label className="block text-stone-700 font-light mb-2">🩺 Appointment Type</label>
+                <label className="block text-stone-700 font-light mb-2">Appointment Type</label>
                 <select
                   value={bookingData.type}
                   onChange={(e) => setBookingData(prev => ({ ...prev, type: e.target.value as any }))}
@@ -481,7 +478,7 @@ const Doctor = () => {
               </div>
 
               <div>
-                <label className="block text-stone-700 font-light mb-2">📝 Symptoms/Reason</label>
+                <label className="block text-stone-700 font-light mb-2">Symptoms/Reason</label>
                 <textarea
                   value={bookingData.symptoms}
                   onChange={(e) => setBookingData(prev => ({ ...prev, symptoms: e.target.value }))}
@@ -492,7 +489,7 @@ const Doctor = () => {
               </div>
 
               <div>
-                <label className="block text-stone-700 font-light mb-2">💭 Additional Notes</label>
+                <label className="block text-stone-700 font-light mb-2">Additional Notes</label>
                 <textarea
                   value={bookingData.notes}
                   onChange={(e) => setBookingData(prev => ({ ...prev, notes: e.target.value }))}
