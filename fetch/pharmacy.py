@@ -23,14 +23,22 @@ agent = Agent(
     mailbox=True,
 )
 
+# === Agent communication with request tracking ===
+class RequestACK(Model):
+    request_id: str
+    agent_type: str = "pharmacy"
+    message: str = "Request received and processing"
+    timestamp: str
+
 # === Message Models for HealthAgent Communication ===
 class MedicineCheckRequest(Model):
+    request_id: str  # For correlation
     medicine_name: str
     quantity: Optional[int] = 1
     prescription_id: Optional[str] = None
-    # Remove request_id since send_and_receive handles correlation automatically
 
 class MedicineCheckResponse(Model):
+    request_id: str  # Echo back for correlation
     type: str = "MedicineCheckResponse"
     medicine: str
     available: bool
@@ -39,7 +47,6 @@ class MedicineCheckResponse(Model):
     pharmacy_name: str = "HealthPlus Pharmacy"
     status: str
     message: str
-    # Remove request_id since send_and_receive handles correlation automatically
 
 class MedicineOrderRequest(Model):
     medicine_id: str
@@ -240,6 +247,7 @@ def format_medicine_alternatives(alternatives: List[dict]) -> List[dict]:
 
 # === Protocol Definition ===
 pharmacy_protocol = Protocol(name="PharmacyProtocol", version="1.0")
+ack_protocol = Protocol(name="ACKProtocol", version="1.0")
 
 @pharmacy_protocol.on_message(model=MedicineCheckRequest, replies=MedicineCheckResponse)
 async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckRequest):
@@ -254,6 +262,7 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
         # TEMPORARY: Skip ICP call for testing - just return a quick response
         if msg.medicine_name.lower() == "test":
             response = MedicineCheckResponse(
+                request_id=msg.request_id,
                 medicine="Test Medicine",
                 available=True,
                 stock=100,
@@ -272,6 +281,7 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
             
             if "error" in search_result:
                 response = MedicineCheckResponse(
+                    request_id=msg.request_id,
                     medicine=msg.medicine_name,
                     available=False,
                     status="error",
@@ -279,6 +289,7 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
                 )
             elif not search_result.get("medicines", []):
                 response = MedicineCheckResponse(
+                    request_id=msg.request_id,
                     medicine=msg.medicine_name,
                     available=False,
                     status="not_found",
@@ -295,6 +306,7 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
                 is_available = stock_level > 0
                 
                 response = MedicineCheckResponse(
+                    request_id=msg.request_id,
                     medicine=medicine.get("name", msg.medicine_name),
                     available=is_available,
                     stock=medicine.get("stock", 0),
@@ -304,6 +316,14 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
                     if is_available 
                     else f"Medicine '{msg.medicine_name}' is currently out of stock"
                 )
+        
+        # Send immediate ACK
+        ack = RequestACK(
+            request_id=msg.request_id,
+            message=f"Medicine check received and processed: {msg.medicine_name}",
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        await ctx.send(sender, ack)
         
         ctx.logger.info(f"Sending medicine check response: {response.status}")
         send_start = time.time()
@@ -315,6 +335,7 @@ async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckReq
     except Exception as e:
         ctx.logger.error(f"Error handling medicine check: {str(e)}")
         error_response = MedicineCheckResponse(
+            request_id=msg.request_id,
             medicine=msg.medicine_name,
             available=False,
             status="error",
@@ -393,8 +414,15 @@ async def handle_medicine_order(ctx: Context, sender: str, msg: MedicineOrderReq
         )
         await ctx.send(sender, error_response)
 
-# Include protocol in agent
+# ACK handler
+@ack_protocol.on_message(model=RequestACK)
+async def handle_request_ack(ctx: Context, sender: str, msg: RequestACK):
+    """Handle ACK responses from HealthAgent"""
+    ctx.logger.info(f"✅ Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
+
+# Include protocols in agent
 agent.include(pharmacy_protocol)
+agent.include(ack_protocol)
 
 @agent.on_event("startup")
 async def pharmacy_agent_startup(ctx: Context):
