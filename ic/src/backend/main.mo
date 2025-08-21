@@ -355,13 +355,13 @@ persistent actor {
     };
     medicines.add(("med_008", omeprazole));
     
-    // Out of stock example
+    // Diabetes medication
     let insulin : Types.Medicine = {
       medicine_id = "med_009";
       name = "Insulin Glargine";
       generic_name = ?"Insulin Glargine";
       category = "Diabetes";
-      stock = 0;
+      stock = 25;
       price = 89.99;
       manufacturer = ?"DiabetesCare";
       description = ?"Long-acting insulin";
@@ -370,6 +370,22 @@ persistent actor {
       dosage = ?"As prescribed by physician";
     };
     medicines.add(("med_009", insulin));
+    
+    // Regular Insulin for broader search matching
+    let regular_insulin : Types.Medicine = {
+      medicine_id = "med_010";
+      name = "Insulin";
+      generic_name = ?"Human Insulin";
+      category = "Diabetes";
+      stock = 40;
+      price = 75.50;
+      manufacturer = ?"DiabetesCare";
+      description = ?"Regular human insulin";
+      requires_prescription = true;
+      active_ingredient = ?"Human Insulin 100 units/mL";
+      dosage = ?"As prescribed by physician";
+    };
+    medicines.add(("med_010", regular_insulin));
     
     Debug.print("[INIT]: Added " # Nat.toText(medicines.size()) # " medicines to database");
   };

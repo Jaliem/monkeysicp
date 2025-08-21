@@ -28,6 +28,7 @@ class MedicineCheckRequest(Model):
     medicine_name: str
     quantity: Optional[int] = 1
     prescription_id: Optional[str] = None
+    # Remove request_id since send_and_receive handles correlation automatically
 
 class MedicineCheckResponse(Model):
     type: str = "MedicineCheckResponse"
@@ -38,6 +39,7 @@ class MedicineCheckResponse(Model):
     pharmacy_name: str = "HealthPlus Pharmacy"
     status: str
     message: str
+    # Remove request_id since send_and_receive handles correlation automatically
 
 class MedicineOrderRequest(Model):
     medicine_id: str
@@ -58,6 +60,31 @@ class MedicineOrderResponse(Model):
     suggested_alternatives: Optional[List[dict]] = None
 
 # === ICP Integration Functions ===
+def parse_medicine_data(medicine_data: dict) -> dict:
+    """Parse medicine data with numeric keys from ICP backend to proper field names"""
+    # Mapping of numeric keys to field names based on the Medicine type structure
+    # This is a workaround for the JSON serialization issue in the backend
+    key_mapping = {
+        '1_098_344_064': 'medicine_id',
+        '1_224_700_491': 'name', 
+        '1_026_369_715': 'generic_name',
+        '2_909_547_262': 'category',
+        '2_216_036_054': 'stock',
+        '3_364_572_809': 'price',
+        '341_121_617': 'manufacturer',
+        '1_595_738_364': 'description',
+        '3_699_773_643': 'requires_prescription',
+        '819_652_970': 'active_ingredient',
+        '829_945_655': 'dosage'
+    }
+    
+    parsed_medicine = {}
+    for numeric_key, value in medicine_data.items():
+        field_name = key_mapping.get(numeric_key, numeric_key)
+        parsed_medicine[field_name] = value
+    
+    return parsed_medicine
+
 async def get_from_icp(endpoint: str, params: dict = None) -> dict:
     """Retrieve data from ICP canister backend"""
     try:
@@ -75,7 +102,7 @@ async def post_to_icp(endpoint: str, data: dict) -> dict:
     """Send data to ICP canister backend"""
     try:
         url = f"{BASE_URL}/{endpoint}"
-        response = requests.post(url, headers=HEADERS, json=data, timeout=30)
+        response = requests.post(url, headers=HEADERS, json=data, timeout=10)  # Reduced from 30s to 10s
         response.raise_for_status()
         return response.json()
     except Exception as e:
@@ -85,11 +112,16 @@ async def post_to_icp(endpoint: str, data: dict) -> dict:
 async def search_medicine_by_name(medicine_name: str, ctx: Context) -> dict:
     """Search for medicines by name in ICP backend"""
     try:
-        ctx.logger.info(f"Searching for medicine: {medicine_name}")
+        import time
+        search_start = time.time()
+        ctx.logger.info(f"⏱️ [ICP] Starting ICP search for: {medicine_name}")
         
         # Search medicines by name using ICP backend
         search_params = {"medicine_name": medicine_name}
+        icp_start = time.time()
         icp_result = await post_to_icp("search-medicines-by-name", search_params)
+        icp_end = time.time()
+        ctx.logger.info(f"⏱️ [ICP] ICP call took {icp_end - icp_start:.2f}s")
         
         if "error" in icp_result:
             ctx.logger.error(f"ICP search error: {icp_result['error']}")
@@ -98,7 +130,20 @@ async def search_medicine_by_name(medicine_name: str, ctx: Context) -> dict:
         medicines = icp_result.get("medicines", [])
         ctx.logger.info(f"Found {len(medicines)} medicines for '{medicine_name}'")
         
-        return {"medicines": medicines, "total_count": len(medicines)}
+        # Parse medicines with numeric keys to proper field names
+        parse_start = time.time()
+        parsed_medicines = [parse_medicine_data(med) for med in medicines]
+        parse_end = time.time()
+        ctx.logger.info(f"⏱️ [PARSE] Parsing took {parse_end - parse_start:.2f}s")
+        
+        # Debug: Log first medicine details if found
+        if parsed_medicines:
+            ctx.logger.info(f"First parsed medicine: {parsed_medicines[0]}")
+        
+        total_time = parse_end - search_start
+        ctx.logger.info(f"⏱️ [TOTAL] Search function completed in {total_time:.2f}s")
+        
+        return {"medicines": parsed_medicines, "total_count": len(parsed_medicines)}
         
     except Exception as e:
         ctx.logger.error(f"Error searching medicine: {str(e)}")
@@ -116,6 +161,10 @@ async def get_medicine_inventory(medicine_id: str, ctx: Context) -> dict:
         if "error" in icp_result:
             ctx.logger.error(f"ICP inventory error: {icp_result['error']}")
             return {"error": icp_result["error"]}
+        
+        # Parse the medicine data if it exists
+        if "medicine" in icp_result and icp_result["medicine"]:
+            icp_result["medicine"] = parse_medicine_data(icp_result["medicine"])
         
         return icp_result
         
@@ -163,7 +212,10 @@ async def get_available_medicines(ctx: Context) -> dict:
         medicines = icp_result.get("medicines", [])
         ctx.logger.info(f"Found {len(medicines)} available medicines")
         
-        return {"medicines": medicines, "total_count": len(medicines)}
+        # Parse medicines with numeric keys to proper field names
+        parsed_medicines = [parse_medicine_data(med) for med in medicines]
+        
+        return {"medicines": parsed_medicines, "total_count": len(parsed_medicines)}
         
     except Exception as e:
         ctx.logger.error(f"Error getting available medicines: {str(e)}")
@@ -173,13 +225,16 @@ def format_medicine_alternatives(alternatives: List[dict]) -> List[dict]:
     """Format alternative medicine suggestions for response"""
     formatted_alternatives = []
     for alt in alternatives[:3]:  # Limit to top 3 alternatives
+        # Parse the alternative medicine data
+        parsed_alt = parse_medicine_data(alt) if isinstance(alt, dict) and any(k.isdigit() for k in alt.keys() if '_' in k) else alt
+        
         formatted_alternatives.append({
-            "medicine_id": alt.get("medicine_id", ""),
-            "name": alt.get("name", ""),
-            "price": alt.get("price", 0.0),
-            "stock": alt.get("stock", 0),
-            "category": alt.get("category", ""),
-            "description": alt.get("description", "")
+            "medicine_id": parsed_alt.get("medicine_id", ""),
+            "name": parsed_alt.get("name", ""),
+            "price": parsed_alt.get("price", 0.0),
+            "stock": parsed_alt.get("stock", 0),
+            "category": parsed_alt.get("category", ""),
+            "description": parsed_alt.get("description", "")
         })
     return formatted_alternatives
 
@@ -190,44 +245,72 @@ pharmacy_protocol = Protocol(name="PharmacyProtocol", version="1.0")
 async def handle_medicine_check(ctx: Context, sender: str, msg: MedicineCheckRequest):
     """Handle medicine availability check requests from HealthAgent"""
     
+    import time
+    start_time = time.time()
+    ctx.logger.info(f"⏱️ [TIMING] Started processing request at {start_time}")
     ctx.logger.info(f"Received medicine check request from {sender}: {msg.medicine_name}")
     
     try:
-        # Search for the medicine by name
-        search_result = await search_medicine_by_name(msg.medicine_name, ctx)
-        
-        if "error" in search_result:
+        # TEMPORARY: Skip ICP call for testing - just return a quick response
+        if msg.medicine_name.lower() == "test":
             response = MedicineCheckResponse(
-                medicine=msg.medicine_name,
-                available=False,
-                status="error",
-                message=f"Error checking medicine availability: {search_result['error']}"
+                medicine="Test Medicine",
+                available=True,
+                stock=100,
+                price=5.99,
+                status="available",
+                message="Test response - no ICP call made"
             )
-        elif not search_result.get("medicines", []):
-            response = MedicineCheckResponse(
-                medicine=msg.medicine_name,
-                available=False,
-                status="not_found",
-                message=f"Medicine '{msg.medicine_name}' not found in our inventory"
-            )
+            ctx.logger.info(f"⏱️ [TEST] Using test response, skipping ICP")
         else:
-            # Get the first matching medicine
-            medicine = search_result["medicines"][0]
-            is_available = medicine.get("stock", 0) > 0
+            # Normal ICP flow
+            # Search for the medicine by name
+            search_start = time.time()
+            search_result = await search_medicine_by_name(msg.medicine_name, ctx)
+            search_end = time.time()
+            ctx.logger.info(f"⏱️ [TIMING] Medicine search took {search_end - search_start:.2f}s")
             
-            response = MedicineCheckResponse(
-                medicine=medicine.get("name", msg.medicine_name),
-                available=is_available,
-                stock=medicine.get("stock", 0),
-                price=medicine.get("price", 0.0),
-                status="available" if is_available else "out_of_stock",
-                message=f"Medicine found. Stock: {medicine.get('stock', 0)} units, Price: ${medicine.get('price', 0.0):.2f}"
-                if is_available 
-                else f"Medicine '{msg.medicine_name}' is currently out of stock"
-            )
+            if "error" in search_result:
+                response = MedicineCheckResponse(
+                    medicine=msg.medicine_name,
+                    available=False,
+                    status="error",
+                    message=f"Error checking medicine availability: {search_result['error']}"
+                )
+            elif not search_result.get("medicines", []):
+                response = MedicineCheckResponse(
+                    medicine=msg.medicine_name,
+                    available=False,
+                    status="not_found",
+                    message=f"Medicine '{msg.medicine_name}' not found in our inventory"
+                )
+            else:
+                # Get the first matching medicine
+                medicine = search_result["medicines"][0]
+                ctx.logger.info(f"Medicine data: {medicine}")
+                
+                stock_level = medicine.get("stock", 0)
+                ctx.logger.info(f"Stock level for {medicine.get('name', 'Unknown')}: {stock_level}")
+                
+                is_available = stock_level > 0
+                
+                response = MedicineCheckResponse(
+                    medicine=medicine.get("name", msg.medicine_name),
+                    available=is_available,
+                    stock=medicine.get("stock", 0),
+                    price=medicine.get("price", 0.0),
+                    status="available" if is_available else "out_of_stock",
+                    message=f"Medicine found. Stock: {medicine.get('stock', 0)} units, Price: ${medicine.get('price', 0.0):.2f}"
+                    if is_available 
+                    else f"Medicine '{msg.medicine_name}' is currently out of stock"
+                )
         
         ctx.logger.info(f"Sending medicine check response: {response.status}")
+        send_start = time.time()
         await ctx.send(sender, response)
+        send_end = time.time()
+        total_time = send_end - start_time
+        ctx.logger.info(f"⏱️ [TIMING] Response sent in {send_end - send_start:.2f}s, total processing: {total_time:.2f}s")
         
     except Exception as e:
         ctx.logger.error(f"Error handling medicine check: {str(e)}")
@@ -399,7 +482,7 @@ PharmacyAgent -> HealthAgent:
 - Stock management with automatic updates
 - Prescription validation for controlled medicines  
 - Alternative medicine suggestions when out of stock
-- Order confirmation with pickup instructions
+- Order confirmatiwon with pickup instructions
 - JSON-only structured responses
 - Error handling for all edge cases
 """

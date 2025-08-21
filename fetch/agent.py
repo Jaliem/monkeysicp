@@ -530,7 +530,13 @@ async def handle_doctor_booking_confirmation(sender: str, ctx: Context) -> str:
     clear_user_context(sender)
     
     # Send immediate confirmation
-    await ctx.send(sender, "✅ Booking confirmed! I'm finding you a doctor and scheduling your appointment...")
+    confirmation_message = "✅ Booking confirmed! I'm finding you a doctor and scheduling your appointment..."
+    chat_response = ChatMessage(
+        timestamp=datetime.now(timezone.utc),
+        msg_id=uuid4(),
+        content=[TextContent(type="text", text=confirmation_message)]
+    )
+    await ctx.send(sender, chat_response)
     
     # Route to doctor booking agent (this will send detailed results later)
     booking_result = await route_to_doctor_agent(f"book {doctor}", ctx, sender)
@@ -808,14 +814,24 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
                             
                             # Send detailed results to user if user_sender is provided
                             if user_sender:
-                                await ctx.send(user_sender, success_message)
+                                chat_response = ChatMessage(
+                                    timestamp=datetime.now(timezone.utc),
+                                    msg_id=uuid4(),
+                                    content=[TextContent(type="text", text=success_message)]
+                                )
+                                await ctx.send(user_sender, chat_response)
                                 return "Booking details sent to user"
                             else:
                                 return success_message
                         else:
                             error_message = f"❌ Booking failed: {response.message}"
                             if user_sender:
-                                await ctx.send(user_sender, error_message)
+                                chat_response = ChatMessage(
+                                    timestamp=datetime.now(timezone.utc),
+                                    msg_id=uuid4(),
+                                    content=[TextContent(type="text", text=error_message)]
+                                )
+                                await ctx.send(user_sender, chat_response)
                                 return "Error details sent to user"
                             else:
                                 return error_message
@@ -844,14 +860,24 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
                         success_message = f"✅ Appointment booked! {response.doctor_name} on {response.appointment_time}. Reference: {response.appointment_id}"
                         
                         if user_sender:
-                            await ctx.send(user_sender, success_message)
+                            chat_response = ChatMessage(
+                                timestamp=datetime.now(timezone.utc),
+                                msg_id=uuid4(),
+                                content=[TextContent(type="text", text=success_message)]
+                            )
+                            await ctx.send(user_sender, chat_response)
                             return "Booking details sent to user"
                         else:
                             return success_message
                     else:
                         error_message = f"❌ Booking failed: {response.message}"
                         if user_sender:
-                            await ctx.send(user_sender, error_message)
+                            chat_response = ChatMessage(
+                                timestamp=datetime.now(timezone.utc),
+                                msg_id=uuid4(),
+                                content=[TextContent(type="text", text=error_message)]
+                            )
+                            await ctx.send(user_sender, chat_response)
                             return "Error details sent to user"
                         else:
                             return error_message
@@ -866,7 +892,12 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
                 
                 timeout_message = "Sorry, the doctor booking service is not responding right now. Please try again in a moment."
                 if user_sender:
-                    await ctx.send(user_sender, timeout_message)
+                    chat_response = ChatMessage(
+                        timestamp=datetime.now(timezone.utc),
+                        msg_id=uuid4(),
+                        content=[TextContent(type="text", text=timeout_message)]
+                    )
+                    await ctx.send(user_sender, chat_response)
                     return "Timeout message sent to user"
                 else:
                     return timeout_message
@@ -1050,7 +1081,13 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                                 order_message += f"Would you like me to help you place an order for this medicine?"
                             
                             if user_sender:
-                                await ctx.send(user_sender, order_message)
+                                # Send as ChatMessage with TextContent
+                                chat_response = ChatMessage(
+                                    timestamp=datetime.now(timezone.utc),
+                                    msg_id=uuid4(),
+                                    content=[TextContent(type="text", text=order_message)]
+                                )
+                                await ctx.send(user_sender, chat_response)
                                 return "Enhanced medicine availability sent to user"
                             else:
                                 return order_message
@@ -1069,7 +1106,13 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                                 unavailable_message += f"\nWould you like me to check availability for any of these alternatives?"
                             
                             if user_sender:
-                                await ctx.send(user_sender, unavailable_message)
+                                # Send as ChatMessage with TextContent
+                                chat_response = ChatMessage(
+                                    timestamp=datetime.now(timezone.utc),
+                                    msg_id=uuid4(),
+                                    content=[TextContent(type="text", text=unavailable_message)]
+                                )
+                                await ctx.send(user_sender, chat_response)
                                 return "Enhanced unavailability info sent to user"
                             else:
                                 return unavailable_message
@@ -1081,7 +1124,13 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                 ctx.logger.warning(f"⚠️ No response from PharmacyAgent after {max_wait_time}s")
                 timeout_message = "Sorry, the pharmacy service is not responding right now. Please try again in a moment."
                 if user_sender:
-                    await ctx.send(user_sender, timeout_message)
+                    # Send as ChatMessage with TextContent
+                    chat_response = ChatMessage(
+                        timestamp=datetime.now(timezone.utc),
+                        msg_id=uuid4(),
+                        content=[TextContent(type="text", text=timeout_message)]
+                    )
+                    await ctx.send(user_sender, chat_response)
                     return "Timeout message sent to user"
                 else:
                     return timeout_message
