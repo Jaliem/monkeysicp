@@ -22,8 +22,16 @@ agent = Agent(
     mailbox=True,
 )
 
+# === Agent communication with request tracking ===
+class RequestACK(Model):
+    request_id: str
+    agent_type: str = "doctor"
+    message: str = "Request received and processing"
+    timestamp: str
+
 # === Message Models for HealthAgent Communication ===
 class DoctorBookingRequest(Model):
+    request_id: str  # For correlation
     specialty: str
     preferred_time: str
     urgency: str = "normal"
@@ -31,6 +39,7 @@ class DoctorBookingRequest(Model):
     user_id: str = "user123"
 
 class DoctorBookingResponse(Model):
+    request_id: str  # Echo back for correlation
     status: str
     doctor_name: Optional[str] = None
     appointment_time: Optional[str] = None
@@ -195,6 +204,7 @@ async def book_appointment(doctor_info: dict, preferred_time: str, urgency: str,
 
 # === Protocol ===
 doctor_protocol = Protocol(name="DoctorBookingProtocol", version="1.0")
+ack_protocol = Protocol(name="ACKProtocol", version="1.0")
 
 @doctor_protocol.on_message(model=DoctorBookingRequest, replies=DoctorBookingResponse)
 async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingRequest):
@@ -211,9 +221,18 @@ async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingReq
         available_doctors = await search_doctors_by_specialty(msg.specialty)
         ctx.logger.info(f"Step 1 complete: Found {len(available_doctors)} doctors")
         
+        # Send immediate ACK
+        ack = RequestACK(
+            request_id=msg.request_id,
+            message=f"Doctor booking request received for {msg.specialty}",
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        await ctx.send(sender, ack)
+        
         if not available_doctors:
             ctx.logger.warning(f"No doctors found for specialty: {msg.specialty}")
             response = DoctorBookingResponse(
+                request_id=msg.request_id,
                 status="error",
                 message=f"No doctors found for specialty: {msg.specialty}"
             )
@@ -235,6 +254,7 @@ async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingReq
             
             if booking_result["success"]:
                 response = DoctorBookingResponse(
+                    request_id=msg.request_id,
                     status="success",
                     doctor_name=booking_result["doctor_name"],
                     appointment_time=booking_result["appointment_time"],
@@ -244,6 +264,7 @@ async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingReq
                 ctx.logger.info(f"SUCCESS: Appointment booked: {booking_result['appointment_id']}")
             else:
                 response = DoctorBookingResponse(
+                    request_id=msg.request_id,
                     status="error",
                     message=booking_result["error"]
                 )
@@ -267,6 +288,7 @@ async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingReq
     except Exception as e:
         ctx.logger.error(f"EXCEPTION in booking handler: {str(e)}")
         error_response = DoctorBookingResponse(
+            request_id=msg.request_id,
             status="error",
             message=f"Internal error: {str(e)}"
         )
@@ -299,7 +321,14 @@ async def handle_doctor_search(ctx: Context, sender: str, msg: DoctorSearchReque
         )
         await ctx.send(sender, error_response)
 
+# ACK handler
+@ack_protocol.on_message(model=RequestACK)
+async def handle_request_ack(ctx: Context, sender: str, msg: RequestACK):
+    """Handle ACK responses from HealthAgent"""
+    ctx.logger.info(f"✅ Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
+
 agent.include(doctor_protocol)
+agent.include(ack_protocol)
 
 @agent.on_event("startup")
 async def startup(ctx: Context):
