@@ -39,7 +39,6 @@ const Wellness = () => {
 
   const [wellnessHistory, setWellnessHistory] = useState<WellnessData[]>([]);
   const [isLogging, setIsLogging] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadWellnessData = async () => {
@@ -50,14 +49,15 @@ const Wellness = () => {
         if (wellnessResponse.logs && wellnessResponse.logs.length > 0) {
           // Parse wellness logs (handle numeric keys from Motoko serialization)
           const parsedLogs = wellnessResponse.logs.map((log: any) => {
-            // Extract data from numeric keys based on WellnessLog key order: ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"]
-            const user_id = log["1_869_947_023"] || log.user_id || 'user123'; // user_id field (index 0)
-            const date = log["1_113_806_382"] || log.date || new Date().toISOString().split('T')[0]; // date field (index 1)
-            const sleep = log["1_152_427_284"] || log.sleep || 0; // sleep field (index 2)
-            const steps = log["2_215_541_671"] || log.steps || 0; // steps field (index 3)  
-            const exercise = log["1_214_307_575"] || log.exercise || 'Not logged'; // exercise field (index 4)
-            const mood = log["1_450_210_392"] || log.mood || 'Unknown'; // mood field (index 5)
-            const water = log["2_126_822_679"] || log.water_intake || 0; // water_intake field (index 6)
+            // Extract data from numeric keys based on actual JSON serialization behavior
+            const date = log["1_113_806_382"] || log.date || new Date().toISOString().split('T')[0]; // date
+            // user_id not used in display, but available if needed
+            // const user_id = log["1_869_947_023"] || log.user_id || 'user123';  
+            const sleep = log["2_126_822_679"] || log.sleep || 0; // sleep data appears in this key
+            const water = log["1_152_427_284"] || log.water_intake || 0; // water_intake
+            const mood = log["1_450_210_392"] || log.mood || 'Unknown'; // mood
+            const exercise = log["1_214_307_575"] || log.exercise || 'Not logged'; // exercise
+            const steps = log["2_215_541_671"] || log.steps || 0; // steps
             
             return {
               sleep: typeof sleep === 'number' ? sleep : (sleep !== null ? parseFloat(sleep) || 0 : 0),
@@ -73,15 +73,20 @@ const Wellness = () => {
           
           // Calculate weekly summary from real data
           if (parsedLogs.length > 0) {
-            const recentLogs = parsedLogs.slice(-7); // Last 7 days
-            const totalSleep = recentLogs.reduce((sum, log) => sum + log.sleep, 0);
-            const totalSteps = recentLogs.reduce((sum, log) => sum + log.steps, 0);
-            const totalWater = recentLogs.reduce((sum, log) => sum + log.water, 0);
-            const exerciseDays = recentLogs.filter(log => log.exercise && log.exercise !== 'Not logged').length;
+            const recentLogs = parsedLogs.slice(-7); // Last 7 days of logs
+            
+            const totalSleep = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.sleep, 0);
+            const totalSteps = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.steps, 0);
+            const totalWater = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.water, 0);
+            const exerciseDays = recentLogs.filter((log: WellnessData) => log.exercise && log.exercise !== 'Not logged').length;
+            
+            // Count days with actual data for accurate averages
+            const sleepDays = recentLogs.filter(log => log.sleep > 0).length;
+            const waterDays = recentLogs.filter(log => log.water > 0).length;
             
             // Find most common mood
             const moodCounts: Record<string, number> = {};
-            recentLogs.forEach(log => {
+            recentLogs.forEach((log: WellnessData) => {
               if (log.mood && log.mood !== 'Unknown') {
                 moodCounts[log.mood] = (moodCounts[log.mood] || 0) + 1;
               }
@@ -91,15 +96,15 @@ const Wellness = () => {
             );
             
             setWeeklySummary({
-              avgSleep: recentLogs.length > 0 ? totalSleep / recentLogs.length : 0,
+              avgSleep: sleepDays > 0 ? totalSleep / sleepDays : 0, // Average over actual sleep days
               totalSteps: totalSteps,
-              avgWater: recentLogs.length > 0 ? totalWater / recentLogs.length : 0,
+              avgWater: waterDays > 0 ? totalWater / waterDays : 0, // Average over actual water days
               mostCommonMood: mostCommonMood,
               exerciseDays: exerciseDays
             });
             
             // Set today's data if available
-            const todayLog = parsedLogs.find(log => log.date === new Date().toISOString().split('T')[0]);
+            const todayLog = parsedLogs.find((log: WellnessData) => log.date === new Date().toISOString().split('T')[0]);
             if (todayLog) {
               setTodayData(todayLog);
             }
@@ -110,7 +115,7 @@ const Wellness = () => {
         console.error('Error loading wellness data from backend:', error);
         // Keep default/empty state if backend is unavailable
       } finally {
-        setIsLoading(false);
+        // Loading complete
       }
     };
     

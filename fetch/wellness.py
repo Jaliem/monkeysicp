@@ -3,9 +3,11 @@ import datetime
 import aiohttp
 import json
 import re
+import os
 from typing import Optional, List
 from uagents import Agent, Context, Model, Protocol
 import requests # Using requests for synchronous ICP calls for simplicity
+from dotenv import load_dotenv
 
 # --- Agent communication with request tracking ---
 class RequestACK(Model):
@@ -51,9 +53,17 @@ class WellnessAdviceResponse(Model):
     success: bool = True
     message: str = ""
 
+# Load environment variables
+load_dotenv()
+
+# Try to load from the ic/.env file first, then fallback to current directory
+ic_env_path = os.path.join(os.path.dirname(__file__), '..', 'ic', '.env')
+if os.path.exists(ic_env_path):
+    load_dotenv(ic_env_path)
+
 # --- ICP & LLM Configuration (MERGED FROM DOCTOR.PY) ---
-CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"
-BASE_URL = "http://127.0.0.1:4943"
+CANISTER_ID = os.getenv("CANISTER_ID_BACKEND", "uxrrr-q7777-77774-qaaaq-cai")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:4943")
 
 HEADERS = {
     "Host": f"{CANISTER_ID}.localhost",

@@ -21,7 +21,7 @@ from pydantic import BaseModel
 load_dotenv()
 
 # ICP Canister settings for healthcare backend
-CANISTER_ID = os.getenv("CANISTER_ID", "uxrrr-q7777-77774-qaaaq-cai")
+CANISTER_ID = os.getenv("CANISTER_ID_BACKEND", "uxrrr-q7777-77774-qaaaq-cai")
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:4943")
 
 HEADERS = {
@@ -1158,8 +1158,8 @@ def parse_wellness_message(message: str) -> dict:
     print(f"[DEBUG] Parsing message: '{message}'")
     print(f"[DEBUG] Message lower: '{message_lower}'")
     
-    # Parse sleep data - handle "slept 8 hours" and "8 hours sleep"
-    sleep_match = re.search(r'([0-9\.]+)\s*(?:hours?|hrs?).*?(?:sleep|slept)', message_lower) or re.search(r'(?:sleep|slept).*?([0-9\.]+)\s*(?:hours?|hrs?)', message_lower)
+    # Parse sleep data - handle "slept 8 hours", "8 hours sleep", and "I slept 8 hours"
+    sleep_match = re.search(r'(?:sleep|slept)\s+([0-9\.]+)\s*(?:hours?|hrs?)', message_lower) or re.search(r'([0-9\.]+)\s*(?:hours?|hrs?).*?(?:sleep|slept)', message_lower)
     if sleep_match:
         wellness_data["sleep"] = float(sleep_match.group(1))
         wellness_data["type"] = "sleep"

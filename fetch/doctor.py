@@ -1,13 +1,18 @@
 import requests
 import json
+import os
+from dotenv import load_dotenv
 from uagents import Agent, Context, Protocol, Model
 from datetime import datetime, timezone
 from uuid import uuid4
 from typing import Optional
 
+# Load environment variables
+load_dotenv()
+
 # === Configuration ===
-CANISTER_ID = "uxrrr-q7777-77774-qaaaq-cai"  # Updated to match HealthAgent canister
-BASE_URL = "http://127.0.0.1:4943"
+CANISTER_ID = os.getenv("CANISTER_ID_BACKEND", "uxrrr-q7777-77774-qaaaq-cai")
+BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:4943")
 
 HEADERS = {
     "Host": f"{CANISTER_ID}.localhost",

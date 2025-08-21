@@ -2,6 +2,10 @@
 
 const AGENT_BASE_URL = 'http://localhost:8000';
 
+// Get canister ID from environment variables
+const CANISTER_ID = import.meta.env.VITE_CANISTER_ID || import.meta.env.VITE_CANISTER_ID_BACKEND || 'uxrrr-q7777-77774-qaaaq-cai';
+const ICP_BASE_URL = `http://${CANISTER_ID}.localhost:4943`;
+
 // API Response types
 interface ApiResponse {
   response?: string;
@@ -123,7 +127,7 @@ export const checkApiHealth = async (): Promise<any> => {
 export const fetchDoctors = async (): Promise<any> => {
   try {
     // Fetch all doctors by searching for "general" (which matches all specialties per the backend logic)
-    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-doctors-by-specialty', {
+    const icpResponse = await fetch(`${ICP_BASE_URL}/get-doctors-by-specialty`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -146,7 +150,7 @@ export const fetchDoctors = async (): Promise<any> => {
 // Fetch user appointments from ICP backend
 export const fetchAppointments = async (userId: string = 'user123'): Promise<any> => {
   try {
-    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-user-appointments', {
+    const icpResponse = await fetch(`${ICP_BASE_URL}/get-user-appointments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -169,7 +173,7 @@ export const fetchAppointments = async (userId: string = 'user123'): Promise<any
 // Fetch medicines from ICP backend
 export const fetchMedicines = async (): Promise<any> => {
   try {
-    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-available-medicines', {
+    const icpResponse = await fetch(`${ICP_BASE_URL}/get-available-medicines`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -191,7 +195,7 @@ export const fetchMedicines = async (): Promise<any> => {
 // Fetch user orders from ICP backend
 export const fetchOrders = async (userId: string = 'user123'): Promise<any> => {
   try {
-    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-user-medicine-orders', {
+    const icpResponse = await fetch(`${ICP_BASE_URL}/get-user-medicine-orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -214,7 +218,7 @@ export const fetchOrders = async (userId: string = 'user123'): Promise<any> => {
 // Fetch wellness data from ICP backend
 export const fetchWellnessData = async (userId: string = 'user123', days: number = 7): Promise<any> => {
   try {
-    const icpResponse = await fetch('http://uxrrr-q7777-77774-qaaaq-cai.localhost:4943/get-wellness-summary', {
+    const icpResponse = await fetch(`${ICP_BASE_URL}/get-wellness-summary`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
