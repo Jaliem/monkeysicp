@@ -58,21 +58,21 @@ const Pharmacy = () => {
         const medicinesData = await fetchMedicines();
         const ordersData = await fetchOrders();
         
-        // Parse ICP medicine data format (using numeric keys from Motoko serialization)
+        // Parse ICP medicine data format using numeric keys
         const parsedMedicines = medicinesData.map((medicine: any) => ({
-          id: medicine["1_098_344_064"] || `med_${Date.now()}_${Math.random()}`, // medicine_id
-          name: medicine["1_224_700_491"] || 'Unknown Medicine', // name
-          genericName: medicine["1_026_369_715"] || medicine["1_224_700_491"] || 'N/A', // generic_name
-          category: (medicine["2_909_547_262"] || 'general').toLowerCase(), // category
-          dosage: medicine["829_945_655"] || 'N/A', // dosage
-          price: medicine["3_364_572_809"] || 0, // price
-          stock: medicine["2_216_036_054"] || 0, // stock
-          manufacturer: medicine["341_121_617"] || 'Unknown', // manufacturer
-          prescriptionRequired: medicine["3_699_773_643"] || false, // requires_prescription
-          description: medicine["1_595_738_364"] || 'Medicine description not available.', // description
+          id: medicine["1_098_344_064"] || medicine.medicine_id || `med_${Date.now()}_${Math.random()}`,
+          name: medicine["1_224_700_491"] || medicine.name || 'Unknown Medicine',
+          genericName: medicine["1_026_369_715"] || medicine.generic_name || medicine["1_224_700_491"] || medicine.name || 'N/A',
+          category: (medicine["2_909_547_262"] || medicine.category || 'general').toLowerCase().replace(/\s+/g, '-'),
+          dosage: medicine["829_945_655"] || medicine.dosage || 'N/A',
+          price: medicine["3_364_572_809"] || medicine.price || 0,
+          stock: medicine["2_216_036_054"] || medicine.stock || 0,
+          manufacturer: medicine["341_121_617"] || medicine.manufacturer || 'Unknown',
+          prescriptionRequired: medicine["3_699_773_643"] || medicine.requires_prescription || false,
+          description: medicine["1_595_738_364"] || medicine.description || 'Medicine description not available.',
           sideEffects: ['Consult doctor for side effects'], // Default since not in response
-          activeIngredients: medicine["819_652_970"] ? [medicine["819_652_970"]] : ['N/A'], // active_ingredient
-          image: getCategoryEmoji((medicine["2_909_547_262"] || 'general').toLowerCase())
+          activeIngredients: medicine["819_652_970"] ? [medicine["819_652_970"]] : (medicine.active_ingredient ? [medicine.active_ingredient] : ['N/A']),
+          image: getCategoryEmoji((medicine["2_909_547_262"] || medicine.category || 'general').toLowerCase())
         }));
         
         // Parse ICP orders data format

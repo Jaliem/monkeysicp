@@ -127,22 +127,22 @@ const Doctor = () => {
         console.log('Appointments fetch result:', appointmentsData);
         
         const parsedDoctors = doctors.map((doctor: any) => ({
-          id: doctor.doctor_id || doctor["3_732_697_147"] || `doc_${Date.now()}_${Math.random()}`,
-          name: doctor.name || doctor["1_224_700_491"] || 'Unknown Doctor',
-          specialty: (doctor.specialty || doctor["2_069_078_014"] || 'General Practice').toLowerCase().replace(/\s+/g, '-'),
-          rating: doctor.rating || doctor["3_146_396_701"] || 4.5,
+          id: doctor["3_732_697_147"] || doctor.doctor_id || `doc_${Date.now()}_${Math.random()}`,
+          name: doctor["1_224_700_491"] || doctor.name || 'Unknown Doctor',
+          specialty: (doctor["2_069_078_014"] || doctor.specialty || 'General Practice').toLowerCase().replace(/\s+/g, '-'),
+          rating: doctor["3_146_396_701"] || doctor.rating || 4.5,
           reviews: Math.floor(Math.random() * 200) + 50, // Generate reviews since not in backend
-          experience: doctor.experience_years || doctor["825_774_209"] || 5,
+          experience: doctor["825_774_209"] || doctor.experience_years || 5,
           location: 'Medical Center', // Default location since not in backend
-          availability: generateAvailabilityDates(doctor.available_days || doctor["2_213_151_757"]),
+          availability: generateAvailabilityDates(doctor["2_213_151_757"] || doctor.available_days),
           price: Math.floor(Math.random() * 100) + 100, // Generate price since not in backend
-          image: getSpecialtyEmoji((doctor.specialty || doctor["2_069_078_014"] || 'General Practice').toLowerCase()),
-          bio: `Experienced ${doctor.specialty || doctor["2_069_078_014"] || 'general practice'} specialist with ${doctor.experience_years || doctor["825_774_209"] || 5}+ years of experience. ${doctor.qualifications || doctor["1_692_858_852"] || ''}.`,
+          image: getSpecialtyEmoji((doctor["2_069_078_014"] || doctor.specialty || 'General Practice').toLowerCase()),
+          bio: `Experienced ${doctor["2_069_078_014"] || doctor.specialty || 'general practice'} specialist with ${doctor["825_774_209"] || doctor.experience_years || 5}+ years of experience. ${doctor["1_692_858_852"] || doctor.qualifications || ''}.`,
           languages: ['English'], // Default since not in backend
-          image_url: doctor.image_url || doctor["914_348_363"] || '',
-          qualifications: doctor.qualifications || doctor["1_692_858_852"] || '',
-          available_days: doctor.available_days || doctor["2_213_151_757"] || [],
-          available_slots: doctor.available_slots || doctor["2_467_954_303"] || []
+          image_url: doctor["914_348_363"] || doctor.image_url || '',
+          qualifications: doctor["1_692_858_852"] || doctor.qualifications || '',
+          available_days: doctor["2_213_151_757"] || doctor.available_days || [],
+          available_slots: doctor["2_467_954_303"] || doctor.available_slots || []
         }));
         
         // Parse ICP appointments data format

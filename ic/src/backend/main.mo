@@ -713,7 +713,7 @@ doctors.add(("gp_008", gp8));
       medicine_id = "med_001";
       name = "Paracetamol";
       generic_name = ?"Acetaminophen";
-      category = "Pain Relief";
+      category = "Pain relief";
       stock = 150;
       price = 5.99;
       manufacturer = ?"PharmaCorp";
@@ -728,7 +728,7 @@ doctors.add(("gp_008", gp8));
       medicine_id = "med_002";
       name = "Ibuprofen";
       generic_name = ?"Ibuprofen";
-      category = "Pain Relief";
+      category = "Pain relief";
       stock = 120;
       price = 7.50;
       manufacturer = ?"HealthPlus";
@@ -743,7 +743,7 @@ doctors.add(("gp_008", gp8));
       medicine_id = "med_003";
       name = "Aspirin";
       generic_name = ?"Acetylsalicylic acid";
-      category = "Pain Relief";
+      category = "Pain relief";
       stock = 80;
       price = 4.25;
       manufacturer = ?"MediCare";
@@ -753,10 +753,25 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1-2 tablets every 4 hours";
     };
     medicines.add(("med_003", aspirin));
+
+    let naproxen : Types.Medicine = {
+      medicine_id = "med_004";
+      name = "Naproxen";
+      generic_name = ?"Naproxen Sodium";
+      category = "Pain relief";
+      stock = 95;
+      price = 8.75;
+      manufacturer = ?"HealthPlus";
+      description = ?"Long-lasting pain and inflammation relief";
+      requires_prescription = false;
+      active_ingredient = ?"Naproxen Sodium 220mg";
+      dosage = ?"1 tablet every 8-12 hours";
+    };
+    medicines.add(("med_004", naproxen));
     
     // Antibiotics
     let amoxicillin : Types.Medicine = {
-      medicine_id = "med_004";
+      medicine_id = "med_005";
       name = "Amoxicillin";
       generic_name = ?"Amoxicillin";
       category = "Antibiotic";
@@ -768,11 +783,56 @@ doctors.add(("gp_008", gp8));
       active_ingredient = ?"Amoxicillin 500mg";
       dosage = ?"1 capsule every 8 hours";
     };
-    medicines.add(("med_004", amoxicillin));
+    medicines.add(("med_005", amoxicillin));
+
+    let azithromycin : Types.Medicine = {
+      medicine_id = "med_006";
+      name = "Azithromycin";
+      generic_name = ?"Azithromycin";
+      category = "Antibiotic";
+      stock = 40;
+      price = 25.99;
+      manufacturer = ?"PharmaLab";
+      description = ?"Macrolide antibiotic";
+      requires_prescription = true;
+      active_ingredient = ?"Azithromycin 250mg";
+      dosage = ?"1 tablet daily for 5 days";
+    };
+    medicines.add(("med_006", azithromycin));
+
+    let ciprofloxacin : Types.Medicine = {
+      medicine_id = "med_007";
+      name = "Ciprofloxacin";
+      generic_name = ?"Ciprofloxacin HCl";
+      category = "Antibiotic";
+      stock = 35;
+      price = 31.75;
+      manufacturer = ?"PharmaLab";
+      description = ?"Fluoroquinolone antibiotic";
+      requires_prescription = true;
+      active_ingredient = ?"Ciprofloxacin HCl 500mg";
+      dosage = ?"1 tablet every 12 hours";
+    };
+    medicines.add(("med_007", ciprofloxacin));
+
+    let doxycycline : Types.Medicine = {
+      medicine_id = "med_008";
+      name = "Doxycycline";
+      generic_name = ?"Doxycycline Hyclate";
+      category = "Antibiotic";
+      stock = 45;
+      price = 22.50;
+      manufacturer = ?"PharmaLab";
+      description = ?"Tetracycline antibiotic";
+      requires_prescription = true;
+      active_ingredient = ?"Doxycycline Hyclate 100mg";
+      dosage = ?"1 tablet every 12 hours";
+    };
+    medicines.add(("med_008", doxycycline));
     
     // Vitamins
     let vitamin_c : Types.Medicine = {
-      medicine_id = "med_005";
+      medicine_id = "med_009";
       name = "Vitamin C";
       generic_name = ?"Ascorbic Acid";
       category = "Vitamin";
@@ -784,10 +844,10 @@ doctors.add(("gp_008", gp8));
       active_ingredient = ?"Ascorbic Acid 1000mg";
       dosage = ?"1 tablet daily";
     };
-    medicines.add(("med_005", vitamin_c));
+    medicines.add(("med_009", vitamin_c));
     
     let vitamin_d : Types.Medicine = {
-      medicine_id = "med_006";
+      medicine_id = "med_010";
       name = "Vitamin D3";
       generic_name = ?"Cholecalciferol";
       category = "Vitamin";
@@ -799,11 +859,56 @@ doctors.add(("gp_008", gp8));
       active_ingredient = ?"Cholecalciferol 2000 IU";
       dosage = ?"1 tablet daily";
     };
-    medicines.add(("med_006", vitamin_d));
+    medicines.add(("med_010", vitamin_d));
+
+    let vitamin_b12 : Types.Medicine = {
+      medicine_id = "med_011";
+      name = "Vitamin B12";
+      generic_name = ?"Cyanocobalamin";
+      category = "Vitamin";
+      stock = 160;
+      price = 14.99;
+      manufacturer = ?"VitaHealth";
+      description = ?"Energy and nerve function support";
+      requires_prescription = false;
+      active_ingredient = ?"Cyanocobalamin 1000mcg";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_011", vitamin_b12));
+
+    let calcium : Types.Medicine = {
+      medicine_id = "med_012";
+      name = "Calcium Carbonate";
+      generic_name = ?"Calcium Carbonate";
+      category = "Vitamin";
+      stock = 140;
+      price = 11.50;
+      manufacturer = ?"VitaHealth";
+      description = ?"Bone health supplement";
+      requires_prescription = false;
+      active_ingredient = ?"Calcium Carbonate 600mg";
+      dosage = ?"1-2 tablets daily with food";
+    };
+    medicines.add(("med_012", calcium));
+
+    let multivitamin : Types.Medicine = {
+      medicine_id = "med_013";
+      name = "Multivitamin";
+      generic_name = ?"Multi-Vitamin Complex";
+      category = "Vitamin";
+      stock = 120;
+      price = 16.75;
+      manufacturer = ?"VitaHealth";
+      description = ?"Complete daily vitamin supplement";
+      requires_prescription = false;
+      active_ingredient = ?"Multiple vitamins and minerals";
+      dosage = ?"1 tablet daily with food";
+    };
+    medicines.add(("med_013", multivitamin));
     
     // Allergy medicines
     let cetirizine : Types.Medicine = {
-      medicine_id = "med_007";
+      medicine_id = "med_014";
       name = "Cetirizine";
       generic_name = ?"Cetirizine Hydrochloride";
       category = "Allergy";
@@ -815,27 +920,56 @@ doctors.add(("gp_008", gp8));
       active_ingredient = ?"Cetirizine HCl 10mg";
       dosage = ?"1 tablet daily";
     };
-    medicines.add(("med_007", cetirizine));
-    
-    // Stomach medicines
-    let omeprazole : Types.Medicine = {
-      medicine_id = "med_008";
-      name = "Omeprazole";
-      generic_name = ?"Omeprazole";
-      category = "Digestive Health";
-      stock = 45;
-      price = 18.99;
-      manufacturer = ?"DigestCare";
-      description = ?"Acid reducer for heartburn";
+    medicines.add(("med_014", cetirizine));
+
+    let loratadine : Types.Medicine = {
+      medicine_id = "med_015";
+      name = "Loratadine";
+      generic_name = ?"Loratadine";
+      category = "Allergy";
+      stock = 85;
+      price = 7.25;
+      manufacturer = ?"AllerCare";
+      description = ?"24-hour allergy relief";
       requires_prescription = false;
-      active_ingredient = ?"Omeprazole 20mg";
-      dosage = ?"1 capsule daily before breakfast";
+      active_ingredient = ?"Loratadine 10mg";
+      dosage = ?"1 tablet daily";
     };
-    medicines.add(("med_008", omeprazole));
+    medicines.add(("med_015", loratadine));
+
+    let diphenhydramine : Types.Medicine = {
+      medicine_id = "med_016";
+      name = "Diphenhydramine";
+      generic_name = ?"Diphenhydramine HCl";
+      category = "Allergy";
+      stock = 75;
+      price = 5.99;
+      manufacturer = ?"AllerCare";
+      description = ?"Antihistamine for allergies and sleep";
+      requires_prescription = false;
+      active_ingredient = ?"Diphenhydramine HCl 25mg";
+      dosage = ?"1-2 tablets every 4-6 hours";
+    };
+    medicines.add(("med_016", diphenhydramine));
+
+    let fexofenadine : Types.Medicine = {
+      medicine_id = "med_017";
+      name = "Fexofenadine";
+      generic_name = ?"Fexofenadine HCl";
+      category = "Allergy";
+      stock = 70;
+      price = 9.50;
+      manufacturer = ?"AllerCare";
+      description = ?"Non-drowsy 24-hour allergy relief";
+      requires_prescription = false;
+      active_ingredient = ?"Fexofenadine HCl 180mg";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_017", fexofenadine));
     
     // Diabetes medication
     let insulin : Types.Medicine = {
-      medicine_id = "med_009";
+      medicine_id = "med_018";
       name = "Insulin Glargine";
       generic_name = ?"Insulin Glargine";
       category = "Diabetes";
@@ -847,11 +981,10 @@ doctors.add(("gp_008", gp8));
       active_ingredient = ?"Insulin Glargine 100 units/mL";
       dosage = ?"As prescribed by physician";
     };
-    medicines.add(("med_009", insulin));
+    medicines.add(("med_018", insulin));
     
-    // Regular Insulin for broader search matching
     let regular_insulin : Types.Medicine = {
-      medicine_id = "med_010";
+      medicine_id = "med_019";
       name = "Insulin";
       generic_name = ?"Human Insulin";
       category = "Diabetes";
@@ -863,7 +996,175 @@ doctors.add(("gp_008", gp8));
       active_ingredient = ?"Human Insulin 100 units/mL";
       dosage = ?"As prescribed by physician";
     };
-    medicines.add(("med_010", regular_insulin));
+    medicines.add(("med_019", regular_insulin));
+
+    let metformin : Types.Medicine = {
+      medicine_id = "med_020";
+      name = "Metformin";
+      generic_name = ?"Metformin HCl";
+      category = "Diabetes";
+      stock = 80;
+      price = 18.75;
+      manufacturer = ?"DiabetesCare";
+      description = ?"Type 2 diabetes medication";
+      requires_prescription = true;
+      active_ingredient = ?"Metformin HCl 500mg";
+      dosage = ?"1-2 tablets twice daily with meals";
+    };
+    medicines.add(("med_020", metformin));
+
+    let glipizide : Types.Medicine = {
+      medicine_id = "med_021";
+      name = "Glipizide";
+      generic_name = ?"Glipizide";
+      category = "Diabetes";
+      stock = 55;
+      price = 24.99;
+      manufacturer = ?"DiabetesCare";
+      description = ?"Sulfonylurea diabetes medication";
+      requires_prescription = true;
+      active_ingredient = ?"Glipizide 5mg";
+      dosage = ?"1 tablet daily before breakfast";
+    };
+    medicines.add(("med_021", glipizide));
+
+    // Heart medicines
+    let lisinopril : Types.Medicine = {
+      medicine_id = "med_022";
+      name = "Lisinopril";
+      generic_name = ?"Lisinopril";
+      category = "Heart";
+      stock = 75;
+      price = 22.99;
+      manufacturer = ?"CardioMed";
+      description = ?"ACE inhibitor for high blood pressure";
+      requires_prescription = true;
+      active_ingredient = ?"Lisinopril 10mg";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_022", lisinopril));
+
+    let amlodipine : Types.Medicine = {
+      medicine_id = "med_023";
+      name = "Amlodipine";
+      generic_name = ?"Amlodipine Besylate";
+      category = "Heart";
+      stock = 85;
+      price = 19.75;
+      manufacturer = ?"CardioMed";
+      description = ?"Calcium channel blocker";
+      requires_prescription = true;
+      active_ingredient = ?"Amlodipine Besylate 5mg";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_023", amlodipine));
+
+    let atorvastatin : Types.Medicine = {
+      medicine_id = "med_024";
+      name = "Atorvastatin";
+      generic_name = ?"Atorvastatin Calcium";
+      category = "Heart";
+      stock = 65;
+      price = 34.50;
+      manufacturer = ?"CardioMed";
+      description = ?"Statin for cholesterol management";
+      requires_prescription = true;
+      active_ingredient = ?"Atorvastatin Calcium 20mg";
+      dosage = ?"1 tablet daily in the evening";
+    };
+    medicines.add(("med_024", atorvastatin));
+
+    let metoprolol : Types.Medicine = {
+      medicine_id = "med_025";
+      name = "Metoprolol";
+      generic_name = ?"Metoprolol Tartrate";
+      category = "Heart";
+      stock = 70;
+      price = 21.25;
+      manufacturer = ?"CardioMed";
+      description = ?"Beta-blocker for heart conditions";
+      requires_prescription = true;
+      active_ingredient = ?"Metoprolol Tartrate 50mg";
+      dosage = ?"1 tablet twice daily";
+    };
+    medicines.add(("med_025", metoprolol));
+
+    // Mental Health medicines
+    let sertraline : Types.Medicine = {
+      medicine_id = "med_026";
+      name = "Sertraline";
+      generic_name = ?"Sertraline HCl";
+      category = "Mental Health";
+      stock = 50;
+      price = 45.99;
+      manufacturer = ?"MindCare";
+      description = ?"SSRI antidepressant";
+      requires_prescription = true;
+      active_ingredient = ?"Sertraline HCl 50mg";
+      dosage = ?"1 tablet daily";
+    };
+    medicines.add(("med_026", sertraline));
+
+    let lorazepam : Types.Medicine = {
+      medicine_id = "med_027";
+      name = "Lorazepam";
+      generic_name = ?"Lorazepam";
+      category = "Mental Health";
+      stock = 30;
+      price = 38.50;
+      manufacturer = ?"MindCare";
+      description = ?"Benzodiazepine for anxiety";
+      requires_prescription = true;
+      active_ingredient = ?"Lorazepam 1mg";
+      dosage = ?"As prescribed by physician";
+    };
+    medicines.add(("med_027", lorazepam));
+
+    let fluoxetine : Types.Medicine = {
+      medicine_id = "med_028";
+      name = "Fluoxetine";
+      generic_name = ?"Fluoxetine HCl";
+      category = "Mental Health";
+      stock = 45;
+      price = 42.75;
+      manufacturer = ?"MindCare";
+      description = ?"SSRI antidepressant";
+      requires_prescription = true;
+      active_ingredient = ?"Fluoxetine HCl 20mg";
+      dosage = ?"1 tablet daily in morning";
+    };
+    medicines.add(("med_028", fluoxetine));
+    
+    // Digestive Health medicines
+    let omeprazole : Types.Medicine = {
+      medicine_id = "med_029";
+      name = "Omeprazole";
+      generic_name = ?"Omeprazole";
+      category = "Digestive health";
+      stock = 45;
+      price = 18.99;
+      manufacturer = ?"DigestCare";
+      description = ?"Acid reducer for heartburn";
+      requires_prescription = false;
+      active_ingredient = ?"Omeprazole 20mg";
+      dosage = ?"1 capsule daily before breakfast";
+    };
+    medicines.add(("med_029", omeprazole));
+
+    let loperamide : Types.Medicine = {
+      medicine_id = "med_030";
+      name = "Loperamide";
+      generic_name = ?"Loperamide HCl";
+      category = "Digestive health";
+      stock = 65;
+      price = 9.75;
+      manufacturer = ?"DigestCare";
+      description = ?"Anti-diarrheal medication";
+      requires_prescription = false;
+      active_ingredient = ?"Loperamide HCl 2mg";
+      dosage = ?"2 tablets initially, then 1 after each loose stool";
+    };
+    medicines.add(("med_030", loperamide));
     
     Debug.print("[INIT]: Added " # Nat.toText(medicines.size()) # " medicines to database");
   };
