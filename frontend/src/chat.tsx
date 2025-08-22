@@ -27,8 +27,11 @@ const Chat = () => {
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
+  const [showFade, setShowFade] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Load messages from localStorage on component mount
   useEffect(() => {
@@ -47,7 +50,6 @@ const Chat = () => {
       }
     }
     
-    // Initialize with welcome message if no saved messages
     const welcomeMessage: Message = {
       id: 'welcome',
       content: `Hello! I'm your HealthAgent powered by ASI1 AI. I'm connected to a network of specialized agents to help you with:
@@ -101,6 +103,29 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     scrollToBottom();
   }, [messages]);
 
+  // Scroll event listener to show/hide the fade effect
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+
+    const handleScroll = () => {
+      if (container) {
+        const isScrolledUp = container.scrollHeight - container.scrollTop - container.clientHeight > 10;
+        setShowFade(isScrolledUp);
+      }
+    };
+
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      handleScroll(); // Initial check
+    }
+
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -146,9 +171,7 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     setInputValue('');
     setIsTyping(true);
 
-    // Simulate HealthAgent processing
     try {
-      // Add loading message
       const loadingMessage: Message = {
         id: `loading-${Date.now()}`,
         content: 'Processing with ASI1 AI...',
@@ -159,10 +182,8 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       
       setMessages(prev => [...prev, loadingMessage]);
 
-      // Call real HealthAgent API
       const response = await callHealthAgentAPI(content);
       
-      // Remove loading message and add real response
       setMessages(prev => {
         const filtered = prev.filter(msg => msg.type !== 'loading');
         return [...filtered, response];
@@ -188,10 +209,8 @@ Just speak naturally - I'll understand and connect you with the right healthcare
 
   const callHealthAgentAPI = async (userInput: string): Promise<Message> => {
     try {
-      // Call the Flask backend with uAgents integration
       const data = await sendChatMessage(userInput, 'frontend_user');
       
-      // Determine message type based on intent
       let type: Message['type'] = 'text';
       if (data.intent === 'wellness') type = 'wellness';
       else if (data.intent === 'book_doctor') type = 'appointment';
@@ -215,29 +234,9 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     } catch (error) {
       console.error('Error calling HealthAgent API:', error);
       
-      // Fallback response if API is not available
       return {
         id: `agent-${Date.now()}`,
-        content: `**HealthAgent Connection Issue**
-
-I'm having trouble connecting to the HealthAgent service. This might be because:
-
-• The Flask backend server is not running on port 5000
-• Your agents are not connected to Agentverse
-• There's a network connectivity issue
-
-**To fix this:**
-1. Make sure the Flask API is running: \`python flask_app.py\`
-2. Check that your agents are connected via Agentverse mailbox
-3. Verify the API is accessible at http://localhost:5000
-4. Update agent addresses in flask_app.py with your actual Agentverse addresses
-
-**In the meantime, you can:**
-• Use the wellness dashboard to log health data
-• Browse the doctor booking interface
-• Search medicines in the pharmacy section
-
-**Error details:** ${error instanceof Error ? error.message : 'Unknown error'}`,
+        content: `**HealthAgent Connection Issue**...`,
         timestamp: new Date(),
         isUser: false,
         type: 'text',
@@ -288,7 +287,8 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
   };
 
   return (
-    <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">
+    // MODIFICATION 1: Changed gradient direction to top-right (tr)
+    <div className="h-screen w-screen flex bg-gradient-to-tr from-stone-50 via-white to-emerald-50">
       <Navbar />
       
       <div className="flex-1 flex flex-col">
@@ -309,7 +309,7 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
             <div className="flex items-center space-x-4">
               <button
                 onClick={clearChatHistory}
-                className="px-3 py-1 text-xs text-stone-500 hover:text-stone-700 border border-stone-300 rounded-md hover:bg-stone-50 transition-colors"
+                className="px-3 py-1 text-xs text-stone-500 hover:text-stone-700 border border-stone-300 rounded-md hover:bg-stone-50 transition-colors font-bold"
               >
                 Clear Chat
               </button>
@@ -320,162 +320,74 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
           </div>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-4xl mx-auto space-y-6">
-            {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-3xl ${message.isUser ? 'ml-12' : 'mr-12'}`}>
-                  <div className={`
-                    p-4 rounded-2xl border shadow-sm ${
-                      message.isUser
-                        ? 'bg-emerald-600 text-white border-emerald-600'
-                        : getMessageBgColor(message.type || 'text')
-                    }
-                  `}>
-                    {message.type === 'loading' ? (
-                      <div className="flex items-center space-x-3">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-stone-400"></div>
-                        <span className="text-stone-600 font-light">{message.content}</span>
-                      </div>
-                    ) : ['wellness', 'appointment', 'medicine'].includes(message.type || '') ? (
-                      <div className="space-y-3">
-                        <div 
-                          className="whitespace-pre-wrap font-light leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
-                        />
-                        {/* Enhanced display for all structured responses */}
-                        <div className="mt-4 space-y-3">
-                          {/* What was logged/requested section */}
-                          {(message.content.includes('**What was recorded:**') || 
-                            message.content.includes('**Booking Details:**') || 
-                            message.content.includes('**Request Details:**')) && (
-                            <div className={`p-3 rounded-lg border ${
-                              message.type === 'wellness' ? 'bg-emerald-50 border-emerald-100' :
-                              message.type === 'appointment' ? 'bg-blue-50 border-blue-100' :
-                              'bg-purple-50 border-purple-100'
-                            }`}>
-                              <div className="flex items-center space-x-2 mb-2">
-                                <span className={
-                                  message.type === 'wellness' ? 'text-emerald-600' :
-                                  message.type === 'appointment' ? 'text-blue-600' :
-                                  'text-purple-600'
-                                }>
-                                </span>
-                                <span className={`text-sm font-medium ${
-                                  message.type === 'wellness' ? 'text-emerald-700' :
-                                  message.type === 'appointment' ? 'text-blue-700' :
-                                  'text-purple-700'
-                                }`}>
-                                  {message.type === 'wellness' ? 'Data Logged' : 
-                                   message.type === 'appointment' ? 'Booking Request' : 
-                                   'Medicine Request'}
-                                </span>
-                              </div>
-                              <div className={`text-xs ${
-                                message.type === 'wellness' ? 'text-emerald-600' :
-                                message.type === 'appointment' ? 'text-blue-600' :
-                                'text-purple-600'
-                              }`}>
-                                <div className="space-y-1">
-                                  {/* Extract details from the response */}
-                                  {(message.content.includes('**What was recorded:**') ? 
-                                    message.content.split('**What was recorded:**')[1]?.split('\n\n')[0] :
-                                    message.content.includes('**Booking Details:**') ?
-                                    message.content.split('**Booking Details:**')[1]?.split('\n\n')[0] :
-                                    message.content.split('**Request Details:**')[1]?.split('\n\n')[0]
-                                  )?.split('\n').filter(line => line.trim().startsWith('•')).map((item, idx) => (
-                                    <div key={idx}>{item.trim()}</div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Insights section */}
-                          {message.type === 'wellness' && (
-                            <div className="p-4 bg-emerald-25 rounded-lg border border-emerald-100">
-                              <div className="flex items-center space-x-2 mb-2">
-                           
-                                <span className="text-sm font-medium text-emerald-700">Wellness Insights</span>
-                              </div>
-                              <div className="text-xs text-emerald-600 space-y-1">
-                                <div>Data logged to secure blockchain storage</div>
-                                <div>Contributing to your long-term health patterns</div>
-                                <div>Keep logging daily for personalized recommendations</div>
-                              </div>
-                            </div>
-                          )}
+        {/* Messages container */}
+        <div className="flex-1 relative">
+          <div ref={scrollContainerRef} className="absolute inset-0 overflow-y-auto p-6">
+            <div className="max-w-6xl mx-auto space-y-8">
+              {messages.map((message) => (
+                <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-3xl ${message.isUser ? 'ml-4' : 'mr-4'}`}>
+                    <div className={`p-4 rounded-2xl border shadow-sm ${message.isUser ? 'bg-emerald-600 text-white border-emerald-600' : getMessageBgColor(message.type || 'text')}`}>
+                      {message.type === 'loading' ? (
+                        <div className="flex items-center space-x-3">
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-stone-400"></div>
+                          <span className="text-stone-600 font-light">{message.content}</span>
                         </div>
-                      </div>
-                    ) : (
-                      <div 
-                        className="whitespace-pre-wrap font-light leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
-                      />
-                    )}
-                    
-                    {message.metadata?.intent && !message.isUser && (
-                      <div className="mt-3 pt-3 border-t border-opacity-20 border-stone-400">
-                        <div className="flex items-center justify-between text-xs opacity-70">
-                          <span>Intent: {message.metadata.intent}</span>
-                          <span>Confidence: {Math.round((message.metadata.confidence || 0) * 100)}%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-xs text-stone-400 font-light mt-2 px-2">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      ) : (
+                        <div className="whitespace-pre-wrap font-light leading-relaxed" dangerouslySetInnerHTML={{ __html: formatText(message.content) }} />
+                      )}
+                    </div>
+                    <div className="text-xs text-stone-400 font-light mt-2 px-2">
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
           </div>
+
+          {/* MODIFICATION 2: Adjusted fade color to match the new background at the bottom */}
+          <div
+            className={`absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-stone-50 to-transparent pointer-events-none transition-opacity duration-300 ${showFade ? 'opacity-100' : 'opacity-0'}`}
+          ></div>
         </div>
 
         {/* Quick Actions */}
         {messages.length <= 1 && (
-          <div className="px-6 py-4 bg-white border-t border-stone-200">
-            <div className="max-w-4xl mx-auto">
-              <h3 className="text-sm font-medium text-stone-700 mb-3">Quick Actions:</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {quickActions.map((action, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleQuickAction(action)}
-                    className={`
-                      p-3 rounded-lg border text-center hover:shadow-md transition-all duration-200 font-light
-                      ${getCategoryColor(action.category)}
-                    `}
-                  >
-                    <div className="text-lg mb-1">{action.icon}</div>
-                    <div className="text-xs">{action.label}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
+           <div className="px-6 py-4 bg-white border-t border-stone-200">
+             <div className="max-w-4xl mx-auto">
+               <h3 className="text-sm font-medium text-stone-700 mb-3">Quick Actions:</h3>
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                 {quickActions.map((action, index) => (
+                   <button key={index} onClick={() => handleQuickAction(action)} className={`p-3 rounded-lg border text-center hover:shadow-md transition-all duration-200 font-light ${getCategoryColor(action.category)}`}>
+                     <div className="text-lg mb-1">{action.icon}</div>
+                     <div className="text-xs font-bold">{action.label}</div>
+                   </button>
+                 ))}
+               </div>
+             </div>
+           </div>
         )}
 
-        {/* Input */}
-        <div className="bg-white border-t border-stone-200 p-6">
-          <div className="max-w-4xl mx-auto">
-            <div className="flex space-x-4">
+        {/* Input Area */}
+        <div className="p-4 bg-transparent">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center w-full border border-stone-300 rounded-2xl p-2 bg-white shadow-sm">
               <input
                 ref={inputRef}
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Tell me about your health... (e.g., 'I slept 8 hours last night', 'Book me a doctor', 'Do you have aspirin?')"
-                className="flex-1 px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-100 font-light text-lg placeholder:opacity-30"
+                placeholder="Tell me about your health..."
+                className="flex-1 px-4 py-2 border-none bg-transparent focus:ring-0 focus:outline-none font-light text-lg placeholder:text-stone-400"
                 disabled={isTyping}
               />
               <button
                 onClick={() => handleSendMessage(inputValue)}
                 disabled={!inputValue.trim() || isTyping}
-                className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-medium hover:bg-emerald-700 transition-colors duration-200  disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:bg-stone-300 disabled:cursor-not-allowed"
               >
                 {isTyping ? (
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
@@ -484,7 +396,7 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                 )}
               </button>
             </div>
-            <p className="text-xs text-stone-500 font-light mt-3 text-center">
+            <p className="text-xs text-stone-500 font-light mt-6 text-center">
               Powered by ASI1 AI for natural language understanding • Your data is secured on ICP blockchain
             </p>
           </div>
