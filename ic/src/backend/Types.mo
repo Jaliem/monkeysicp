@@ -80,6 +80,7 @@ module {
     rating : Float;
     available_days : [Text];
     available_slots : [Text];
+    image_url : Text;
   };
 
   public type Appointment = {

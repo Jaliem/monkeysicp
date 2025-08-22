@@ -15,6 +15,10 @@ interface Doctor {
   image: string;
   bio: string;
   languages: string[];
+  image_url: string;
+  qualifications?: string;
+  available_days?: string[];
+  available_slots?: string[];
 }
 
 interface Appointment {
@@ -50,31 +54,99 @@ const Doctor = () => {
     'pediatrics', 'psychiatry', 'oncology', 'general-practitioner'
   ];
 
+  const generateAvailabilityDates = (availableDays: string[]): string[] => {
+    if (!availableDays || availableDays.length === 0) return ['2024-08-22', '2024-08-23', '2024-08-24'];
+    
+    const today = new Date();
+    const dates: string[] = [];
+    
+    // Generate next 14 days and filter by available days
+    for (let i = 1; i <= 14; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+      
+      if (availableDays.includes(dayName)) {
+        dates.push(date.toISOString().split('T')[0]);
+        if (dates.length >= 6) break; // Limit to 6 dates
+      }
+    }
+    
+    return dates.length > 0 ? dates : ['2024-08-22', '2024-08-23', '2024-08-24'];
+  };
+
+
+  const getDefaultDoctors = (): Doctor[] => [
+    {
+      id: '1',
+      name: 'Dr. Sarah Chen',
+      specialty: 'cardiology',
+      rating: 4.9,
+      reviews: 127,
+      experience: 12,
+      location: 'Medical Center Downtown',
+      availability: ['2024-08-22', '2024-08-23', '2024-08-26'],
+      price: 150,
+      image: '❤️',
+      bio: 'Specialized in preventive cardiology and heart disease management.',
+      languages: ['English', 'Mandarin'],
+      image_url: '',
+    },
+    {
+      id: '2',
+      name: 'Dr. Michael Rodriguez',
+      specialty: 'dermatology',
+      rating: 4.8,
+      reviews: 89,
+      experience: 8,
+      location: 'Skin Care Clinic',
+      availability: ['2024-08-22', '2024-08-24', '2024-08-25'],
+      price: 120,
+      image: '🧴',
+      bio: 'Expert in cosmetic dermatology and skin cancer prevention.',
+      languages: ['English', 'Spanish'],
+      image_url: ''
+    }
+  ];
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Fetch real doctors data from ICP backend
-        const doctorsData = await fetchDoctors();
-        const appointmentsData = await fetchAppointments();
+        const specialtyToFetch = selectedSpecialty === 'all' ? 'general' : selectedSpecialty.replace('-', ' ');
         
-        // Parse ICP doctor data format (using numeric keys from Motoko serialization)
-        const parsedDoctors = doctorsData.map((doctor: any) => ({
-          id: doctor["3_732_697_147"] || `doc_${Date.now()}_${Math.random()}`, // doctor_id
-          name: doctor["1_224_700_491"] || 'Unknown Doctor', // name
-          specialty: (doctor["2_069_078_014"] || 'General Practice').toLowerCase().replace(' ', '-'), // specialty
-          rating: doctor["3_146_396_701"] || 4.5, // rating
+        // Fetch doctors and appointments separately to prevent one failure from blocking the other
+        const [doctorsData, appointmentsData] = await Promise.allSettled([
+          fetchDoctors(specialtyToFetch),
+          fetchAppointments()
+        ]);
+        
+        const doctors = doctorsData.status === 'fulfilled' ? doctorsData.value : [];
+        const appointments = appointmentsData.status === 'fulfilled' ? appointmentsData.value : [];
+        
+        console.log('Raw doctors data from backend:', doctors);
+        console.log('Appointments fetch result:', appointmentsData);
+        
+        const parsedDoctors = doctors.map((doctor: any) => ({
+          id: doctor.doctor_id || doctor["3_732_697_147"] || `doc_${Date.now()}_${Math.random()}`,
+          name: doctor.name || doctor["1_224_700_491"] || 'Unknown Doctor',
+          specialty: (doctor.specialty || doctor["2_069_078_014"] || 'General Practice').toLowerCase().replace(/\s+/g, '-'),
+          rating: doctor.rating || doctor["3_146_396_701"] || 4.5,
           reviews: Math.floor(Math.random() * 200) + 50, // Generate reviews since not in backend
-          experience: doctor["825_774_209"] || 5, // experience_years
+          experience: doctor.experience_years || doctor["825_774_209"] || 5,
           location: 'Medical Center', // Default location since not in backend
-          availability: generateAvailabilityDates(doctor["2_213_151_757"]), // Convert available_days to dates
+          availability: generateAvailabilityDates(doctor.available_days || doctor["2_213_151_757"]),
           price: Math.floor(Math.random() * 100) + 100, // Generate price since not in backend
-          image: getSpecialtyEmoji((doctor["2_069_078_014"] || 'General Practice').toLowerCase()),
-          bio: `Experienced ${doctor["2_069_078_014"] || 'general practice'} specialist with ${doctor["825_774_209"] || 5}+ years of experience. ${doctor["1_692_858_852"] || ''}.`,
-          languages: ['English'] // Default since not in backend
+          image: getSpecialtyEmoji((doctor.specialty || doctor["2_069_078_014"] || 'General Practice').toLowerCase()),
+          bio: `Experienced ${doctor.specialty || doctor["2_069_078_014"] || 'general practice'} specialist with ${doctor.experience_years || doctor["825_774_209"] || 5}+ years of experience. ${doctor.qualifications || doctor["1_692_858_852"] || ''}.`,
+          languages: ['English'], // Default since not in backend
+          image_url: doctor.image_url || doctor["914_348_363"] || '',
+          qualifications: doctor.qualifications || doctor["1_692_858_852"] || '',
+          available_days: doctor.available_days || doctor["2_213_151_757"] || [],
+          available_slots: doctor.available_slots || doctor["2_467_954_303"] || []
         }));
         
         // Parse ICP appointments data format
-        const parsedAppointments = appointmentsData.map((appointment: any) => ({
+        const parsedAppointments = appointments.map((appointment: any) => ({
           id: appointment.appointment_id || appointment.id || `apt_${Date.now()}`,
           doctorId: appointment.doctor_id || appointment.doctorId,
           doctorName: appointment.doctor_name || appointment.doctorName || 'Unknown Doctor',
@@ -99,7 +171,7 @@ const Doctor = () => {
     };
     
     loadData();
-  }, []);
+  }, [selectedSpecialty]);
 
   const getSpecialtyEmoji = (specialty: string) => {
     const emojiMap: Record<string, string> = {
@@ -116,59 +188,7 @@ const Doctor = () => {
     return emojiMap[specialty.toLowerCase()] || '👨‍⚕️';
   };
 
-  const generateAvailabilityDates = (availableDays: string[]): string[] => {
-    const today = new Date();
-    const dates: string[] = [];
-    const dayMap: Record<string, number> = {
-      'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 
-      'Thursday': 4, 'Friday': 5, 'Saturday': 6
-    };
-    
-    // Generate next 14 days and filter by available days
-    for (let i = 1; i <= 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
-      
-      if (availableDays.includes(dayName)) {
-        dates.push(date.toISOString().split('T')[0]);
-        if (dates.length >= 6) break; // Limit to 6 dates
-      }
-    }
-    
-    return dates.length > 0 ? dates : ['2024-08-22', '2024-08-23', '2024-08-24'];
-  };
 
-  const getDefaultDoctors = (): Doctor[] => [
-    {
-      id: '1',
-      name: 'Dr. Sarah Chen',
-      specialty: 'cardiology',
-      rating: 4.9,
-      reviews: 127,
-      experience: 12,
-      location: 'Medical Center Downtown',
-      availability: ['2024-08-22', '2024-08-23', '2024-08-26'],
-      price: 150,
-      image: '❤️',
-      bio: 'Specialized in preventive cardiology and heart disease management.',
-      languages: ['English', 'Mandarin']
-    },
-    {
-      id: '2',
-      name: 'Dr. Michael Rodriguez',
-      specialty: 'dermatology',
-      rating: 4.8,
-      reviews: 89,
-      experience: 8,
-      location: 'Skin Care Clinic',
-      availability: ['2024-08-22', '2024-08-24', '2024-08-25'],
-      price: 120,
-      image: '🧴',
-      bio: 'Expert in cosmetic dermatology and skin cancer prevention.',
-      languages: ['English', 'Spanish']
-    }
-  ];
 
   const filteredDoctors = doctors.filter(doctor => {
     const matchesSpecialty = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
@@ -176,6 +196,7 @@ const Doctor = () => {
                          doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSpecialty && matchesSearch;
   });
+
 
   const handleBookAppointment = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
@@ -329,8 +350,18 @@ const Doctor = () => {
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl">
-                        {doctor.image}
+                      <div className="w-16 h-16 rounded-full overflow-hidden">
+                        <img 
+                          src={doctor.image_url || doctor.image} 
+                          alt={doctor.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            // Fallback to emoji if image fails to load
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                            target.parentElement!.innerHTML = `<div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl">${doctor.image}</div>`;
+                          }}
+                        />
                       </div>
                       <div>
                         <h3 className="text-xl font-light text-stone-800 mb-1">{doctor.name}</h3>
@@ -415,8 +446,17 @@ const Doctor = () => {
                 </button>
               </div>
               <div className="flex items-center space-x-3 mt-4">
-                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">
-                  {selectedDoctor.image}
+                <div className="w-12 h-12 rounded-full overflow-hidden">
+                  <img 
+                    src={selectedDoctor.image_url || selectedDoctor.image} 
+                    alt={selectedDoctor.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      target.parentElement!.innerHTML = `<div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">${selectedDoctor.image}</div>`;
+                    }}
+                  />
                 </div>
                 <div>
                   <h3 className="font-medium text-stone-800">{selectedDoctor.name}</h3>
