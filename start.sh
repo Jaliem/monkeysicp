@@ -104,7 +104,7 @@ echo ""
 echo "Environment loaded:"
 echo "CANISTER_ID: $CANISTER_ID"
 echo "BASE_URL: $BASE_URL"
-echo "ASI1_API_KEY: ${ASI1_API_KEY:0:10}..." # Show only first 10 chars for security
+echo "ASI1_API_KEY: ${ASI1_API_KEY:0:10}..."
 echo ""
 echo "Press Ctrl+C to stop all services"
 

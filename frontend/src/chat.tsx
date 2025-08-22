@@ -281,6 +281,12 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
     }
   };
 
+  const formatText = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>');
+  };
+
   return (
     <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">
       <Navbar />
@@ -334,9 +340,10 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                       </div>
                     ) : ['wellness', 'appointment', 'medicine'].includes(message.type || '') ? (
                       <div className="space-y-3">
-                        <div className="whitespace-pre-wrap font-light leading-relaxed">
-                          {message.content}
-                        </div>
+                        <div 
+                          className="whitespace-pre-wrap font-light leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                        />
                         {/* Enhanced display for all structured responses */}
                         <div className="mt-4 space-y-3">
                           {/* What was logged/requested section */}
@@ -402,9 +409,10 @@ I'm having trouble connecting to the HealthAgent service. This might be because:
                         </div>
                       </div>
                     ) : (
-                      <div className="whitespace-pre-wrap font-light leading-relaxed">
-                        {message.content}
-                      </div>
+                      <div 
+                        className="whitespace-pre-wrap font-light leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: formatText(message.content) }}
+                      />
                     )}
                     
                     {message.metadata?.intent && !message.isUser && (
