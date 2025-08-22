@@ -34,32 +34,27 @@ pip install -r requirements.txt
 # Setup environment configuration
 echo "Setting up environment configuration..."
 if [ ! -f ".env" ]; then
-    if [ -f ".env.example" ]; then
-        echo "Copying .env.example to .env..."
-        cp .env.example .env
-        echo ""
-        echo "IMPORTANT: Please edit the .env file with your actual values:"
-        echo "1. CANISTER_ID and BASE_URL: Get from 'dfx deploy backend' output"
-        echo "2. ASI1_API_KEY: Get from https://asi1.ai/dashboard/api-keys"
-        echo ""
-        echo "After updating .env, run ./start.sh to start the system"
-    else
-        echo "Creating .env template file..."
-        cat > .env << EOL
+    echo "Creating .env template file..."
+    cat > .env << EOL
 # ICP Configuration - Get from 'dfx deploy backend' output
-
-DOCTOR_AGENT_ADDRESS=agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru
-PHARMACY_AGENT_ADDRESS=agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c
-WELLNESS_AGENT_ADDRESS=agent1q0vpdcvka3dyzvcc4vs9m8wy0rvh9r39v0wfk04f25nckmkt5cqmvhedtyt
-
 CANISTER_ID=your_canister_id_here
 BASE_URL=http://127.0.0.1:4943
 
 # API Keys - Get from https://asi1.ai/dashboard/api-keys
 ASI1_API_KEY=your_actual_api_key_here
+
+# Fetch.ai Agent Addresses
+DOCTOR_AGENT_ADDRESS=agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru
+PHARMACY_AGENT_ADDRESS=agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c
+WELLNESS_AGENT_ADDRESS=agent1q0vpdcvka3dyzvcc4vs9m8wy0rvh9r39v0wfk04f25nckmkt5cqmvhedtyt
 EOL
-        echo "Please edit the .env file with your actual values before running start.sh"
-    fi
+    
+    echo ""
+    echo "IMPORTANT: Please edit the .env file with your actual values:"
+    echo "1. CANISTER_ID and BASE_URL: Get from 'dfx deploy backend' output"
+    echo "2. ASI1_API_KEY: Get from https://asi1.ai/dashboard/api-keys"
+    echo ""
+    echo "After updating .env, run ./start.sh to start the system"
 else
     echo ".env file already exists. Using existing configuration."
 fi

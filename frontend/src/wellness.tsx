@@ -182,7 +182,7 @@ const Wellness = () => {
                 <span className="text-sm text-stone-500 font-light">Last 7 days</span>
               </div>
               <h3 className="text-2xl font-light text-stone-800 mb-1">
-                {weeklySummary.avgSleep}h
+                {weeklySummary.avgSleep.toFixed(2)}h
               </h3>
               <p className="text-stone-500 font-light">Avg Sleep</p>
             </div>
