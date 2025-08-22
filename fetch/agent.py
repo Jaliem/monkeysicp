@@ -421,7 +421,7 @@ async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str =
                 for condition in analysis["likely_conditions"][:3]:
                     confidence = condition.get("confidence", 0)
                     severity = condition.get("severity", "moderate")
-                    #severity_emoji = {"emergency": "🚨", "urgent": "⚠️", "serious": "🟡", "moderate": "🔵", "mild": "🟢"}.get(severity, "🔵")
+                    severity_emoji = {"emergency": "🚨", "urgent": "⚠️", "serious": "🟡", "moderate": "🔵", "mild": "🟢"}.get(severity, "🔵")
                     response_parts.append(f"  • {severity_emoji} **{condition['condition']}** ({confidence}% confidence)")
             
             # Recommended doctors from ASI1
