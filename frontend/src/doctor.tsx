@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from './nav';
 import { fetchDoctors, fetchAppointments } from './services/flaskService';
+import { Star } from 'lucide-react';
 
 interface Doctor {
   id: string;
@@ -385,7 +386,10 @@ const Doctor = () => {
                     </div>
                     <div className="text-right">
                       <div className="flex items-center text-amber-500 mb-1">
-                        ⭐ {doctor.rating}
+                        <span>
+                          <Star width={15} className='mr-2'/>
+                        </span>
+                         {doctor.rating}
                         <span className="text-stone-400 font-light ml-1">({doctor.reviews})</span>
                       </div>
                       <p className="text-sm text-stone-500 font-light">{doctor.experience}+ years</p>
