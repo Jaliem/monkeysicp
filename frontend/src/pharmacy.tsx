@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Navbar from './nav';
 import { fetchMedicines, fetchOrders } from './services/flaskService';
+import { Apple, Brain, Flower, Heart, Pill, Syringe } from 'lucide-react';
 
 interface Medicine {
   id: string;
@@ -72,7 +73,7 @@ const Pharmacy = () => {
           description: medicine["1_595_738_364"] || medicine.description || 'Medicine description not available.',
           sideEffects: ['Consult doctor for side effects'], // Default since not in response
           activeIngredients: medicine["819_652_970"] ? [medicine["819_652_970"]] : (medicine.active_ingredient ? [medicine.active_ingredient] : ['N/A']),
-          image: getCategoryEmoji((medicine["2_909_547_262"] || medicine.category || 'general').toLowerCase())
+          image: getCategoryIcon((medicine["2_909_547_262"] || medicine.category || 'general').toLowerCase())
         }));
         
         // Parse ICP orders data format
@@ -103,24 +104,26 @@ const Pharmacy = () => {
     loadData();
   }, []);
 
-  const getCategoryEmoji = (category: string) => {
-    const emojiMap: Record<string, string> = {
-      'pain relief': '💊',
-      'pain-relief': '💊',
-      'antibiotic': '🩹',
-      'antibiotics': '🩹',
-      'vitamin': '🟡',
-      'vitamins': '🟡',
-      'allergy': '🤧',
-      'diabetes': '💉',
-      'heart': '❤️',
-      'mental-health': '🧘',
-      'digestive health': '🍃',
-      'digestive': '🍃'
-    };
-    return emojiMap[category.toLowerCase()] || '💊';
+  const getCategoryIcon = (category: string): ReactNode => {
+  const iconMap: Record<string, ReactNode> = {
+    "pain relief": <Pill className="w-8 h-8 text-emerald-600" />,
+    "pain-relief": <Pill className="w-8 h-8 text-emerald-600" />,
+    "antibiotic": <Syringe className="w-8 h-8 text-blue-600" />,
+    "antibiotics": <Syringe className="w-8 h-8 text-blue-600" />,
+    "vitamin": <Apple className="w-8 h-8 text-orange-500" />,
+    "vitamins": <Apple className="w-8 h-8 text-orange-500" />,
+    "allergy": <Flower className="w-8 h-8 text-pink-500" />,
+    "diabetes": <Syringe className="w-8 h-8 text-red-500" />,
+    "heart": <Heart className="w-8 h-8 text-red-600" />,
+    "mental-health": <Brain className="w-8 h-8 text-purple-600" />,
+    "digestive health": <Apple className="w-8 h-8 text-gray-500" />,
+    "digestive": <Apple className="w-8 h-8 text-gray-500" />,
   };
 
+  return iconMap[category.toLowerCase()] ?? (
+    <Pill className="w-4 h-4 text-gray-500" />
+  );
+};
   const getDefaultMedicines = (): Medicine[] => [
     {
       id: '1',
@@ -176,6 +179,27 @@ const Pharmacy = () => {
     });
   };
 
+
+  const getCategoryProfile = (category: string) => {
+  const colors: Record<string, string> = {
+    "pain relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "pain-relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
+    "antibiotic": "bg-blue-100 text-blue-700 border-blue-200",
+    "antibiotics": "bg-blue-100 text-blue-700 border-blue-200",
+    "vitamin": "bg-orange-100 text-orange-700 border-orange-200",
+    "vitamins": "bg-orange-100 text-orange-700 border-orange-200",
+    "allergy": "bg-pink-100 text-pink-700 border-pink-200",
+    "diabetes": "bg-red-100 text-red-700 border-red-200",
+    "heart": "bg-red-100 text-red-700 border-red-200",
+    "mental-health": "bg-purple-100 text-purple-700 border-purple-200",
+    "digestive health": "bg-green-100 text-green-700 border-green-200",
+    "digestive": "bg-green-100 text-green-700 border-green-200",
+  };
+
+  return colors[category.toLowerCase()] || "bg-stone-100 text-stone-700 border-stone-200";
+};
+
+
   const updateCartQuantity = (medicineId: string, quantity: number) => {
     if (quantity <= 0) {
       setCart(prev => prev.filter(item => item.medicine.id !== medicineId));
@@ -216,19 +240,6 @@ const Pharmacy = () => {
     setIsOrdering(false);
   };
 
-  const getCategoryColor = (category: string) => {
-    const colors: Record<string, string> = {
-      'pain-relief': 'bg-red-100 text-red-700 border-red-200',
-      'antibiotics': 'bg-blue-100 text-blue-700 border-blue-200',
-      'vitamins': 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      'allergy': 'bg-green-100 text-green-700 border-green-200',
-      'diabetes': 'bg-purple-100 text-purple-700 border-purple-200',
-      'heart': 'bg-pink-100 text-pink-700 border-pink-200',
-      'mental-health': 'bg-indigo-100 text-indigo-700 border-indigo-200',
-      'digestive': 'bg-orange-100 text-orange-700 border-orange-200'
-    };
-    return colors[category] || 'bg-stone-100 text-stone-700 border-stone-200';
-  };
 
   const formatCategory = (category: string) => {
     return category.split('-').map(word => 
@@ -271,12 +282,14 @@ const Pharmacy = () => {
                 Recent Orders
               </h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-                {orders.slice(0, 2).map((order) => (
+                {orders.slice(0, 2).map((order) => {
+                  const medicine = medicines.find(m => m.id === order.medicineId);
+                  return (
                   <div key={order.id} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">
-                          💊
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl border ${medicine ? getCategoryProfile(medicine.category) : 'bg-emerald-100'}`}>
+                          {medicine ? medicine.image : '💊'}
                         </div>
                         <div>
                           <h3 className="font-medium text-stone-800">{order.medicineName}</h3>
@@ -299,7 +312,8 @@ const Pharmacy = () => {
                       <span className="text-sm">{new Date(order.orderDate).toLocaleDateString()}</span>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -358,7 +372,7 @@ const Pharmacy = () => {
                 <div className="p-6" onClick={() => handleMedicineClick(medicine)}>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl border ${getCategoryProfile(medicine.category)}`}>
                         {medicine.image}
                       </div>
                       <div>
@@ -374,7 +388,7 @@ const Pharmacy = () => {
                   </div>
 
                   <div className="mb-4">
-                    <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getCategoryColor(medicine.category)}`}>
+                    <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getCategoryProfile(medicine.category)}`}>
                       {formatCategory(medicine.category)}
                     </span>
                   </div>
@@ -453,7 +467,8 @@ const Pharmacy = () => {
                   <div className="space-y-4 mb-6">
                     {cart.map((item) => (
                       <div key={item.medicine.id} className="flex items-center space-x-4 p-4 border border-stone-200 rounded-lg">
-                        <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-xl">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border ${getCategoryProfile(item.medicine.category)}`}
+>
                           {item.medicine.image}
                         </div>
                         
@@ -529,7 +544,7 @@ const Pharmacy = () => {
             <div className="p-6 border-b border-stone-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl border ${getCategoryProfile(selectedMedicine.category)}`}>
                     {selectedMedicine.image}
                   </div>
                   <div>
@@ -552,7 +567,7 @@ const Pharmacy = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-stone-500 font-light mb-1">Category</p>
-                  <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getCategoryColor(selectedMedicine.category)}`}>
+                  <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getCategoryProfile(selectedMedicine.category)}`}>
                     {formatCategory(selectedMedicine.category)}
                   </span>
                 </div>
