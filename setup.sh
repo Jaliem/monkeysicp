@@ -43,16 +43,19 @@ BASE_URL=http://127.0.0.1:4943
 # API Keys - Get from https://asi1.ai/dashboard/api-keys
 ASI1_API_KEY=your_actual_api_key_here
 
-# Fetch.ai Agent Addresses
-DOCTOR_AGENT_ADDRESS=agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru
-PHARMACY_AGENT_ADDRESS=agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c
-WELLNESS_AGENT_ADDRESS=agent1q0vpdcvka3dyzvcc4vs9m8wy0rvh9r39v0wfk04f25nckmkt5cqmvhedtyt
+# Ngrok Authtoken for public URLs - Get from https://dashboard.ngrok.com/get-started/your-authtoken
+NGROK_AUTHTOKEN=your_ngrok_authtoken_here
+
+# Mailbox API Key for agent communication - Get from https://agentverse.ai/
+MAILBOX_API_KEY=your_mailbox_api_key_here
 EOL
     
     echo ""
     echo "IMPORTANT: Please edit the .env file with your actual values:"
     echo "1. CANISTER_ID and BASE_URL: Get from 'dfx deploy backend' output"
     echo "2. ASI1_API_KEY: Get from https://asi1.ai/dashboard/api-keys"
+    echo "3. NGROK_AUTHTOKEN: Get from https://dashboard.ngrok.com/get-started/your-authtoken"
+    echo "4. MAILBOX_API_KEY: Get from https://agentverse.ai/"
     echo ""
     echo "After updating .env, run ./start.sh to start the system"
 else
@@ -75,6 +78,8 @@ echo "If you haven't already, please update the .env file with your:"
 echo "1. cd ic && dfx start --clean --background"
 echo "2. CANISTER_ID and BASE_URL from 'dfx deploy backend'"
 echo "3. ASI1_API_KEY from https://asi1.ai/dashboard/api-keys"
+echo "4. NGROK_AUTHTOKEN from https://dashboard.ngrok.com/get-started/your-authtoken"
+echo "5. MAILBOX_API_KEY from https://agentverse.ai/"
 echo ""
 echo "To start all services:"
 echo "1. Run: ./start.sh"

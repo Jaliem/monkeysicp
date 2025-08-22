@@ -1,4 +1,3 @@
-# wellness_agent.py
 import datetime
 import aiohttp
 import json
@@ -158,11 +157,12 @@ async def get_llm_advice(prompt: str, ctx: Context) -> List[str]:
     return advice
 
 # --- Agent Setup ---
+# In wellness.py
 wellness_agent = Agent(
     name="wellness_agent",
     port=8003,
-    seed="wellness_agent_secret_seed_phrase_123",
-    mailbox=True,
+    seed="new_wellness_agent_secret_seed_2025",
+    mailbox=os.environ.get("MAILBOX_API_KEY"), 
 )
 
 wellness_protocol = Protocol("WellnessProtocol", version="1.0")

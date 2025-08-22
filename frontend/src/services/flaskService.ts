@@ -53,7 +53,7 @@ export const logWellnessData = async (wellnessData: any, userId: string = 'front
     if (wellnessData.steps) messageParts.push(`walked ${wellnessData.steps} steps`);
     if (wellnessData.water) messageParts.push(`drank ${wellnessData.water} glasses of water`);
     if (wellnessData.mood) messageParts.push(`feeling ${wellnessData.mood}`);
-    if (wellnessData.exercise) messageParts.push(`exercise: ${wellnessData.exercise}`);
+    if (wellnessData.exercise && wellnessData.exercise.trim()) messageParts.push(`exercise: ${wellnessData.exercise}`);
     
     const message = messageParts.length > 0 
       ? `Today I ${messageParts.join(', ')}.`

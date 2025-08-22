@@ -14,7 +14,7 @@ import Types "./Types";
 
 persistent actor {
   // Record keys for JSON serialization - Healthcare
-  transient let WelcomeResponseKeys = ["message"];  
+  transient let WelcomeResponseKeys = ["message"];
   transient let _SymptomDataKeys = ["symptoms", "timestamp", "user_id"];
   transient let _MedicationReminderKeys = ["medicine", "time", "created_at", "user_id", "active"];
   transient let _EmergencyAlertKeys = ["timestamp", "user_id", "status"];
@@ -22,12 +22,12 @@ persistent actor {
   transient let SymptomHistoryResponseKeys = ["symptoms", "total_count"];
   transient let ReminderListResponseKeys = ["reminders", "active_count"];
   transient let EmergencyStatusResponseKeys = ["has_active_emergency", "latest_emergency"];
-  
+
   // Wellness Record Keys
   transient let _WellnessLogKeys = ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"];
   transient let WellnessStoreResponseKeys = ["success", "message", "id", "logged_data"];
   transient let WellnessSummaryResponseKeys = ["logs", "total_count", "success", "message"];
-  
+
   // Doctor & Appointment JSON keys
   transient let _DoctorKeys = ["doctor_id", "name", "specialty", "qualifications", "experience_years", "rating", "available_days", "available_slots", "image_url"];
   transient let _AppointmentKeys = ["appointment_id", "doctor_id", "doctor_name", "specialty", "patient_symptoms", "appointment_date", "appointment_time", "status", "urgency", "created_at", "user_id"];
@@ -44,7 +44,7 @@ persistent actor {
 
   // Healthcare data storage
   private var symptom_entries : [(Text, Types.SymptomData)] = [];
-  private var medication_reminders : [(Text, Types.MedicationReminder)] = [];  
+  private var medication_reminders : [(Text, Types.MedicationReminder)] = [];
   private var emergency_alerts : [(Text, Types.EmergencyAlert)] = [];
   private var doctor_entries : [(Text, Types.Doctor)] = [];
   private var appointment_entries : [(Text, Types.Appointment)] = [];
@@ -75,7 +75,7 @@ persistent actor {
 
   system func postupgrade() {
     symptoms := Buffer.fromArray(symptom_entries);
-    reminders := Buffer.fromArray(medication_reminders);  
+    reminders := Buffer.fromArray(medication_reminders);
     emergencies := Buffer.fromArray(emergency_alerts);
     doctors := Buffer.fromArray(doctor_entries);
     appointments := Buffer.fromArray(appointment_entries);
@@ -90,12 +90,12 @@ persistent actor {
     wellness_log_entries := [];
     medicine_entries := [];
     medicine_order_entries := [];
-    
+
     // Initialize doctors if empty
     if (doctors.size() == 0) {
       initializeDoctors();
     };
-    
+
     // Initialize medicines if empty
     if (medicines.size() == 0) {
       initializeMedicines();
@@ -103,10 +103,10 @@ persistent actor {
   };
 
   // ----- Doctor Database Initialization -----
-  
+
   private func initializeDoctors() {
     Debug.print("[INIT]: Initializing doctor database");
-    
+
     // CARDIOLOGY DOCTORS
   let card1 : Types.Doctor = {
       doctor_id = "card_001";
@@ -699,15 +699,15 @@ persistent actor {
       image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
   };
 doctors.add(("gp_008", gp8));
-    
+
     Debug.print("[INIT]: Added " # Nat.toText(doctors.size()) # " doctors to database");
   };
 
   // ----- Medicine Database Initialization -----
-  
+
   private func initializeMedicines() {
     Debug.print("[INIT]: Initializing medicine database");
-    
+
     // Pain Relief medicines
     let paracetamol : Types.Medicine = {
       medicine_id = "med_001";
@@ -723,7 +723,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1-2 tablets every 4-6 hours";
     };
     medicines.add(("med_001", paracetamol));
-    
+
     let ibuprofen : Types.Medicine = {
       medicine_id = "med_002";
       name = "Ibuprofen";
@@ -738,7 +738,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1 tablet every 6-8 hours";
     };
     medicines.add(("med_002", ibuprofen));
-    
+
     let aspirin : Types.Medicine = {
       medicine_id = "med_003";
       name = "Aspirin";
@@ -768,7 +768,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1 tablet every 8-12 hours";
     };
     medicines.add(("med_004", naproxen));
-    
+
     // Antibiotics
     let amoxicillin : Types.Medicine = {
       medicine_id = "med_005";
@@ -829,7 +829,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1 tablet every 12 hours";
     };
     medicines.add(("med_008", doxycycline));
-    
+
     // Vitamins
     let vitamin_c : Types.Medicine = {
       medicine_id = "med_009";
@@ -845,7 +845,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1 tablet daily";
     };
     medicines.add(("med_009", vitamin_c));
-    
+
     let vitamin_d : Types.Medicine = {
       medicine_id = "med_010";
       name = "Vitamin D3";
@@ -905,7 +905,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1 tablet daily with food";
     };
     medicines.add(("med_013", multivitamin));
-    
+
     // Allergy medicines
     let cetirizine : Types.Medicine = {
       medicine_id = "med_014";
@@ -966,7 +966,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1 tablet daily";
     };
     medicines.add(("med_017", fexofenadine));
-    
+
     // Diabetes medication
     let insulin : Types.Medicine = {
       medicine_id = "med_018";
@@ -982,7 +982,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"As prescribed by physician";
     };
     medicines.add(("med_018", insulin));
-    
+
     let regular_insulin : Types.Medicine = {
       medicine_id = "med_019";
       name = "Insulin";
@@ -1134,7 +1134,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"1 tablet daily in morning";
     };
     medicines.add(("med_028", fluoxetine));
-    
+
     // Digestive Health medicines
     let omeprazole : Types.Medicine = {
       medicine_id = "med_029";
@@ -1165,7 +1165,7 @@ doctors.add(("gp_008", gp8));
       dosage = ?"2 tablets initially, then 1 after each loose stool";
     };
     medicines.add(("med_030", loperamide));
-    
+
     Debug.print("[INIT]: Added " # Nat.toText(medicines.size()) # " medicines to database");
   };
 
@@ -1173,8 +1173,8 @@ doctors.add(("gp_008", gp8));
   if (doctors.size() == 0) {
     initializeDoctors();
   };
-  
-  // Initialize medicines on actor startup (for fresh deployments)  
+
+  // Initialize medicines on actor startup (for fresh deployments)
   if (medicines.size() == 0) {
     initializeMedicines();
   };
@@ -1265,14 +1265,14 @@ doctors.add(("gp_008", gp8));
   public shared query func get_emergency_status(user_id : Text) : async Types.EmergencyStatusResponse {
     var latest_emergency : ?Types.EmergencyAlert = null;
     var has_active = false;
-    
+
     for ((_, emergency) in emergencies.vals()) {
       if (emergency.user_id == user_id and emergency.status == "active") {
         latest_emergency := ?emergency;
         has_active := true;
       };
     };
-    
+
     {
       has_active_emergency = has_active;
       latest_emergency = latest_emergency;
@@ -1302,21 +1302,21 @@ doctors.add(("gp_008", gp8));
         Char.fromNat32(Char.toNat32(c) + 32)
       } else { c }
     });
-    
+
     for ((_, doctor) in doctors.vals()) {
       let doctor_specialty_lower = Text.map(doctor.specialty, func(c : Char) : Char {
         if (c >= 'A' and c <= 'Z') {
           Char.fromNat32(Char.toNat32(c) + 32)
         } else { c }
       });
-      
-      if (Text.contains(doctor_specialty_lower, #text specialty_lower) or 
-          Text.contains(specialty_lower, #text doctor_specialty_lower) or 
+
+      if (Text.contains(doctor_specialty_lower, #text specialty_lower) or
+          Text.contains(specialty_lower, #text doctor_specialty_lower) or
           specialty_lower == "general") {
         matching_doctors.add(doctor);
       };
     };
-    
+
     {
       doctors = Buffer.toArray(matching_doctors);
       total_count = matching_doctors.size();
@@ -1366,10 +1366,10 @@ doctors.add(("gp_008", gp8));
           created_at = appointment.created_at;
           user_id = appointment.user_id;
         };
-        
+
         // Replace in buffer (simplified approach)
         appointments.add((id, updated_appointment));
-        
+
         return {
           success = true;
           appointment_id = ?appointment_id;
@@ -1378,7 +1378,7 @@ doctors.add(("gp_008", gp8));
         };
       };
     };
-    
+
     {
       success = false;
       appointment_id = null;
@@ -1410,14 +1410,14 @@ doctors.add(("gp_008", gp8));
         Char.fromNat32(Char.toNat32(c) + 32)
       } else { c }
     });
-    
+
     for ((_, medicine) in medicines.vals()) {
       let medicine_name_lower = Text.map(medicine.name, func(c : Char) : Char {
         if (c >= 'A' and c <= 'Z') {
           Char.fromNat32(Char.toNat32(c) + 32)
         } else { c }
       });
-      
+
       let generic_name_lower = switch (medicine.generic_name) {
         case null { "" };
         case (?generic) {
@@ -1428,14 +1428,14 @@ doctors.add(("gp_008", gp8));
           });
         };
       };
-      
-      if (Text.contains(medicine_name_lower, #text name_lower) or 
+
+      if (Text.contains(medicine_name_lower, #text name_lower) or
           Text.contains(name_lower, #text medicine_name_lower) or
           Text.contains(generic_name_lower, #text name_lower)) {
         matching_medicines.add(medicine);
       };
     };
-    
+
     {
       medicines = Buffer.toArray(matching_medicines);
       total_count = matching_medicines.size();
@@ -1451,20 +1451,20 @@ doctors.add(("gp_008", gp8));
         Char.fromNat32(Char.toNat32(c) + 32)
       } else { c }
     });
-    
+
     for ((_, medicine) in medicines.vals()) {
       let medicine_category_lower = Text.map(medicine.category, func(c : Char) : Char {
         if (c >= 'A' and c <= 'Z') {
           Char.fromNat32(Char.toNat32(c) + 32)
         } else { c }
       });
-      
-      if (Text.contains(medicine_category_lower, #text category_lower) or 
+
+      if (Text.contains(medicine_category_lower, #text category_lower) or
           Text.contains(category_lower, #text medicine_category_lower)) {
         matching_medicines.add(medicine);
       };
     };
-    
+
     {
       medicines = Buffer.toArray(matching_medicines);
       total_count = matching_medicines.size();
@@ -1492,7 +1492,7 @@ doctors.add(("gp_008", gp8));
     // Find the medicine
     var found_medicine : ?Types.Medicine = null;
     var medicine_index : ?Nat = null;
-    
+
     var index = 0;
     for ((_, medicine) in medicines.vals()) {
       if (medicine.medicine_id == medicine_id) {
@@ -1501,7 +1501,7 @@ doctors.add(("gp_008", gp8));
       };
       index += 1;
     };
-    
+
     switch (found_medicine) {
       case null {
         return {
@@ -1523,20 +1523,20 @@ doctors.add(("gp_008", gp8));
             suggested_alternatives = null;
           };
         };
-        
+
         // Check stock availability
         if (medicine.stock < quantity) {
           // Get alternative suggestions from same category
           let alternatives = Buffer.Buffer<Types.Medicine>(0);
           for ((_, alt_medicine) in medicines.vals()) {
-            if (alt_medicine.medicine_id != medicine_id and 
-                alt_medicine.category == medicine.category and 
+            if (alt_medicine.medicine_id != medicine_id and
+                alt_medicine.category == medicine.category and
                 alt_medicine.stock >= quantity and
                 alternatives.size() < 3) {
               alternatives.add(alt_medicine);
             };
           };
-          
+
           return {
             success = false;
             order_id = null;
@@ -1545,11 +1545,11 @@ doctors.add(("gp_008", gp8));
             suggested_alternatives = if (alternatives.size() > 0) { ?Buffer.toArray(alternatives) } else { null };
           };
         };
-        
+
         // Create order
         let order_id = "ORD-" # Int.toText(Time.now()) # "-" # Nat.toText(next_id);
         let total_price = medicine.price * Float.fromInt(quantity);
-        
+
         let order : Types.MedicineOrder = {
           order_id = order_id;
           medicine_id = medicine_id;
@@ -1563,12 +1563,12 @@ doctors.add(("gp_008", gp8));
           prescription_id = prescription_id;
           pharmacy_notes = ?"Order confirmed and ready for pickup";
         };
-        
+
         // Store order
         let order_storage_id = "order_" # Int.toText(next_id);
         medicine_orders.add((order_storage_id, order));
         next_id += 1;
-        
+
         // Update medicine stock - create updated medicine record
         let updated_medicine : Types.Medicine = {
           medicine_id = medicine.medicine_id;
@@ -1583,12 +1583,12 @@ doctors.add(("gp_008", gp8));
           active_ingredient = medicine.active_ingredient;
           dosage = medicine.dosage;
         };
-        
+
         // Replace in medicines buffer (simplified approach - add updated version)
         medicines.add((medicine_id, updated_medicine));
-        
+
         Debug.print("[ORDER]: Medicine order " # order_id # " placed for user " # user_id);
-        
+
         return {
           success = true;
           order_id = ?order_id;
@@ -1619,7 +1619,7 @@ doctors.add(("gp_008", gp8));
         available_medicines.add(medicine);
       };
     };
-    
+
     {
       medicines = Buffer.toArray(available_medicines);
       total_count = available_medicines.size();
@@ -1646,7 +1646,7 @@ doctors.add(("gp_008", gp8));
     wellness_logs.add((id, log));
     next_id += 1;
     Debug.print("[INFO]: Stored wellness log for user " # log.user_id # " on date " # log.date);
-    
+
     return {
       success = true;
       message = "Wellness log stored successfully";
@@ -1688,16 +1688,16 @@ doctors.add(("gp_008", gp8));
   // Extracts WellnessLog data from HTTP request body
   private func extractWellnessLogData(body: Blob): ?Types.WellnessLog {
     switch(parseJson(body)) {
-      case (#err(e)) { 
+      case (#err(e)) {
         Debug.print("[ERROR]: Failed to parse JSON: " # e);
-        null 
+        null
       };
       case (#ok(jsonText)) {
         let #ok(blob) = JSON.fromText(jsonText, null) else {
           Debug.print("[ERROR]: Invalid JSON format");
           return null;
         };
-        
+
         let logData : ?Types.WellnessLog = from_candid (blob);
         logData;
       };
@@ -1840,6 +1840,32 @@ doctors.add(("gp_008", gp8));
     switch (userRequest) {
       case null return #err("User ID not found in JSON");
       case (?req) #ok(req.user_id);
+    };
+  };
+
+  // Extracts user_id and optional days from wellness summary request
+  private func extractWellnessSummaryRequest(body : Blob) : Result.Result<{user_id: Text; days: Nat}, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+
+    type WellnessSummaryRequest = {
+      user_id : Text;
+      days : ?Nat; // Make days optional
+    };
+    let summaryRequest : ?WellnessSummaryRequest = from_candid (blob);
+
+    switch (summaryRequest) {
+      case null return #err("user_id not found in JSON");
+      case (?req) {
+        // Return the user_id and the days value, defaulting to 7 if not provided
+        #ok({ user_id = req.user_id; days = switch(req.days) { case null { 7 }; case (?d) { d }; }; });
+      };
     };
   };
 
@@ -2109,7 +2135,7 @@ doctors.add(("gp_008", gp8));
           };
         };
       };
-      
+
       // Doctor & Appointment endpoints
       case ("POST", "/store-doctor") {
         let doctorResult = extractDoctorData(body);
@@ -2273,7 +2299,7 @@ doctors.add(("gp_008", gp8));
       case ("POST", "/add-wellness-log") {
         let logData = extractWellnessLogData(body);
         switch(logData) {
-          case null { 
+          case null {
             makeJsonResponse(400, "{\"error\": \"Invalid wellness log data\"}");
           };
           case (?log) {
@@ -2286,14 +2312,13 @@ doctors.add(("gp_008", gp8));
       };
 
       case ("POST", "/get-wellness-summary") {
-        let userIdResult = extractUserId(body);
-        switch (userIdResult) {
+        let requestResult = extractWellnessSummaryRequest(body);
+        switch (requestResult) {
           case (#err(errorMessage)) {
             return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
           };
-          case (#ok(userId)) {
-            let days = 7; // Default to 7 days if not specified
-            let response = await get_wellness_summary(userId, days);
+          case (#ok(requestData)) {
+            let response = await get_wellness_summary(requestData.user_id, requestData.days);
             let blob = to_candid(response);
             let #ok(jsonText) = JSON.toText(blob, WellnessSummaryResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
