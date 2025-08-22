@@ -1,6 +1,20 @@
 #!/bin/bash
-
 echo "Starting HealthAgent System..."
+
+# Function to find Python executable
+find_python() {
+    if command -v python &> /dev/null; then
+        echo "python"
+    elif command -v python3 &> /dev/null; then
+        echo "python3"
+    else
+        echo "ERROR: Neither python nor python3 is available. Please install Python."
+        exit 1
+    fi
+}
+
+# Get Python command
+PYTHON_CMD=$(find_python)
 
 # Check if venv exists
 if [ ! -d "venv" ]; then
@@ -36,31 +50,26 @@ fi
 
 # Activate venv
 source venv/bin/activate
-
 cd fetch
 
 echo "Starting Agent service on port 8000..."
-python agent.py &
+$PYTHON_CMD agent.py &
 AGENT_PID=$!
-
 sleep 2
 
 echo "Starting Doctor service on port 8001..."
-python doctor.py &
+$PYTHON_CMD doctor.py &
 DOCTOR_PID=$!
-
 sleep 1
 
 echo "Starting Pharmacy service on port 8002..."
-python pharmacy.py &
+$PYTHON_CMD pharmacy.py &
 PHARMACY_PID=$!
-
 sleep 1
 
 echo "Starting Wellness service on port 8003..."
-python wellness.py &
+$PYTHON_CMD wellness.py &
 WELLNESS_PID=$!
-
 sleep 2
 
 # Start frontend with npm run dev (development server)
@@ -105,4 +114,5 @@ if [ -n "$FRONTEND_PID" ]; then
 else
     trap 'kill $AGENT_PID $DOCTOR_PID $PHARMACY_PID $WELLNESS_PID 2>/dev/null; echo ""; echo "All services stopped."; exit 0' INT
 fi
+
 wait
