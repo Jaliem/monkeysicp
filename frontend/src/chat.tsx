@@ -396,7 +396,7 @@ Just speak naturally - I'll understand and connect you with the right healthcare
                 )}
               </button>
             </div>
-            <p className="text-xs text-stone-500 font-light mt-6 text-center">
+            <p className="text-xs text-stone-500 font-light mt-6 mb-3 text-center">
               Powered by ASI1 AI for natural language understanding • Your data is secured on ICP blockchain
             </p>
           </div>

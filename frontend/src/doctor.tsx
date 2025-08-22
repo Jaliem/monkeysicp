@@ -318,21 +318,34 @@ const Doctor = () => {
                   className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-200 font-light text-lg placeholder:opacity-30"
                 />
               </div>
-              <select
-                value={selectedSpecialty}
-                onChange={(e) => setSelectedSpecialty(e.target.value)}
-                className="px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
-              >
-                <option value="all">All Specialties</option>
-                {specialties.slice(1).map(specialty => (
-                  <option key={specialty} value={specialty}>
-                    {formatSpecialty(specialty)}
-                  </option>
-                ))}
-              </select>
+
+              {/* Wrapper for custom dropdown */}
+              <div className="relative">
+                <select
+                  value={selectedSpecialty}
+                  onChange={(e) => setSelectedSpecialty(e.target.value)}
+                  className="appearance-none px-6 py-4 pr-12 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg bg-white"
+                >
+                  <option value="all">All Specialties</option>
+                  {specialties.slice(1).map(specialty => (
+                    <option key={specialty} value={specialty}>
+                      {formatSpecialty(specialty)}
+                    </option>
+                  ))}
+                </select>
+                
+                {/* MODIFICATION: Changed 'right-0' to 'right-2' to move the arrow left. */}
+                {/* Also increased padding on the select element ('pr-12') to make room. */}
+                <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-4 text-gray-700">
+                  <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                  </svg>
+                </div>
+              </div>
+              
             </div>
           </div>
-
+          
           {/* Loading State */}
           {isLoading ? (
             <div className="flex justify-center items-center py-16">

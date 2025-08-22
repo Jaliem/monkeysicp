@@ -33,6 +33,11 @@ interface HealthProfile {
 
 const Profile = () => {
   const [principal, setPrincipal] = useState<string | null>(null);
+  const [validationState, setValidationState] = useState({
+    personal: false,
+    medical: false,
+    preferences: false
+  });
   const [profile, setProfile] = useState<HealthProfile>({
     personalInfo: {
       name: '',
@@ -80,41 +85,131 @@ const Profile = () => {
       // Load saved profile from localStorage as a simple implementation
       const savedProfile = localStorage.getItem('healthProfile');
       if (savedProfile) {
-        setProfile(JSON.parse(savedProfile));
+        const parsedProfile = JSON.parse(savedProfile);
+        setProfile(parsedProfile);
+        // Initialize validation state
+        updateValidation(parsedProfile);
       }
     }
   };
 
-  const handleInputChange = (section: keyof HealthProfile, field: string, value: any) => {
-    setProfile(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value
+  const validatePersonalInfo = (personalInfo: HealthProfile['personalInfo']) => {
+    // All personal information fields must be filled
+    return [
+      personalInfo.name,
+      personalInfo.age,
+      personalInfo.gender,
+      personalInfo.height,
+      personalInfo.weight,
+      personalInfo.bloodType,
+      personalInfo.phoneNumber,
+      personalInfo.emergencyContact
+    ].every(field => {
+      if (typeof field === 'number') {
+        return field > 0;
       }
-    }));
+      return field.trim() !== '';
+    });
+  };
+
+  const validateMedicalHistory = (medicalHistory: HealthProfile['medicalHistory']) => {
+    // Require at least one entry in each medical history category
+    return [
+      medicalHistory.allergies.length > 0,    // Must have at least one allergy listed
+      medicalHistory.medications.length > 0,   // Must have at least one medication listed
+      medicalHistory.conditions.length > 0,    // Must have at least one condition listed
+      medicalHistory.surgeries.length > 0      // Must have at least one surgery listed
+    ].every(Boolean);
+  };
+
+  const validatePreferences = (preferences: HealthProfile['preferences']) => {
+    // All preference fields must be filled and at least one notification enabled
+    return [
+      preferences.preferredDoctor,
+      preferences.preferredPharmacy,
+      preferences.privacyLevel
+    ].every(field => field.trim() !== '') &&
+    Object.values(preferences.notificationSettings).some(setting => setting === true);
+  };
+
+  const updateValidation = (currentProfile: HealthProfile) => {
+    setValidationState({
+      personal: validatePersonalInfo(currentProfile.personalInfo),
+      medical: validateMedicalHistory(currentProfile.medicalHistory),
+      preferences: validatePreferences(currentProfile.preferences)
+    });
+  };
+
+  const handleInputChange = (section: keyof HealthProfile, field: string, value: any) => {
+    setProfile(prev => {
+      const newProfile = {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: value
+        }
+      };
+      
+      // Update validation state after changes
+      updateValidation(newProfile);
+      return newProfile;
+    });
   };
 
   const handleArrayAdd = (section: keyof HealthProfile, field: string, value: string) => {
     if (!value.trim()) return;
     
-    setProfile(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: [...(prev[section] as any)[field], value.trim()]
+    setProfile(prev => {
+      // Create the new profile state
+      const newProfile = {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: [...(prev[section] as any)[field], value.trim()]
+        }
+      };
+
+      // For medical history, update validation immediately
+      if (section === 'medicalHistory') {
+        const isValidNow = validateMedicalHistory(newProfile.medicalHistory);
+        setValidationState(current => ({
+          ...current,
+          medical: isValidNow
+        }));
+      } else {
+        // For other sections, use the general validation
+        updateValidation(newProfile);
       }
-    }));
+      
+      return newProfile;
+    });
   };
 
   const handleArrayRemove = (section: keyof HealthProfile, field: string, index: number) => {
-    setProfile(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: (prev[section] as any)[field].filter((_: any, i: number) => i !== index)
+    setProfile(prev => {
+      // Create the new profile state
+      const newProfile = {
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: (prev[section] as any)[field].filter((_: any, i: number) => i !== index)
+        }
+      };
+
+      // For medical history, update validation immediately
+      if (section === 'medicalHistory') {
+        const isValidNow = validateMedicalHistory(newProfile.medicalHistory);
+        setValidationState(current => ({
+          ...current,
+          medical: isValidNow
+        }));
+      } else {
+        // For other sections, use the general validation
+        updateValidation(newProfile);
       }
-    }));
+
+      return newProfile;
+    });
   };
 
   const handleSave = async () => {
@@ -135,6 +230,11 @@ const Profile = () => {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleTabChange = (tab: 'personal' | 'medical' | 'preferences') => {
+    setActiveTab(tab);
+    // Validation state is already up to date, no need to revalidate
   };
 
   const tabClasses = (tab: string) => 
@@ -175,19 +275,19 @@ const Profile = () => {
           {/* Tab Navigation */}
           <div className="flex space-x-4 mb-8">
             <button
-              onClick={() => setActiveTab('personal')}
+              onClick={() => handleTabChange('personal')}
               className={tabClasses('personal')}
             >
               Personal Info
             </button>
             <button
-              onClick={() => setActiveTab('medical')}
+              onClick={() => handleTabChange('medical')}
               className={tabClasses('medical')}
             >
               Medical History
             </button>
             <button
-              onClick={() => setActiveTab('preferences')}
+              onClick={() => handleTabChange('preferences')}
               className={tabClasses('preferences')}
             >
               Preferences
@@ -226,39 +326,57 @@ const Profile = () => {
                     />
                   </div>
 
+                  {/* MODIFICATION START: Gender Dropdown */}
                   <div>
                     <label className="block text-stone-700 font-light mb-2">Gender</label>
-                    <select
-                      value={profile.personalInfo.gender}
-                      onChange={(e) => handleInputChange('personalInfo', 'gender', e.target.value)}
-                      className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                    >
-                      <option value="">Select gender</option>
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                      <option value="prefer-not-to-say">Prefer not to say</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={profile.personalInfo.gender}
+                        onChange={(e) => handleInputChange('personalInfo', 'gender', e.target.value)}
+                        className="w-full appearance-none bg-white px-4 py-3 pr-12 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                      >
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                        <option value="prefer-not-to-say">Prefer not to say</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-2 text-gray-700">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
+                  {/* MODIFICATION END */}
 
+                  {/* MODIFICATION START: Blood Type Dropdown */}
                   <div>
                     <label className="block text-stone-700 font-light mb-2">Blood Type</label>
-                    <select
-                      value={profile.personalInfo.bloodType}
-                      onChange={(e) => handleInputChange('personalInfo', 'bloodType', e.target.value)}
-                      className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                    >
-                      <option value="">Select blood type</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={profile.personalInfo.bloodType}
+                        onChange={(e) => handleInputChange('personalInfo', 'bloodType', e.target.value)}
+                        className="w-full appearance-none bg-white px-4 py-3 pr-12 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                      >
+                        <option value="">Select blood type</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-2 text-gray-700">
+                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                          <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                      </div>
+                    </div>
                   </div>
+                  {/* MODIFICATION END */}
 
                   <div>
                     <label className="block text-stone-700 font-light mb-2">Height (cm)</label>
@@ -573,7 +691,7 @@ const Profile = () => {
               
                 <button
                   onClick={handleSave}
-                  disabled={isSaving}
+                  disabled={isSaving || !validationState[activeTab]}
                   className="px-8 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
