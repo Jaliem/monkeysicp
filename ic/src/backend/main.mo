@@ -1571,6 +1571,7 @@ doctors.add(("gp_008", gp8));
         let order_storage_id = "order_" # Int.toText(next_id);
         medicine_orders.add((order_storage_id, order));
         next_id += 1;
+        Debug.print("[ORDER]: Medicine order stored with ID: " # order_storage_id # " for user: " # user_id);
 
         // Update medicine stock - create updated medicine record
         let updated_medicine : Types.Medicine = {
@@ -1587,8 +1588,26 @@ doctors.add(("gp_008", gp8));
           dosage = medicine.dosage;
         };
 
-        // Replace in medicines buffer (simplified approach - add updated version)
-        medicines.add((medicine_id, updated_medicine));
+        // Update medicine stock in the buffer by finding and replacing the entry
+        let medicines_temp = Buffer.Buffer<(Text, Types.Medicine)>(medicines.size());
+        var found_and_updated = false;
+        
+        for ((id, med) in medicines.vals()) {
+          if (med.medicine_id == medicine_id) {
+            medicines_temp.add((id, updated_medicine));
+            found_and_updated := true;
+          } else {
+            medicines_temp.add((id, med));
+          };
+        };
+        
+        // If medicine wasn't found in buffer, add it (shouldn't happen but safety check)
+        if (not found_and_updated) {
+          medicines_temp.add((medicine_id, updated_medicine));
+        };
+        
+        // Replace the medicines buffer with updated one
+        medicines := medicines_temp;
 
         Debug.print("[ORDER]: Medicine order " # order_id # " placed for user " # user_id);
 
@@ -1605,12 +1624,19 @@ doctors.add(("gp_008", gp8));
 
   // Get user medicine orders
   public shared query func get_user_medicine_orders(user_id : Text) : async [Types.MedicineOrder] {
+    Debug.print("[ORDER_QUERY]: Fetching orders for user: " # user_id);
+    Debug.print("[ORDER_QUERY]: Total orders in system: " # Nat.toText(medicine_orders.size()));
+    
     let user_orders = Buffer.Buffer<Types.MedicineOrder>(0);
-    for ((_, order) in medicine_orders.vals()) {
+    for ((id, order) in medicine_orders.vals()) {
+      Debug.print("[ORDER_QUERY]: Checking order " # id # " for user " # order.user_id);
       if (order.user_id == user_id) {
         user_orders.add(order);
+        Debug.print("[ORDER_QUERY]: Found matching order: " # order.order_id);
       };
     };
+    
+    Debug.print("[ORDER_QUERY]: Found " # Nat.toText(user_orders.size()) # " orders for user " # user_id);
     Buffer.toArray(user_orders);
   };
 

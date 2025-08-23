@@ -27,7 +27,7 @@ This project demonstrates a decentralized healthcare ecosystem where multiple Fe
 | HealthAgent   | Main Agent     | agent1qv9wjqqwamnrlwv4knwrxkkw035sq7yhgshv6a2zu9ks7k0sndf55kr5ufy   | Coordinates between all healthcare services           |
 | DoctorAgent   | Doctor Agent   | agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru   | Provides medical diagnosis and make appointment       |
 | PharmacyAgent | Pharmacy Agent | agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c   | Manages medication inventory and prescription         |
-| WellnessAgent | Wellness Agent | agent1q0vpdcvka3dyzvcc4vs9m8wy0rvh9r39v0wfk04f25nckmkt5cqmvhedtyt   | Offers health monitoring and wellness recommendations |
+| WellnessAgent | Wellness Agent | agent1qg9d9628xnvzdlmexshr5c7mexkekxpavn4yxtn0tums9a6jcg3ygwzatgx   | Offers health monitoring and wellness recommendations |
 
 #### Agent Capabilities
 

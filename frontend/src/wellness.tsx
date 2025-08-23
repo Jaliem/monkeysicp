@@ -41,84 +41,6 @@ const Wellness = () => {
   const [isLogging, setIsLogging] = useState(false);
 
   useEffect(() => {
-    const loadWellnessData = async () => {
-      try {
-        // Fetch wellness data from ICP backend
-        const wellnessResponse = await fetchWellnessData('user123', 30); // Get 30 days of data
-        
-        if (wellnessResponse.logs && wellnessResponse.logs.length > 0) {
-          // Parse wellness logs (handle numeric keys from Motoko serialization)
-          const parsedLogs = wellnessResponse.logs.map((log: any) => {
-            // Extract data from numeric keys based on actual JSON serialization behavior
-            const date = log["1_113_806_382"] || log.date || new Date().toISOString().split('T')[0]; // date
-            // user_id not used in display, but available if needed
-            // const user_id = log["1_869_947_023"] || log.user_id || 'user123';  
-            const sleep = log["2_126_822_679"] || log.sleep || 0; // sleep data appears in this key
-            const water = log["1_152_427_284"] || log.water_intake || 0; // water_intake
-            const mood = log["1_450_210_392"] || log.mood || 'Unknown'; // mood
-            const exercise = log["1_214_307_575"] || log.exercise || 'Not logged'; // exercise
-            const steps = log["2_215_541_671"] || log.steps || 0; // steps
-            
-            return {
-              sleep: typeof sleep === 'number' ? sleep : (sleep !== null ? parseFloat(sleep) || 0 : 0),
-              steps: typeof steps === 'number' ? steps : (steps !== null ? parseInt(steps) || 0 : 0),
-              water: typeof water === 'number' ? water : (water !== null ? parseFloat(water) || 0 : 0),
-              mood: typeof mood === 'string' ? mood : (mood !== null ? mood : 'Unknown'),
-              exercise: typeof exercise === 'string' ? exercise : (exercise !== null ? exercise : 'Not logged'),
-              date: typeof date === 'string' ? date : new Date().toISOString().split('T')[0]
-            };
-          });
-          
-          setWellnessHistory(parsedLogs);
-          
-          // Calculate weekly summary from real data
-          if (parsedLogs.length > 0) {
-            const recentLogs = parsedLogs.slice(-7); // Last 7 days of logs
-            
-            const totalSleep = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.sleep, 0);
-            const totalSteps = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.steps, 0);
-            const totalWater = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.water, 0);
-            const exerciseDays = recentLogs.filter((log: WellnessData) => log.exercise && log.exercise !== 'Not logged').length;
-            
-            // Count days with actual data for accurate averages
-            const sleepDays = recentLogs.filter(log => log.sleep > 0).length;
-            const waterDays = recentLogs.filter(log => log.water > 0).length;
-            
-            // Find most common mood
-            const moodCounts: Record<string, number> = {};
-            recentLogs.forEach((log: WellnessData) => {
-              if (log.mood && log.mood !== 'Unknown') {
-                moodCounts[log.mood] = (moodCounts[log.mood] || 0) + 1;
-              }
-            });
-            const mostCommonMood = Object.keys(moodCounts).reduce((a, b) => 
-              moodCounts[a] > moodCounts[b] ? a : b, 'Good'
-            );
-            
-            setWeeklySummary({
-              avgSleep: sleepDays > 0 ? totalSleep / sleepDays : 0, // Average over actual sleep days
-              totalSteps: totalSteps,
-              avgWater: waterDays > 0 ? totalWater / waterDays : 0, // Average over actual water days
-              mostCommonMood: mostCommonMood,
-              exerciseDays: exerciseDays
-            });
-            
-            // Set today's data if available
-            const todayLog = parsedLogs.find((log: WellnessData) => log.date === new Date().toISOString().split('T')[0]);
-            if (todayLog) {
-              setTodayData(todayLog);
-            }
-          }
-        }
-        
-      } catch (error) {
-        console.error('Error loading wellness data from backend:', error);
-        // Keep default/empty state if backend is unavailable
-      } finally {
-        // Loading complete
-      }
-    };
-    
     loadWellnessData();
   }, []);
 
@@ -129,20 +51,112 @@ const Wellness = () => {
     }));
   };
 
+  const loadWellnessData = async () => {
+    try {
+      // Fetch wellness data from ICP backend
+      const wellnessResponse = await fetchWellnessData('user123', 30); // Get 30 days of data
+      console.log('Fetched wellness response:', wellnessResponse);
+      
+      if (wellnessResponse.logs && wellnessResponse.logs.length > 0) {
+        // Parse wellness logs - handle both regular keys and numeric keys from Motoko serialization
+        const parsedLogs = wellnessResponse.logs.map((log: any) => {
+          console.log('Raw wellness log:', log); // Debug logging
+          
+          // Try to extract data from various possible key formats
+          let date = log.date || log["1_113_806_382"] || new Date().toISOString().split('T')[0];
+          let sleep = log.sleep || log["2_126_822_679"] || 0;
+          let water = log.water_intake || log["1_152_427_284"] || 0;
+          let mood = log.mood || log["1_450_210_392"] || 'Unknown';
+          let exercise = log.exercise || log["1_214_307_575"] || 'Not logged';
+          let steps = log.steps || log["2_215_541_671"] || 0;
+          
+          // Handle null values properly
+          if (sleep === null) sleep = 0;
+          if (water === null) water = 0;
+          if (steps === null) steps = 0;
+          if (mood === null) mood = 'Unknown';
+          if (exercise === null) exercise = 'Not logged';
+          
+          const parsedLog = {
+            sleep: typeof sleep === 'number' ? sleep : (parseFloat(sleep) || 0),
+            steps: typeof steps === 'number' ? steps : (parseInt(steps) || 0),
+            water: typeof water === 'number' ? water : (parseFloat(water) || 0),
+            mood: String(mood),
+            exercise: String(exercise),
+            date: String(date)
+          };
+          
+          console.log('Parsed wellness log:', parsedLog); // Debug logging
+          return parsedLog;
+        });
+        
+        setWellnessHistory(parsedLogs);
+        
+        // Calculate weekly summary from real data
+        if (parsedLogs.length > 0) {
+          const recentLogs = parsedLogs.slice(-7); // Last 7 days of logs
+          
+          const totalSleep = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.sleep, 0);
+          const totalSteps = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.steps, 0);
+          const totalWater = recentLogs.reduce((sum: number, log: WellnessData) => sum + log.water, 0);
+          const exerciseDays = recentLogs.filter((log: WellnessData) => log.exercise && log.exercise !== 'Not logged').length;
+          
+          // Count days with actual data for accurate averages
+          const sleepDays = recentLogs.filter(log => log.sleep > 0).length;
+          const waterDays = recentLogs.filter(log => log.water > 0).length;
+          
+          // Find most common mood
+          const moodCounts: Record<string, number> = {};
+          recentLogs.forEach((log: WellnessData) => {
+            if (log.mood && log.mood !== 'Unknown') {
+              moodCounts[log.mood] = (moodCounts[log.mood] || 0) + 1;
+            }
+          });
+          const mostCommonMood = Object.keys(moodCounts).reduce((a, b) => 
+            moodCounts[a] > moodCounts[b] ? a : b, 'Good'
+          );
+          
+          setWeeklySummary({
+            avgSleep: sleepDays > 0 ? totalSleep / sleepDays : 0, // Average over actual sleep days
+            totalSteps: totalSteps,
+            avgWater: waterDays > 0 ? totalWater / waterDays : 0, // Average over actual water days
+            mostCommonMood: mostCommonMood,
+            exerciseDays: exerciseDays
+          });
+          
+          // Set today's data if available
+          const todayLog = parsedLogs.find((log: WellnessData) => log.date === new Date().toISOString().split('T')[0]);
+          if (todayLog) {
+            setTodayData(todayLog);
+          }
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error loading wellness data from backend:', error);
+      // Keep default/empty state if backend is unavailable
+    }
+  };
+
   const handleSaveData = async () => {
     setIsLogging(true);
     
     try {
-      // Call Flask backend wellness endpoint
-      const data = await logWellnessData(todayData, 'frontend_user');
+      // Call wellness service to save data to ICP
+      const data = await logWellnessData(todayData, 'user123');
       console.log('Wellness data logged successfully:', data);
       
-      // Show success message (you could add a toast notification here)
-      alert('Wellness data logged successfully!');
+      // Show success message
+      alert('Wellness data saved to blockchain successfully!');
+      
+      // Refresh the data after successful save
+      setTimeout(() => {
+        loadWellnessData();
+      }, 1000); // Wait 1 second for the data to be fully stored
       
     } catch (error) {
       console.error('Error logging wellness data:', error);
-      alert('Failed to log wellness data. Please check if the Flask backend is running.');
+      alert('Failed to save wellness data. Please try again.');
     } finally {
       setIsLogging(false);
     }
@@ -403,28 +417,62 @@ const Wellness = () => {
                 <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-100">
                   <h4 className="font-medium text-emerald-800 mb-2">Sleep Quality</h4>
                   <p className="text-sm text-emerald-700 font-light leading-relaxed">
-                    Your sleep average is great! Try to maintain 7-8 hours consistently for optimal wellness.
+                    {weeklySummary.avgSleep > 0 ? (
+                      weeklySummary.avgSleep >= 7 && weeklySummary.avgSleep <= 9 ?
+                      `Excellent! Your ${weeklySummary.avgSleep.toFixed(1)}h average is in the optimal range for recovery and mental performance.` :
+                      weeklySummary.avgSleep < 7 ?
+                      `Your ${weeklySummary.avgSleep.toFixed(1)}h average could be improved. Aim for 7-8 hours for better wellness.` :
+                      `Great sleep quality! ${weeklySummary.avgSleep.toFixed(1)}h shows you prioritize rest.`
+                    ) : (
+                      "Start tracking your sleep to get personalized insights on your rest patterns."
+                    )}
                   </p>
                 </div>
                 
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
                   <h4 className="font-medium text-blue-800 mb-2">Activity Level</h4>
                   <p className="text-sm text-blue-700 font-light leading-relaxed">
-                    You're doing well with daily movement. Consider adding 2000 more steps to reach the 10k goal.
+                    {weeklySummary.totalSteps > 0 ? (
+                      weeklySummary.totalSteps >= 70000 ? // 10k steps * 7 days
+                      `Outstanding! ${weeklySummary.totalSteps.toLocaleString()} steps this week shows excellent activity levels.` :
+                      weeklySummary.totalSteps >= 35000 ? // 5k steps * 7 days
+                      `Good progress with ${weeklySummary.totalSteps.toLocaleString()} steps. Try adding ${(70000 - weeklySummary.totalSteps).toLocaleString()} more to reach 10k daily.` :
+                      `You're building momentum with ${weeklySummary.totalSteps.toLocaleString()} steps. Every step counts toward better health!`
+                    ) : (
+                      "Track your daily steps to see insights about your activity patterns and set achievable goals."
+                    )}
                   </p>
                 </div>
                 
                 <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-100">
                   <h4 className="font-medium text-cyan-800 mb-2">Hydration</h4>
                   <p className="text-sm text-cyan-700 font-light leading-relaxed">
-                    Good hydration habits! Keep drinking water throughout the day for best results.
+                    {weeklySummary.avgWater > 0 ? (
+                      weeklySummary.avgWater >= 8 ?
+                      `Excellent hydration! Your ${weeklySummary.avgWater.toFixed(1)} glasses daily average supports optimal health.` :
+                      weeklySummary.avgWater >= 6 ?
+                      `Good hydration with ${weeklySummary.avgWater.toFixed(1)} glasses daily. Try to reach 8 glasses for optimal benefits.` :
+                      `Your ${weeklySummary.avgWater.toFixed(1)} glass average is a start! Gradually increase to 8 glasses daily.`
+                    ) : (
+                      "Start logging your water intake to maintain proper hydration and support your overall wellness."
+                    )}
                   </p>
                 </div>
 
                 <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-                  <h4 className="font-medium text-purple-800 mb-2">Weekly Goal</h4>
+                  <h4 className="font-medium text-purple-800 mb-2">Exercise Progress</h4>
                   <p className="text-sm text-purple-700 font-light leading-relaxed">
-                    You're 4/7 days with exercise this week. Try to add one more workout session!
+                    {wellnessHistory.length > 0 ? (
+                      weeklySummary.exerciseDays >= 5 ?
+                      `Amazing consistency! You exercised ${weeklySummary.exerciseDays} out of 7 days this week.` :
+                      weeklySummary.exerciseDays >= 3 ?
+                      `Good effort with ${weeklySummary.exerciseDays}/7 exercise days. Try adding ${7 - weeklySummary.exerciseDays} more sessions!` :
+                      weeklySummary.exerciseDays > 0 ?
+                      `You're getting started with ${weeklySummary.exerciseDays} exercise day(s). Build the habit gradually!` :
+                      "No exercise logged this week. Even 10 minutes of movement daily can make a big difference!"
+                    ) : (
+                      "Start logging your exercise activities to track your fitness journey and build healthy habits."
+                    )}
                   </p>
                 </div>
               </div>

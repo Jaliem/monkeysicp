@@ -44,14 +44,87 @@ export const sendChatMessage = async (message: string, userId: string = 'fronten
 // All healthcare requests now go through the main chat endpoint
 // The agent intelligently routes based on message content
 
-// Log wellness data (converted to natural language)
+// Log wellness data directly to ICP backend or via chat
 export const logWellnessData = async (wellnessData: any, userId: string = 'frontend_user'): Promise<ApiResponse> => {
   try {
-    // Convert wellness data to natural language message
+    // Try direct ICP backend logging first
+    console.log('Logging wellness data via ICP backend...');
+    
+    // Prepare data for ICP backend
+    const apiData = {
+      user_id: userId,
+      date: new Date().toISOString().split('T')[0], // Current date
+      sleep: wellnessData.sleep || null,
+      steps: wellnessData.steps || null,
+      exercise: wellnessData.exercise || null,
+      mood: wellnessData.mood || null,
+      water_intake: wellnessData.water || wellnessData.water_intake || null
+    };
+    
+    // Try canister HTTP interface first
+    try {
+      const canisterUrl = `http://${CANISTER_ID}.localhost:4943/add-wellness-log`;
+      const canisterResponse = await fetch(canisterUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apiData)
+      });
+      
+      if (canisterResponse.ok) {
+        const data = await canisterResponse.json();
+        console.log('Wellness data logged via canister:', data);
+        
+        return {
+          response: 'Wellness data logged successfully to blockchain',
+          intent: 'wellness_log',
+          confidence: 1.0,
+          request_id: `wellness_${Date.now()}`,
+          message: data.message || 'Data logged successfully'
+        };
+      }
+    } catch (error) {
+      console.error('Canister wellness logging failed:', error);
+    }
+    
+    // Try HTTP interface fallback
+    try {
+      const httpResponse = await fetch(`${ICP_BASE_URL}/add-wellness-log`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apiData)
+      });
+      
+      if (httpResponse.ok) {
+        const data = await httpResponse.json();
+        console.log('Wellness data logged via HTTP interface:', data);
+        
+        return {
+          response: 'Wellness data logged successfully to blockchain',
+          intent: 'wellness_log',
+          confidence: 1.0,
+          request_id: `wellness_${Date.now()}`,
+          message: data.message || 'Data logged successfully'
+        };
+      }
+    } catch (error) {
+      console.error('HTTP interface wellness logging failed:', error);
+    }
+    
+    console.warn('Direct ICP wellness logging failed, falling back to chat...');
+  } catch (error) {
+    console.error('Error with direct ICP wellness logging:', error);
+  }
+  
+  // Fallback: Convert wellness data to natural language message for chat
+  try {
     const messageParts = [];
     if (wellnessData.sleep) messageParts.push(`I slept ${wellnessData.sleep} hours`);
     if (wellnessData.steps) messageParts.push(`walked ${wellnessData.steps} steps`);
-    if (wellnessData.water) messageParts.push(`drank ${wellnessData.water} glasses of water`);
+    if (wellnessData.water || wellnessData.water_intake) messageParts.push(`drank ${wellnessData.water || wellnessData.water_intake} glasses of water`);
     if (wellnessData.mood) messageParts.push(`feeling ${wellnessData.mood}`);
     if (wellnessData.exercise && wellnessData.exercise.trim()) messageParts.push(`exercise: ${wellnessData.exercise}`);
     
@@ -61,7 +134,7 @@ export const logWellnessData = async (wellnessData: any, userId: string = 'front
 
     return await sendChatMessage(message, userId);
   } catch (error) {
-    console.error('Error in logWellnessData:', error);
+    console.error('Error in logWellnessData fallback:', error);
     throw error;
   }
 };
@@ -70,6 +143,7 @@ export const logWellnessData = async (wellnessData: any, userId: string = 'front
 export const sendWellnessMessage = async (message: string, userId: string = 'frontend_user'): Promise<ApiResponse> => {
   return await sendChatMessage(message, userId);
 };
+
 
 // Send doctor booking request (uses main chat)
 export const sendDoctorRequest = async (message: string, userId: string = 'frontend_user'): Promise<ApiResponse> => {
@@ -393,10 +467,16 @@ export const fetchOrders = async (userId: string = 'user123'): Promise<any> => {
   return [];
 };
 
-// Fetch wellness data from ICP backend
+// Fetch wellness data from ICP backend (same pattern as other services)
 export const fetchWellnessData = async (userId: string = 'user123', days: number = 7): Promise<any> => {
   try {
-    const icpResponse = await fetch(`${ICP_BASE_URL}/get-wellness-summary`, {
+    console.log('Fetching wellness data for user:', userId);
+    
+    // Try direct canister HTTP request first
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-wellness-summary`;
+    console.log('Trying canister URL:', canisterUrl);
+    
+    const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -404,16 +484,43 @@ export const fetchWellnessData = async (userId: string = 'user123', days: number
       body: JSON.stringify({ user_id: userId, days: days })
     });
     
+    console.log('Wellness response status:', icpResponse.status);
+    
     if (icpResponse.ok) {
       const data = await icpResponse.json();
+      console.log('Wellness data from backend:', data);
       return data || { logs: [], total_count: 0 };
     }
     
-    return { logs: [], total_count: 0 };
+    console.warn('Canister wellness response not ok:', icpResponse.status, icpResponse.statusText);
+    
   } catch (error) {
-    console.error('Error fetching wellness data:', error);
-    return { logs: [], total_count: 0 };
+    console.error('Error fetching wellness data from canister HTTP interface:', error);
   }
+  
+  // Fallback: try the HTTP interface endpoint
+  try {
+    console.log('Trying wellness HTTP interface fallback...');
+    const httpResponse = await fetch(`${ICP_BASE_URL}/get-wellness-summary`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ user_id: userId, days: days })
+    });
+    
+    if (httpResponse.ok) {
+      const data = await httpResponse.json();
+      console.log('HTTP interface wellness data:', data);
+      return data || { logs: [], total_count: 0 };
+    }
+    
+  } catch (error) {
+    console.error('Error with wellness HTTP interface:', error);
+  }
+  
+  console.log('All backend methods failed for wellness, returning empty...');
+  return { logs: [], total_count: 0 };
 };
 
 // Store user profile to ICP backend

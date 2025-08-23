@@ -1,17 +1,16 @@
 import datetime
-import aiohttp
 import json
 import re
 import os
 from typing import Optional, List
 from uagents import Agent, Context, Model, Protocol
-import requests # Using requests for synchronous ICP calls for simplicity
+import requests
 from dotenv import load_dotenv
 
 # --- Agent communication with request tracking ---
 class RequestACK(Model):
     request_id: str
-    agent_type: str  # "doctor", "pharmacy", or "wellness"
+    agent_type: str = "wellness"
     message: str = "Request received and processing"
     timestamp: str
 
@@ -34,12 +33,6 @@ class LogRequest(Model):
     water_intake: Optional[float] = None
     user_id: str = "user123"
 
-class StoreResponse(Model):
-    success: bool
-    message: str
-    id: Optional[str] = None
-    logged_data: Optional[dict] = None  # Changed from WellnessLog to dict
-
 class SummaryRequest(Model):
     request_id: str  # For correlation
     days: int = 7
@@ -60,7 +53,7 @@ ic_env_path = os.path.join(os.path.dirname(__file__), '..', 'ic', '.env')
 if os.path.exists(ic_env_path):
     load_dotenv(ic_env_path)
 
-# --- ICP & LLM Configuration (MERGED FROM DOCTOR.PY) ---
+# === Configuration (same as doctor.py) ===
 CANISTER_ID = os.getenv("CANISTER_ID_BACKEND", "uxrrr-q7777-77774-qaaaq-cai")
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:4943")
 
@@ -69,35 +62,40 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
-# --- ICP HELPER FUNCTIONS (ADAPTED FROM DOCTOR.PY) ---
-def store_to_icp(endpoint: str, data: dict, ctx: Context) -> dict:
+# === Agent Setup (same pattern as doctor.py) ===
+agent = Agent(
+    name="wellness_agent",
+    seed="healthcare_wellness_agent_2025_unique_seed_v1",
+    port=8003,
+    mailbox=True,
+)
+
+# === ICP Integration Functions (same pattern as doctor.py) ===
+async def store_to_icp(endpoint: str, data: dict) -> dict:
     """Store data to ICP canister backend"""
     try:
         url = f"{BASE_URL}/{endpoint}"
-        ctx.logger.info(f"Storing data to ICP: {url} with payload {data}")
-        response = requests.post(url, headers=HEADERS, json=data, timeout=30)
+        response = requests.post(url, headers=HEADERS, json=data, timeout=10)
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        ctx.logger.error(f"Failed to store data to ICP: {str(e)}")
         return {"error": f"Failed to store data: {str(e)}", "status": "failed"}
 
-def get_from_icp(endpoint: str, params: dict, ctx: Context) -> dict:
+async def get_from_icp(endpoint: str, params: dict = None) -> dict:
     """Retrieve data from ICP canister backend"""
     try:
         url = f"{BASE_URL}/{endpoint}"
-        ctx.logger.info(f"Getting data from ICP: {url} with params {params}")
-        response = requests.post(url, headers=HEADERS, json=params, timeout=30)
+        if params:
+            response = requests.post(url, headers=HEADERS, json=params, timeout=10)
+        else:
+            response = requests.get(url, headers=HEADERS, timeout=10)
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        ctx.logger.error(f"Failed to retrieve data from ICP: {str(e)}")
         return {"error": f"Failed to retrieve data: {str(e)}", "status": "failed"}
 
 def parse_wellness_from_icp(log_data: dict) -> dict:
     """Convert ICP wellness log format to a standard dictionary if needed."""
-    # This is a placeholder. Adjust based on your canister's actual return format.
-    # For now, we assume it returns a clean dictionary.
     return {
         "sleep": log_data.get("sleep"),
         "steps": log_data.get("steps"),
@@ -107,7 +105,70 @@ def parse_wellness_from_icp(log_data: dict) -> dict:
         "water_intake": log_data.get("water_intake")
     }
 
-# --- LLM Function (Unchanged) ---
+# === Wellness Business Logic ===
+async def log_wellness_data(wellness_data: WellnessLog) -> dict:
+    """Log wellness data to ICP backend"""
+    try:
+        # Convert to dictionary for ICP storage
+        log_payload = wellness_data.dict()
+        
+        # Store data on-chain
+        store_result = await store_to_icp("add-wellness-log", log_payload)
+        
+        if "error" in store_result:
+            return {"success": False, "error": store_result["error"]}
+        
+        return {"success": True, "message": "Wellness data logged successfully"}
+        
+    except Exception as e:
+        return {"success": False, "error": f"Failed to log wellness data: {str(e)}"}
+
+async def get_wellness_summary(user_id: str, days: int = 7) -> dict:
+    """Get wellness summary from ICP backend"""
+    try:
+        icp_params = {"user_id": user_id, "days": days}
+        response_data = await get_from_icp("get-wellness-summary", icp_params)
+
+        if "error" in response_data:
+            return {"success": False, "error": response_data["error"]}
+
+        # Parse logs from ICP
+        logs = [parse_wellness_from_icp(log) for log in response_data.get("logs", [])]
+        
+        if not logs:
+            return {
+                "success": True,
+                "summary": "No logs found for the requested period.",
+                "advice": ["Start logging your daily habits to track your progress."],
+                "logs": []
+            }
+
+        # Calculate averages
+        total_sleep = sum(log.get('sleep') or 0 for log in logs)
+        total_steps = sum(log.get('steps') or 0 for log in logs)
+        logs_found = len(logs)
+        
+        avg_sleep = total_sleep / logs_found if logs_found > 0 else 0
+        avg_steps = total_steps / logs_found if logs_found > 0 else 0
+        
+        summary_text = (
+            f"Here is your summary for the last {logs_found} logged day(s): "
+            f"Average sleep: {avg_sleep:.1f} hours. "
+            f"Average steps: {int(avg_steps)}."
+        )
+        
+        return {
+            "success": True,
+            "summary": summary_text,
+            "logs": logs,
+            "avg_sleep": avg_sleep,
+            "avg_steps": avg_steps
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": f"Failed to get wellness summary: {str(e)}"}
+
+# === LLM Advice Generation ===
 async def get_llm_advice(prompt: str, ctx: Context) -> List[str]:
     """Enhanced wellness advice with detailed sleep analysis and recommendations"""
     ctx.logger.info(f"Generated LLM Prompt: {prompt}")
@@ -156,148 +217,157 @@ async def get_llm_advice(prompt: str, ctx: Context) -> List[str]:
     
     return advice
 
-# --- Agent Setup ---
-# In wellness.py
-wellness_agent = Agent(
-    name="wellness_agent",
-    port=8003,
-    seed="new_wellness_agent_secret_seed_2025",
-    mailbox=os.environ.get("MAILBOX_API_KEY"), 
-)
-
-wellness_protocol = Protocol("WellnessProtocol", version="1.0")
+# === Protocol Definition ===
+wellness_protocol = Protocol(name="WellnessProtocol", version="1.0")
 ack_protocol = Protocol(name="ACKProtocol", version="1.0")
-
-@wellness_agent.on_event("startup")
-async def startup(ctx: Context):
-    ctx.logger.info("Wellness Agent is ready and connected to ICP.")
-    ctx.logger.info(f"My address is: {ctx.agent.address}")
 
 @wellness_protocol.on_message(model=LogRequest, replies=WellnessAdviceResponse)
 async def handle_log_request(ctx: Context, sender: str, msg: LogRequest):
-    """Handles log requests and stores them on the ICP canister."""
-    ctx.logger.info(f"Received log from {sender}. Request ID: {msg.request_id}")
+    """Handle wellness log requests from HealthAgent"""
     
-    # Send immediate ACK
-    ack = RequestACK(
-        request_id=msg.request_id,
-        agent_type="wellness",
-        message=f"Wellness log request received and processing",
-        timestamp=datetime.datetime.now().isoformat()
-    )
-    await ctx.send(sender, ack)
+    ctx.logger.info(f"Received log request from {sender}: {msg.request_id}")
     
-    ctx.logger.info("Storing wellness data to ICP canister...")
-    
-    wellness_log = WellnessLog(
-        user_id=msg.user_id,
-        date=datetime.date.today().isoformat(),
-        sleep=msg.sleep,
-        steps=msg.steps,
-        exercise=msg.exercise,
-        mood=msg.mood,
-        water_intake=msg.water_intake
-    )
-    
-    # Send wellness log directly (not wrapped in payload)
-    log_payload = wellness_log.dict()
-    
-    # Store data on-chain
-    store_result = store_to_icp("add-wellness-log", log_payload, ctx)
-    
-    if "error" in store_result:
+    try:
+        # Send immediate ACK
+        ack = RequestACK(
+            request_id=msg.request_id,
+            message=f"Wellness log request received and processing",
+            timestamp=datetime.datetime.now().isoformat()
+        )
+        await ctx.send(sender, ack)
+        
+        # Create wellness log
+        wellness_log = WellnessLog(
+            user_id=msg.user_id,
+            date=datetime.date.today().isoformat(),
+            sleep=msg.sleep,
+            steps=msg.steps,
+            exercise=msg.exercise,
+            mood=msg.mood,
+            water_intake=msg.water_intake
+        )
+        
+        # Log to ICP backend
+        log_result = await log_wellness_data(wellness_log)
+        
+        if not log_result["success"]:
+            error_response = WellnessAdviceResponse(
+                request_id=msg.request_id,
+                summary=None,
+                advice=[f"Error logging data: {log_result['error']}"],
+                success=False,
+                message=log_result['error']
+            )
+            await ctx.send(sender, error_response)
+            return
+        
+        # Generate advice
+        daily_prompt = f"User's daily log:\n- Hours Slept: {msg.sleep or 'Not logged'}\n- Steps Taken: {msg.steps or 'Not logged'}\n- Exercise Done: {msg.exercise or 'Not logged'}"
+        advice_from_llm = await get_llm_advice(daily_prompt, ctx)
+        
+        # Send success response
+        success_response = WellnessAdviceResponse(
+            request_id=msg.request_id,
+            summary=f"Successfully logged your wellness data for {datetime.date.today().isoformat()}",
+            advice=advice_from_llm,
+            success=True,
+            message="Data logged successfully"
+        )
+        
+        ctx.logger.info(f"Sending wellness advice response")
+        await ctx.send(sender, success_response)
+        
+    except Exception as e:
+        ctx.logger.error(f"Error handling wellness log: {str(e)}")
         error_response = WellnessAdviceResponse(
             request_id=msg.request_id,
             summary=None,
-            advice=[f"Error storing data: {store_result['error']}"],
+            advice=[f"Internal error: {str(e)}"],
             success=False,
-            message=f"Error storing data: {store_result['error']}"
+            message=f"Internal error: {str(e)}"
         )
         await ctx.send(sender, error_response)
-        return
-
-    ctx.logger.info("Log stored successfully. Getting LLM advice...")
-    
-    daily_prompt = (f"User's daily log:\n- Hours Slept: {msg.sleep or 'Not logged'}\n- Steps Taken: {msg.steps or 'Not logged'}\n- Exercise Done: {msg.exercise or 'Not logged'}")
-    advice_from_llm = await get_llm_advice(daily_prompt, ctx)
-    
-    success_response = WellnessAdviceResponse(
-        request_id=msg.request_id,
-        summary=f"Successfully logged your wellness data for {datetime.date.today().isoformat()}",
-        advice=advice_from_llm,
-        success=True,
-        message="Data logged successfully"
-    )
-    await ctx.send(sender, success_response)
 
 @wellness_protocol.on_message(model=SummaryRequest, replies=WellnessAdviceResponse)
 async def handle_summary_request(ctx: Context, sender: str, msg: SummaryRequest):
-    """Handles summary requests by querying the ICP canister."""
-    ctx.logger.info(f"Received summary request for user {msg.user_id}. Request ID: {msg.request_id}")
+    """Handle wellness summary requests from HealthAgent"""
     
-    # Send immediate ACK
-    ack = RequestACK(
-        request_id=msg.request_id,
-        agent_type="wellness",
-        message=f"Wellness summary request received and processing",
-        timestamp=datetime.datetime.now().isoformat()
-    )
-    await ctx.send(sender, ack)
+    ctx.logger.info(f"Received summary request from {sender}: {msg.request_id}")
     
-    ctx.logger.info("Querying wellness data from ICP canister...")
-
-    icp_params = {"user_id": msg.user_id, "days": msg.days}
-    response_data = get_from_icp("get-wellness-summary", icp_params, ctx)
-
-    if "error" in response_data:
-        await ctx.send(sender, WellnessAdviceResponse(
+    try:
+        # Send immediate ACK
+        ack = RequestACK(
             request_id=msg.request_id,
-            summary="Could not retrieve summary from the canister.",
-            advice=[response_data["error"]],
-            success=False,
-            message=response_data["error"]
-        ))
-        return
-
-    # Assuming the canister returns a list of log objects
-    logs = [parse_wellness_from_icp(log) for log in response_data.get("logs", [])]
-    
-    summary_text = "No logs found for the requested period."
-    advice_text = ["Start logging your daily habits to track your progress."]
-
-    if logs:
-        total_sleep = sum(log.get('sleep') or 0 for log in logs)
-        total_steps = sum(log.get('steps') or 0 for log in logs)
-        logs_found = len(logs)
+            message=f"Wellness summary request received and processing",
+            timestamp=datetime.datetime.now().isoformat()
+        )
+        await ctx.send(sender, ack)
         
-        avg_sleep = total_sleep / logs_found if logs_found > 0 else 0
-        avg_steps = total_steps / logs_found if logs_found > 0 else 0
+        # Get summary from ICP backend
+        summary_result = await get_wellness_summary(msg.user_id, msg.days)
         
-        summary_text = (
-            f"Here is your summary for the last {logs_found} logged day(s): "
-            f"Average sleep: {avg_sleep:.1f} hours. "
-            f"Average steps: {int(avg_steps)}."
+        if not summary_result["success"]:
+            error_response = WellnessAdviceResponse(
+                request_id=msg.request_id,
+                summary="Could not retrieve summary from the canister.",
+                advice=[summary_result["error"]],
+                success=False,
+                message=summary_result["error"]
+            )
+            await ctx.send(sender, error_response)
+            return
+        
+        # Generate advice for summary
+        advice_text = ["Start logging your daily habits to track your progress."]
+        if summary_result.get("logs"):
+            avg_sleep = summary_result.get("avg_sleep", 0)
+            avg_steps = summary_result.get("avg_steps", 0)
+            summary_prompt = f"User's Weekly Summary:\n- Average Sleep: {avg_sleep:.1f} hours\n- Average Steps: {int(avg_steps)}"
+            advice_text = await get_llm_advice(summary_prompt, ctx)
+        
+        # Send summary response
+        summary_response = WellnessAdviceResponse(
+            request_id=msg.request_id,
+            summary=summary_result.get("summary", "No data available"),
+            advice=advice_text,
+            success=True,
+            message="Summary retrieved successfully"
         )
         
-        summary_prompt = (f"User's Weekly Summary:\n- Average Sleep: {avg_sleep:.1f} hours\n- Average Steps: {int(avg_steps)}")
-        advice_text = await get_llm_advice(summary_prompt, ctx)
-
-    await ctx.send(sender, WellnessAdviceResponse(
-        request_id=msg.request_id,
-        summary=summary_text, 
-        advice=advice_text,
-        success=True,
-        message="Summary retrieved successfully"
-    ))
+        ctx.logger.info(f"Sending wellness summary response")
+        await ctx.send(sender, summary_response)
+        
+    except Exception as e:
+        ctx.logger.error(f"Error handling wellness summary: {str(e)}")
+        error_response = WellnessAdviceResponse(
+            request_id=msg.request_id,
+            summary="Error retrieving summary",
+            advice=[f"Internal error: {str(e)}"],
+            success=False,
+            message=f"Internal error: {str(e)}"
+        )
+        await ctx.send(sender, error_response)
 
 # ACK handler
 @ack_protocol.on_message(model=RequestACK)
 async def handle_request_ack(ctx: Context, sender: str, msg: RequestACK):
     """Handle ACK responses from HealthAgent"""
-    ctx.logger.info(f"✅ Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
+    ctx.logger.info(f"Received ACK from health agent: {msg.message} (Request: {msg.request_id})")
 
-wellness_agent.include(wellness_protocol)
-wellness_agent.include(ack_protocol)
+# Include protocols in agent
+agent.include(wellness_protocol)
+agent.include(ack_protocol)
+
+@agent.on_event("startup")
+async def wellness_agent_startup(ctx: Context):
+    ctx.logger.info(f"WellnessAgent started")
+    ctx.logger.info(f"Agent address: {agent.address}")
+    ctx.logger.info(f"Protocol: WellnessProtocol v1.0")
+    ctx.logger.info(f"Connected to wellness canister: {CANISTER_ID}")
+    ctx.logger.info(f"Ready for wellness logging and summary requests from HealthAgent")
 
 if __name__ == "__main__":
-    wellness_agent.run()
+    print("Starting WellnessAgent...")
+    print(f"Agent Address: {agent.address}")
+    print("Ready to handle wellness data logging and summaries!")
+    agent.run()
