@@ -42,6 +42,10 @@ persistent actor {
   transient let MedicineOrderResponseKeys = ["success", "order_id", "message", "order", "suggested_alternatives"];
   transient let PharmacyInventoryResponseKeys = ["medicine", "available", "stock_level", "estimated_restock"];
 
+  // User Profile JSON keys
+  transient let _UserProfileKeys = ["user_id", "name", "age", "gender", "height", "weight", "blood_type", "phone_number", "emergency_contact", "allergies", "medications", "conditions", "surgeries", "preferred_doctor", "preferred_pharmacy", "privacy_level", "created_at", "updated_at"];
+  transient let UserProfileResponseKeys = ["success", "message", "profile"];
+
   // Healthcare data storage
   private var symptom_entries : [(Text, Types.SymptomData)] = [];
   private var medication_reminders : [(Text, Types.MedicationReminder)] = [];
@@ -61,6 +65,8 @@ persistent actor {
   private transient var wellness_logs = Buffer.Buffer<(Text, Types.WellnessLog)>(0);
   private transient var medicines = Buffer.Buffer<(Text, Types.Medicine)>(0);
   private transient var medicine_orders = Buffer.Buffer<(Text, Types.MedicineOrder)>(0);
+  private transient var user_profiles = Buffer.Buffer<(Text, Types.UserProfile)>(0);
+  private var user_profile_entries : [(Text, Types.UserProfile)] = [];
 
   system func preupgrade() {
     symptom_entries := Buffer.toArray(symptoms);
@@ -71,6 +77,7 @@ persistent actor {
     wellness_log_entries := Buffer.toArray(wellness_logs);
     medicine_entries := Buffer.toArray(medicines);
     medicine_order_entries := Buffer.toArray(medicine_orders);
+    user_profile_entries := Buffer.toArray(user_profiles);
   };
 
   system func postupgrade() {
@@ -82,14 +89,10 @@ persistent actor {
     wellness_logs := Buffer.fromArray(wellness_log_entries);
     medicines := Buffer.fromArray(medicine_entries);
     medicine_orders := Buffer.fromArray(medicine_order_entries);
+    user_profiles := Buffer.fromArray(user_profile_entries);
     symptom_entries := [];
     medication_reminders := [];
     emergency_alerts := [];
-    doctor_entries := [];
-    appointment_entries := [];
-    wellness_log_entries := [];
-    medicine_entries := [];
-    medicine_order_entries := [];
 
     // Initialize doctors if empty
     if (doctors.size() == 0) {
@@ -1675,6 +1678,72 @@ doctors.add(("gp_008", gp8));
     };
   };
 
+  // ----- User Profile functions -----
+
+  // Store or update user profile
+  public shared func store_user_profile(profile : Types.UserProfile) : async Types.UserProfileResponse {
+    Debug.print("[USER_PROFILE]: Storing profile for user " # profile.user_id);
+    
+    // Check if profile already exists and update it
+    var found = false;
+    var profileIndex : ?Nat = null;
+    var i = 0;
+    for ((id, existing_profile) in user_profiles.vals()) {
+      if (existing_profile.user_id == profile.user_id) {
+        found := true;
+        profileIndex := ?i;
+      };
+      i += 1;
+    };
+    
+    if (found) {
+      // Update existing profile
+      switch (profileIndex) {
+        case (?index) {
+          let (id, _) = user_profiles.get(index);
+          user_profiles.put(index, (id, profile));
+          Debug.print("[USER_PROFILE]: Updated existing profile for user " # profile.user_id);
+        };
+        case null {};
+      };
+    } else {
+      // Create new profile
+      let id = "profile_" # Int.toText(next_id);
+      user_profiles.add((id, profile));
+      next_id += 1;
+      Debug.print("[USER_PROFILE]: Created new profile for user " # profile.user_id);
+    };
+    
+    {
+      success = true;
+      message = if (found) "User profile updated successfully" else "User profile created successfully";
+      profile = ?profile;
+    }
+  };
+
+  // Get user profile by user_id
+  public shared query func get_user_profile(user_id : Text) : async Types.UserProfileResponse {
+    Debug.print("[USER_PROFILE]: Fetching profile for user " # user_id);
+    
+    for ((_, profile) in user_profiles.vals()) {
+      if (profile.user_id == user_id) {
+        Debug.print("[USER_PROFILE]: Found profile for user " # user_id);
+        return {
+          success = true;
+          message = "User profile retrieved successfully";
+          profile = ?profile;
+        };
+      };
+    };
+    
+    Debug.print("[USER_PROFILE]: No profile found for user " # user_id);
+    {
+      success = false;
+      message = "User profile not found";
+      profile = null;
+    }
+  };
+
   // ----- Private helper functions -----
 
   // Helper function to parse JSON text from blob
@@ -2023,7 +2092,7 @@ doctors.add(("gp_008", gp8));
           upgrade = null;
         };
       };
-      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/add-wellness-log" or "/get-wellness-summary") {
+      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/add-wellness-log" or "/get-wellness-summary" or "/store-user-profile" or "/get-user-profile") {
         {
           status_code = 200;
           headers = [("content-type", "application/json")];
@@ -2041,6 +2110,21 @@ doctors.add(("gp_008", gp8));
           upgrade = null;
         };
       };
+    };
+  };
+
+  private func extractUserProfile(body : Blob) : Result.Result<Types.UserProfile, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+    let profile : ?Types.UserProfile = from_candid (blob);
+    switch (profile) {
+      case null return #err("User profile data not found in JSON");
+      case (?p) #ok(p);
     };
   };
 
@@ -2321,6 +2405,34 @@ doctors.add(("gp_008", gp8));
             let response = await get_wellness_summary(requestData.user_id, requestData.days);
             let blob = to_candid(response);
             let #ok(jsonText) = JSON.toText(blob, WellnessSummaryResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/store-user-profile") {
+        let profileResult = extractUserProfile(body);
+        switch (profileResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(profile)) {
+            let response = await store_user_profile(profile);
+            let blob = to_candid(response);
+            let #ok(jsonText) = JSON.toText(blob, UserProfileResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/get-user-profile") {
+        let userIdResult = extractUserId(body);
+        switch (userIdResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(user_id)) {
+            let response = await get_user_profile(user_id);
+            let blob = to_candid(response);
+            let #ok(jsonText) = JSON.toText(blob, UserProfileResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
           };
         };

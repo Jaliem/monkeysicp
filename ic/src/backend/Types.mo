@@ -4,8 +4,37 @@ import Nat "mo:base/Nat";
 import Nat16 "mo:base/Nat16";
 
 module {
+
   // ----- HTTP types -----
   public type HeaderField = (Text, Text);
+
+
+  public type UserProfile = {
+    user_id : Text;
+    name : Text;
+    age : Nat;
+    gender : Text;
+    height : Nat; // in cm
+    weight : Nat; // in kg
+    blood_type : Text;
+    phone_number : Text;
+    emergency_contact : Text;
+    allergies : [Text];
+    medications : [Text];
+    conditions : [Text];
+    surgeries : [Text];
+    preferred_doctor : Text;
+    preferred_pharmacy : Text;
+    privacy_level : Text;
+    created_at : Text;
+    updated_at : Text;
+  };
+
+  public type UserProfileResponse = {
+    success : Bool;
+    message : Text;
+    profile : ?UserProfile;
+  };
 
   public type HttpRequest = {
     method : Text;

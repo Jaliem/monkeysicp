@@ -19,7 +19,7 @@ const Login = () => {
 
     const isAuthenticated = await client.isAuthenticated();
     if (isAuthenticated) {
-      navigate('/name-input');
+      navigate('/chat');
     }
   };
 
@@ -32,7 +32,7 @@ const Login = () => {
       await authClient.login({
         identityProvider,
         onSuccess: () => {
-          navigate('/name-input');
+          navigate('/chat');
         },
         onError: (error) => {
           console.error('Login failed:', error);

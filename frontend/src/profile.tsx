@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AuthClient } from '@dfinity/auth-client';
 import Navbar from './nav';
+import { storeUserProfile, fetchUserProfile } from './services/flaskService';
 
 interface HealthProfile {
   personalInfo: {
@@ -33,6 +34,10 @@ interface HealthProfile {
 
 const Profile = () => {
   const [principal, setPrincipal] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''});
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [tempName, setTempName] = useState('');
   const [validationState, setValidationState] = useState({
     personal: false,
     medical: false,
@@ -75,21 +80,35 @@ const Profile = () => {
   }, []);
 
   const initAuth = async () => {
-    const client = await AuthClient.create();
-
-    const isAuthenticated = await client.isAuthenticated();
-    if (isAuthenticated) {
-      const identity = client.getIdentity();
-      setPrincipal(identity.getPrincipal().toString());
+    setIsLoading(true);
+    try {
+      const client = await AuthClient.create();
+      const isAuthenticated = await client.isAuthenticated();
       
-      // Load saved profile from localStorage as a simple implementation
-      const savedProfile = localStorage.getItem('healthProfile');
-      if (savedProfile) {
-        const parsedProfile = JSON.parse(savedProfile);
-        setProfile(parsedProfile);
-        // Initialize validation state
-        updateValidation(parsedProfile);
+      if (isAuthenticated) {
+        const identity = client.getIdentity();
+        const principalId = identity.getPrincipal().toString();
+        setPrincipal(principalId);
+        
+        // Try to load user profile from ICP backend
+        console.log('Loading user profile from ICP for principal:', principalId);
+        const result = await fetchUserProfile(principalId);
+        
+        if (result.success && result.profile) {
+          console.log('Profile loaded successfully:', result.profile);
+          setProfile(result.profile);
+          updateValidation(result.profile);
+        } else {
+          console.log('No profile found, user needs to set up profile');
+          // Show name collection modal for first-time users
+          setShowNameModal(true);
+        }
       }
+    } catch (error) {
+      console.error('Error initializing auth or loading profile:', error);
+      setSaveStatus({type: 'error', message: 'Failed to load user profile'});
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -113,13 +132,9 @@ const Profile = () => {
   };
 
   const validateMedicalHistory = (medicalHistory: HealthProfile['medicalHistory']) => {
-    // Require at least one entry in each medical history category
-    return [
-      medicalHistory.allergies.length > 0,    // Must have at least one allergy listed
-      medicalHistory.medications.length > 0,   // Must have at least one medication listed
-      medicalHistory.conditions.length > 0,    // Must have at least one condition listed
-      medicalHistory.surgeries.length > 0      // Must have at least one surgery listed
-    ].every(Boolean);
+    // Allow medical history to be valid even if some categories are empty
+    // Just check that at least one category has an entry, or allow empty for new users
+    return true; // Medical history is always considered valid
   };
 
   const validatePreferences = (preferences: HealthProfile['preferences']) => {
@@ -213,22 +228,77 @@ const Profile = () => {
   };
 
   const handleSave = async () => {
+    if (!principal) {
+      setSaveStatus({type: 'error', message: 'User not authenticated'});
+      return;
+    }
+
     setIsSaving(true);
+    setSaveStatus({type: null, message: ''});
+    
     try {
-      // Save to localStorage as a simple implementation
-      // In a real app, this would save to ICP canister
-      localStorage.setItem('healthProfile', JSON.stringify(profile));
+      console.log('Saving profile to ICP for principal:', principal);
+      const result = await storeUserProfile(profile, principal);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Show success message (you could add a toast notification here)
-      console.log('Profile saved successfully');
+      if (result.success) {
+        console.log('Profile saved successfully:', result);
+        setSaveStatus({type: 'success', message: 'Profile saved successfully!'});
+        
+        // Refresh profile data to ensure it's up to date
+        const updatedProfile = await fetchUserProfile(principal);
+        if (updatedProfile.success && updatedProfile.profile) {
+          setProfile(updatedProfile.profile);
+          updateValidation(updatedProfile.profile);
+        }
+      } else {
+        throw new Error(result.message || 'Failed to save profile');
+      }
     } catch (error) {
       console.error('Failed to save profile:', error);
-      // Show error message
+      setSaveStatus({
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to save profile'
+      });
     } finally {
       setIsSaving(false);
+      // Clear status after 3 seconds
+      setTimeout(() => setSaveStatus({type: null, message: ''}), 3000);
+    }
+  };
+
+  const handleNameSubmit = async () => {
+    if (!tempName.trim() || !principal) return;
+    
+    setIsLoading(true);
+    try {
+      // Create initial profile with just the name
+      const initialProfile = {
+        ...profile,
+        personalInfo: {
+          ...profile.personalInfo,
+          name: tempName.trim()
+        }
+      };
+      
+      const result = await storeUserProfile(initialProfile, principal);
+      if (result.success) {
+        setProfile(initialProfile);
+        updateValidation(initialProfile);
+        setShowNameModal(false);
+        setTempName('');
+        setSaveStatus({type: 'success', message: 'Welcome! Your profile has been created.'});
+        setTimeout(() => setSaveStatus({type: null, message: ''}), 3000);
+      } else {
+        throw new Error(result.message || 'Failed to create profile');
+      }
+    } catch (error) {
+      console.error('Failed to create initial profile:', error);
+      setSaveStatus({
+        type: 'error', 
+        message: error instanceof Error ? error.message : 'Failed to create profile'
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -244,6 +314,21 @@ const Profile = () => {
         : 'bg-white text-stone-600 hover:bg-stone-50 border border-stone-200'
     }`;
 
+  // Loading screen
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+            <p className="text-stone-600 font-light">Loading your profile...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">
       <Navbar />
@@ -257,7 +342,15 @@ const Profile = () => {
                 <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
                   Profile
                 </h1>
-               
+                {saveStatus.type && (
+                  <div className={`mt-2 px-3 py-1 rounded-lg text-sm font-light ${
+                    saveStatus.type === 'success' 
+                      ? 'bg-green-100 text-green-700 border border-green-200'
+                      : 'bg-red-100 text-red-700 border border-red-200'
+                  }`}>
+                    {saveStatus.message}
+                  </div>
+                )}
               </div>
               {principal && (
                 <div className="text-right">
@@ -455,7 +548,7 @@ const Profile = () => {
                           type="text"
                           placeholder="Add an allergy"
                           className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               handleArrayAdd('medicalHistory', 'allergies', e.currentTarget.value);
                               e.currentTarget.value = '';
@@ -488,7 +581,7 @@ const Profile = () => {
                           type="text"
                           placeholder="Add a medication"
                           className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               handleArrayAdd('medicalHistory', 'medications', e.currentTarget.value);
                               e.currentTarget.value = '';
@@ -521,7 +614,7 @@ const Profile = () => {
                           type="text"
                           placeholder="Add a medical condition"
                           className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               handleArrayAdd('medicalHistory', 'conditions', e.currentTarget.value);
                               e.currentTarget.value = '';
@@ -554,7 +647,7 @@ const Profile = () => {
                           type="text"
                           placeholder="Add a surgery"
                           className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               handleArrayAdd('medicalHistory', 'surgeries', e.currentTarget.value);
                               e.currentTarget.value = '';
@@ -708,6 +801,56 @@ const Profile = () => {
           </div>
         </div>
       </div>
+
+      {/* First-time user name modal */}
+      {showNameModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-8">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-light text-stone-800 font-serif mb-2">
+                Welcome to MonkeysICP!
+              </h2>
+              <p className="text-stone-600 font-light">
+                To get started, please tell us your name.
+              </p>
+            </div>
+            
+            <div className="mb-6">
+              <label className="block text-stone-700 font-light mb-2">Your Name</label>
+              <input
+                type="text"
+                value={tempName}
+                onChange={(e) => setTempName(e.target.value)}
+                className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                placeholder="Enter your full name"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleNameSubmit();
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={handleNameSubmit}
+                disabled={!tempName.trim() || isLoading}
+                className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <span className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Creating Profile...
+                  </span>
+                ) : (
+                  'Continue'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
