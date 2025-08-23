@@ -532,9 +532,9 @@ const Doctor = () => {
 
       {/* Doctor Details Modal */}
       {showDoctorModal && selectedDoctor && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-stone-200">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="p-6 border-b border-stone-200/60">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-light text-stone-800 font-serif">
                   Doctor Details

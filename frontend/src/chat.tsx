@@ -60,12 +60,6 @@ const Chat = () => {
  **Wellness Tracking** - Connected to WellnessAgent for health data logging
  **Emergency Support** - 24/7 emergency assistance and guidance
 
-**Connected Services:**
-• DoctorAgent (Port 8001) - Appointment scheduling & specialist matching
-• PharmacyAgent (Port 8002) - Medicine availability & ordering
-• WellnessAgent (Port 8003) - Health data tracking & insights
-• ICP Blockchain - Secure health data storage
-
 Just speak naturally - I'll understand and connect you with the right healthcare service!`,
       timestamp: new Date(),
       isUser: false,
@@ -141,12 +135,6 @@ Just speak naturally - I'll understand and connect you with the right healthcare
 **Medicine & Pharmacy** - Connected to PharmacyAgent for medication availability
 **Wellness Tracking** - Connected to WellnessAgent for health data logging
 **Emergency Support** - 24/7 emergency assistance and guidance
-
-**Connected Services:**
-• DoctorAgent (Port 8001) - Appointment scheduling & specialist matching
-• PharmacyAgent (Port 8002) - Medicine availability & ordering
-• WellnessAgent (Port 8003) - Health data tracking & insights
-• ICP Blockchain - Secure health data storage
 
 Just speak naturally - I'll understand and connect you with the right healthcare service!`,
       timestamp: new Date(),
