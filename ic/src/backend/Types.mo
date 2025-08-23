@@ -19,10 +19,10 @@ module {
     blood_type : Text;
     phone_number : Text;
     emergency_contact : Text;
-    allergies : [Text];
-    medications : [Text];
-    conditions : [Text];
-    surgeries : [Text];
+    allergies : Text;
+    medications : Text;
+    conditions : Text;
+    surgeries : Text;
     preferred_doctor : Text;
     preferred_pharmacy : Text;
     privacy_level : Text;

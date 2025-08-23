@@ -15,10 +15,10 @@ interface HealthProfile {
     emergencyContact: string;
   };
   medicalHistory: {
-    allergies: string[];
-    medications: string[];
-    conditions: string[];
-    surgeries: string[];
+    allergies: string;
+    medications: string;
+    conditions: string;
+    surgeries: string;
   };
   preferences: {
     preferredDoctor: string;
@@ -55,10 +55,10 @@ const Profile = () => {
       emergencyContact: ''
     },
     medicalHistory: {
-      allergies: [],
-      medications: [],
-      conditions: [],
-      surgeries: []
+      allergies: '',
+      medications: '',
+      conditions: '',
+      surgeries: ''
     },
     preferences: {
       preferredDoctor: '',
@@ -171,61 +171,6 @@ const Profile = () => {
     });
   };
 
-  const handleArrayAdd = (section: keyof HealthProfile, field: string, value: string) => {
-    if (!value.trim()) return;
-    
-    setProfile(prev => {
-      // Create the new profile state
-      const newProfile = {
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [field]: [...(prev[section] as any)[field], value.trim()]
-        }
-      };
-
-      // For medical history, update validation immediately
-      if (section === 'medicalHistory') {
-        const isValidNow = validateMedicalHistory(newProfile.medicalHistory);
-        setValidationState(current => ({
-          ...current,
-          medical: isValidNow
-        }));
-      } else {
-        // For other sections, use the general validation
-        updateValidation(newProfile);
-      }
-      
-      return newProfile;
-    });
-  };
-
-  const handleArrayRemove = (section: keyof HealthProfile, field: string, index: number) => {
-    setProfile(prev => {
-      // Create the new profile state
-      const newProfile = {
-        ...prev,
-        [section]: {
-          ...prev[section],
-          [field]: (prev[section] as any)[field].filter((_: any, i: number) => i !== index)
-        }
-      };
-
-      // For medical history, update validation immediately
-      if (section === 'medicalHistory') {
-        const isValidNow = validateMedicalHistory(newProfile.medicalHistory);
-        setValidationState(current => ({
-          ...current,
-          medical: isValidNow
-        }));
-      } else {
-        // For other sections, use the general validation
-        updateValidation(newProfile);
-      }
-
-      return newProfile;
-    });
-  };
 
   const handleSave = async () => {
     if (!principal) {
@@ -529,133 +474,49 @@ const Profile = () => {
                   {/* Allergies */}
                   <div>
                     <label className="block text-stone-700 font-light mb-3 text-lg">Allergies</label>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {profile.medicalHistory.allergies.map((allergy, index) => (
-                          <span key={index} className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-sm font-light border border-red-200 flex items-center">
-                            {allergy}
-                            <button
-                              onClick={() => handleArrayRemove('medicalHistory', 'allergies', index)}
-                              className="ml-2 text-red-500 hover:text-red-700"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Add an allergy"
-                          className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleArrayAdd('medicalHistory', 'allergies', e.currentTarget.value);
-                              e.currentTarget.value = '';
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <textarea
+                      value={profile.medicalHistory.allergies}
+                      onChange={(e) => handleInputChange('medicalHistory', 'allergies', e.target.value)}
+                      className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                      placeholder="List any allergies (e.g., peanuts, shellfish, penicillin)"
+                      rows={3}
+                    />
                   </div>
 
                   {/* Medications */}
                   <div>
                     <label className="block text-stone-700 font-light mb-3 text-lg">Current Medications</label>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {profile.medicalHistory.medications.map((medication, index) => (
-                          <span key={index} className="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-sm font-light border border-blue-200 flex items-center">
-                            {medication}
-                            <button
-                              onClick={() => handleArrayRemove('medicalHistory', 'medications', index)}
-                              className="ml-2 text-blue-500 hover:text-blue-700"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Add a medication"
-                          className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleArrayAdd('medicalHistory', 'medications', e.currentTarget.value);
-                              e.currentTarget.value = '';
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <textarea
+                      value={profile.medicalHistory.medications}
+                      onChange={(e) => handleInputChange('medicalHistory', 'medications', e.target.value)}
+                      className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                      placeholder="List current medications with dosages (e.g., Ibuprofen 400mg, Metformin 500mg)"
+                      rows={3}
+                    />
                   </div>
 
                   {/* Medical Conditions */}
                   <div>
                     <label className="block text-stone-700 font-light mb-3 text-lg">Medical Conditions</label>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {profile.medicalHistory.conditions.map((condition, index) => (
-                          <span key={index} className="px-3 py-1 bg-orange-100 text-orange-700 rounded-lg text-sm font-light border border-orange-200 flex items-center">
-                            {condition}
-                            <button
-                              onClick={() => handleArrayRemove('medicalHistory', 'conditions', index)}
-                              className="ml-2 text-orange-500 hover:text-orange-700"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Add a medical condition"
-                          className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleArrayAdd('medicalHistory', 'conditions', e.currentTarget.value);
-                              e.currentTarget.value = '';
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <textarea
+                      value={profile.medicalHistory.conditions}
+                      onChange={(e) => handleInputChange('medicalHistory', 'conditions', e.target.value)}
+                      className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                      placeholder="List any medical conditions (e.g., diabetes, hypertension, asthma)"
+                      rows={3}
+                    />
                   </div>
 
                   {/* Surgeries */}
                   <div>
                     <label className="block text-stone-700 font-light mb-3 text-lg">Past Surgeries</label>
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2 mb-3">
-                        {profile.medicalHistory.surgeries.map((surgery, index) => (
-                          <span key={index} className="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-sm font-light border border-purple-200 flex items-center">
-                            {surgery}
-                            <button
-                              onClick={() => handleArrayRemove('medicalHistory', 'surgeries', index)}
-                              className="ml-2 text-purple-500 hover:text-purple-700"
-                            >
-                              ×
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          placeholder="Add a surgery"
-                          className="flex-1 px-4 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              handleArrayAdd('medicalHistory', 'surgeries', e.currentTarget.value);
-                              e.currentTarget.value = '';
-                            }
-                          }}
-                        />
-                      </div>
-                    </div>
+                    <textarea
+                      value={profile.medicalHistory.surgeries}
+                      onChange={(e) => handleInputChange('medicalHistory', 'surgeries', e.target.value)}
+                      className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                      placeholder="List any past surgeries with dates (e.g., Appendectomy 2020, Knee surgery 2019)"
+                      rows={3}
+                    />
                   </div>
                 </div>
               </div>

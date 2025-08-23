@@ -431,10 +431,10 @@ export const storeUserProfile = async (profile: any, userId: string): Promise<an
     blood_type: profile.personalInfo?.bloodType || '',
     phone_number: profile.personalInfo?.phoneNumber || '',
     emergency_contact: profile.personalInfo?.emergencyContact || '',
-    allergies: profile.medicalHistory?.allergies || [],
-    medications: profile.medicalHistory?.medications || [],
-    conditions: profile.medicalHistory?.conditions || [],
-    surgeries: profile.medicalHistory?.surgeries || [],
+    allergies: profile.medicalHistory?.allergies || '',
+    medications: profile.medicalHistory?.medications || '',
+    conditions: profile.medicalHistory?.conditions || '',
+    surgeries: profile.medicalHistory?.surgeries || '',
     preferred_doctor: profile.preferences?.preferredDoctor || '',
     preferred_pharmacy: profile.preferences?.preferredPharmacy || '',
     privacy_level: profile.preferences?.privacyLevel || 'private',
@@ -583,10 +583,10 @@ export const fetchUserProfile = async (userId: string): Promise<any> => {
               emergencyContact: icpProfile.emergency_contact || ''
             },
             medicalHistory: {
-              allergies: icpProfile.allergies || [],
-              medications: icpProfile.medications || [],
-              conditions: icpProfile.conditions || [],
-              surgeries: icpProfile.surgeries || []
+              allergies: icpProfile.allergies || '',
+              medications: icpProfile.medications || '',
+              conditions: icpProfile.conditions || '',
+              surgeries: icpProfile.surgeries || ''
             },
             preferences: {
               preferredDoctor: icpProfile.preferred_doctor || '',
@@ -654,10 +654,10 @@ export const fetchUserProfile = async (userId: string): Promise<any> => {
               emergencyContact: icpProfile.emergency_contact || ''
             },
             medicalHistory: {
-              allergies: icpProfile.allergies || [],
-              medications: icpProfile.medications || [],
-              conditions: icpProfile.conditions || [],
-              surgeries: icpProfile.surgeries || []
+              allergies: icpProfile.allergies || '',
+              medications: icpProfile.medications || '',
+              conditions: icpProfile.conditions || '',
+              surgeries: icpProfile.surgeries || ''
             },
             preferences: {
               preferredDoctor: icpProfile.preferred_doctor || '',
