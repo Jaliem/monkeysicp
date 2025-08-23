@@ -1197,7 +1197,7 @@ doctors.add(("gp_008", gp8));
   public shared func store_symptoms(symptom_data : Types.SymptomData) : async Types.HealthStorageResponse {
     let id = "symptom_" # Int.toText(next_id);
     symptoms.add((id, symptom_data));
-    next_id += 1;
+    next_id := next_id + 1;
     Debug.print("[HEALTH]: Stored symptom data for user " # symptom_data.user_id);
     {
       success = true;
@@ -1210,7 +1210,7 @@ doctors.add(("gp_008", gp8));
   public shared func store_reminder(reminder_data : Types.MedicationReminder) : async Types.HealthStorageResponse {
     let id = "reminder_" # Int.toText(next_id);
     reminders.add((id, reminder_data));
-    next_id += 1;
+    next_id := next_id + 1;
     Debug.print("[HEALTH]: Stored medication reminder for user " # reminder_data.user_id);
     {
       success = true;
@@ -1223,7 +1223,7 @@ doctors.add(("gp_008", gp8));
   public shared func emergency_alert(emergency_data : Types.EmergencyAlert) : async Types.HealthStorageResponse {
     let id = "emergency_" # Int.toText(next_id);
     emergencies.add((id, emergency_data));
-    next_id += 1;
+    next_id := next_id + 1;
     Debug.print("[EMERGENCY]: Emergency alert stored for user " # emergency_data.user_id);
     {
       success = true;
@@ -1288,7 +1288,7 @@ doctors.add(("gp_008", gp8));
   public shared func store_doctor(doctor_data : Types.Doctor) : async Types.HealthStorageResponse {
     let id = "doctor_" # Int.toText(next_id);
     doctors.add((id, doctor_data));
-    next_id += 1;
+    next_id := next_id + 1;
     Debug.print("[DOCTOR]: Stored doctor " # doctor_data.name # " (" # doctor_data.specialty # ")");
     {
       success = true;
@@ -1330,7 +1330,7 @@ doctors.add(("gp_008", gp8));
   public shared func store_appointment(appointment_data : Types.Appointment) : async Types.AppointmentResponse {
     let id = "appointment_" # Int.toText(next_id);
     appointments.add((id, appointment_data));
-    next_id += 1;
+    next_id := next_id + 1;
     Debug.print("[APPOINTMENT]: Stored appointment " # appointment_data.appointment_id # " for " # appointment_data.user_id);
     {
       success = true;
@@ -1396,7 +1396,7 @@ doctors.add(("gp_008", gp8));
   public shared func store_medicine(medicine_data : Types.Medicine) : async Types.HealthStorageResponse {
     let id = "medicine_" # Int.toText(next_id);
     medicines.add((id, medicine_data));
-    next_id += 1;
+    next_id := next_id + 1;
     Debug.print("[MEDICINE]: Stored medicine " # medicine_data.name # " (" # medicine_data.category # ")");
     {
       success = true;
@@ -1570,7 +1570,7 @@ doctors.add(("gp_008", gp8));
         // Store order
         let order_storage_id = "order_" # Int.toText(next_id);
         medicine_orders.add((order_storage_id, order));
-        next_id += 1;
+        next_id := next_id + 1;
         Debug.print("[ORDER]: Medicine order stored with ID: " # order_storage_id # " for user: " # user_id);
 
         // Update medicine stock - create updated medicine record
@@ -1671,10 +1671,11 @@ doctors.add(("gp_008", gp8));
       };
     };
 
+    // Always create new entry (allow multiple logs per day)
     let id = "wellness_" # Nat.toText(next_id);
     wellness_logs.add((id, log));
-    next_id += 1;
-    Debug.print("[INFO]: Stored wellness log for user " # log.user_id # " on date " # log.date);
+    next_id := next_id + 1;
+    Debug.print("[INFO]: Created new wellness log for user " # log.user_id # " on date " # log.date);
 
     return {
       success = true;
@@ -1701,6 +1702,50 @@ doctors.add(("gp_008", gp8));
       total_count = user_logs.size();
       success = true;
       message = "Successfully retrieved wellness logs";
+    };
+  };
+
+  // Delete wellness log by date for a user
+  public shared func delete_wellness_log(user_id: Text, date: Text): async Types.StoreResponse {
+    if (Text.size(user_id) == 0 or Text.size(date) == 0) {
+      return {
+        success = false;
+        message = "Invalid user_id or date";
+        id = null;
+        logged_data = null;
+      };
+    };
+
+    var found = false;
+    let logs_temp = Buffer.Buffer<(Text, Types.WellnessLog)>(wellness_logs.size());
+    var deleted_log: ?Types.WellnessLog = null;
+
+    label search for ((id, log) in wellness_logs.vals()) {
+      if (log.user_id == user_id and log.date == date) {
+        found := true;
+        deleted_log := ?log;
+        Debug.print("[DELETE]: Removed wellness log for user " # user_id # " on date " # date);
+      } else {
+        logs_temp.add((id, log));
+      };
+    };
+
+    if (found) {
+      // Replace the buffer with filtered logs
+      wellness_logs := logs_temp;
+      return {
+        success = true;
+        message = "Wellness log deleted successfully";
+        id = null;
+        logged_data = deleted_log;
+      };
+    } else {
+      return {
+        success = false;
+        message = "No wellness log found for the specified date";
+        id = null;
+        logged_data = null;
+      };
     };
   };
 
@@ -1866,7 +1911,7 @@ doctors.add(("gp_008", gp8));
       // Create new profile
       let id = "profile_" # Int.toText(next_id);
       user_profiles.add((id, profile));
-      next_id += 1;
+      next_id := next_id + 1;
       Debug.print("[USER_PROFILE]: Created new profile for user " # profile.user_id);
     };
     

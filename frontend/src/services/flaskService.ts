@@ -50,10 +50,18 @@ export const logWellnessData = async (wellnessData: any, userId: string = 'front
     // Try direct ICP backend logging first
     console.log('Logging wellness data via ICP backend...');
     
+    // Helper function to get local date string
+    const getLocalDateString = () => {
+      const today = new Date();
+      return today.getFullYear() + '-' + 
+             String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+             String(today.getDate()).padStart(2, '0');
+    };
+
     // Prepare data for ICP backend
     const apiData = {
       user_id: userId,
-      date: new Date().toISOString().split('T')[0], // Current date
+      date: wellnessData.date || getLocalDateString(), // Use provided date or current local date
       sleep: wellnessData.sleep || null,
       steps: wellnessData.steps || null,
       exercise: wellnessData.exercise || null,
@@ -975,8 +983,53 @@ export const cancelMedicineOrder = async (orderId: string, userId: string = 'use
   };
 };
 
+// Delete wellness data for a specific date
+export const deleteWellnessData = async (date: string, userId: string = 'user123'): Promise<any> => {
+  try {
+    console.log(`Deleting wellness data for ${date} for user: ${userId}`);
+    
+    // Send delete request directly to ICP canister
+    const response = await fetch(`${ICP_BASE_URL}/delete-wellness-log`, {
+      method: 'POST',
+      headers: {
+        'Host': `${CANISTER_ID}.localhost`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        date: date
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Delete request failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('Delete result:', result);
+
+    if (result.success) {
+      return {
+        success: true,
+        message: result.message,
+        data: result.logged_data
+      };
+    } else {
+      throw new Error(result.message || 'Failed to delete wellness data');
+    }
+
+  } catch (error) {
+    console.error('Error deleting wellness data:', error);
+    throw error;
+  }
+};
+
 // Wellness insights service - using chat agent for AI insights
 export const getWellnessInsights = async (userId: string = 'user123', days: number = 7) => {
+  const requestId = Date.now().toString();
+  console.log(`🚀 getWellnessInsights called - Request ID: ${requestId}`);
+  console.trace('Call stack:'); // This will show us where the call is coming from
+  
   try {
     console.log(`Requesting AI wellness insights for ${days} days for user: ${userId}`);
     
@@ -988,7 +1041,7 @@ export const getWellnessInsights = async (userId: string = 'user123', days: numb
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          request_id: Date.now().toString(),
+          request_id: requestId,
           user_id: userId,
           days: days
         })

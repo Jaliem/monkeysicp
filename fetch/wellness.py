@@ -26,6 +26,7 @@ class WellnessLog(Model):
 
 class LogRequest(Model):
     request_id: str  # For correlation
+    date: Optional[str] = None  # Date for the wellness log (YYYY-MM-DD format)
     sleep: Optional[float] = None
     steps: Optional[int] = None
     exercise: Optional[str] = None
@@ -36,6 +37,11 @@ class LogRequest(Model):
 class SummaryRequest(Model):
     request_id: str  # For correlation
     days: int = 7
+    user_id: str = "user123"
+
+class DeleteRequest(Model):
+    request_id: str  # For correlation
+    date: str  # Date to delete (YYYY-MM-DD format)
     user_id: str = "user123"
 
 class WellnessAdviceResponse(Model):
@@ -122,6 +128,22 @@ async def log_wellness_data(wellness_data: WellnessLog) -> dict:
         
     except Exception as e:
         return {"success": False, "error": f"Failed to log wellness data: {str(e)}"}
+
+async def delete_wellness_data(user_id: str, date: str) -> dict:
+    """Delete wellness data for a specific date from ICP backend"""
+    try:
+        delete_payload = {"user_id": user_id, "date": date}
+        
+        # Delete data from canister
+        delete_result = await store_to_icp("delete-wellness-log", delete_payload)
+        
+        if "error" in delete_result:
+            return {"success": False, "error": delete_result["error"]}
+        
+        return {"success": True, "message": f"Wellness data for {date} deleted successfully"}
+        
+    except Exception as e:
+        return {"success": False, "error": f"Failed to delete wellness data: {str(e)}"}
 
 async def get_wellness_summary(user_id: str, days: int = 7) -> dict:
     """Get wellness summary from ICP backend"""
@@ -239,7 +261,7 @@ async def handle_log_request(ctx: Context, sender: str, msg: LogRequest):
         # Create wellness log
         wellness_log = WellnessLog(
             user_id=msg.user_id,
-            date=datetime.date.today().isoformat(),
+            date=msg.date or datetime.date.today().isoformat(),
             sleep=msg.sleep,
             steps=msg.steps,
             exercise=msg.exercise,
@@ -357,6 +379,58 @@ async def handle_request_ack(ctx: Context, sender: str, msg: RequestACK):
 # Include protocols in agent
 agent.include(wellness_protocol)
 agent.include(ack_protocol)
+
+@wellness_protocol.on_message(model=DeleteRequest, replies=WellnessAdviceResponse)
+async def handle_delete_request(ctx: Context, sender: str, msg: DeleteRequest):
+    """Handle wellness delete requests from HealthAgent"""
+    
+    ctx.logger.info(f"Received delete request from {sender}: {msg.request_id} for date {msg.date}")
+    
+    try:
+        # Send immediate ACK
+        ack = RequestACK(
+            request_id=msg.request_id,
+            message=f"Wellness delete request received and processing",
+            timestamp=datetime.datetime.now().isoformat()
+        )
+        await ctx.send(sender, ack)
+        
+        # Delete from ICP backend
+        delete_result = await delete_wellness_data(msg.user_id, msg.date)
+        
+        if not delete_result["success"]:
+            error_response = WellnessAdviceResponse(
+                request_id=msg.request_id,
+                summary=None,
+                advice=[f"Error deleting data: {delete_result['error']}"],
+                success=False,
+                message=delete_result['error']
+            )
+            await ctx.send(sender, error_response)
+            return
+        
+        # Send success response
+        success_response = WellnessAdviceResponse(
+            request_id=msg.request_id,
+            summary=f"Successfully deleted wellness data for {msg.date}",
+            advice=[f"✅ Wellness data for {msg.date} has been removed from your records."],
+            success=True,
+            message="Data deleted successfully"
+        )
+        
+        ctx.logger.info(f"Sending wellness delete response")
+        await ctx.send(sender, success_response)
+        
+    except Exception as e:
+        ctx.logger.error(f"Error handling wellness delete: {str(e)}")
+        error_response = WellnessAdviceResponse(
+            request_id=msg.request_id,
+            summary=None,
+            advice=[f"Internal error: {str(e)}"],
+            success=False,
+            message=f"Internal error: {str(e)}"
+        )
+        await ctx.send(sender, error_response)
 
 @agent.on_event("startup")
 async def wellness_agent_startup(ctx: Context):

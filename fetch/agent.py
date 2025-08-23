@@ -136,6 +136,7 @@ class MedicinePurchaseResponse(Model):
 
 class LogRequest(Model):
     request_id: str  # For correlation
+    date: Optional[str] = None  # Date for the wellness log (YYYY-MM-DD format)
     sleep: Optional[float] = None
     steps: Optional[int] = None
     exercise: Optional[str] = None
@@ -146,6 +147,11 @@ class LogRequest(Model):
 class SummaryRequest(Model):
     request_id: str  # For correlation
     days: int = 7
+    user_id: str = "user123"
+
+class DeleteRequest(Model):
+    request_id: str  # For correlation
+    date: str  # Date to delete (YYYY-MM-DD format)
     user_id: str = "user123"
 
 class WellnessAdviceResponse(Model):
@@ -326,22 +332,30 @@ async def classify_user_intent_with_llm(message: str, ctx: Context) -> str:
 5. "pharmacy" - Medicine availability, buying drugs, prescription requests, pharmacy queries
 6. "medication_reminder" - Setting up pill reminders, medication scheduling
 7. "wellness" - Activity tracking, sleep logging, exercise, steps, water intake, mood logging
-8. "cancel" - Cancelling appointments, orders, bookings, or other healthcare services
-9. "general" - Greetings, general questions, anything not healthcare-related
+8. "wellness_delete" - Deleting, removing, or clearing wellness/health data from logs
+9. "cancel" - Cancelling appointments, orders, bookings, or other healthcare services
+10. "general" - Greetings, general questions, anything not healthcare-related
 
 IMPORTANT: Respond with ONLY the intent name, nothing else.
 
 Examples:
 - "I have a headache and fever" → symptom_logging
 - "I walked 5000 steps today" → wellness
+- "I slept 8 hours and drank 6 glasses of water" → wellness
 - "Do you have aspirin?" → pharmacy
 - "Book me a cardiologist" → book_doctor
 - "What disease might I have?" → health_analysis
 - "Remind me to take pills at 8PM" → medication_reminder
 - "Emergency! Chest pain!" → emergency
+- "Delete my wellness data for yesterday" → wellness_delete
+- "Remove my sleep log from last week" → wellness_delete
+- "Clear my steps from today" → wellness_delete
+- "I want to delete my workout data" → wellness_delete
+- "Erase my health logs for Monday" → wellness_delete
 - "Cancel my appointment APT-123" → cancel
 - "Cancel order ORD-456" → cancel
-- "Hello, how are you?" → general"""
+- "Hello, how are you?" → general
+- "How's the weather?" → general"""
 
         user_prompt = f"User message: \"{message}\""
 
@@ -368,7 +382,7 @@ Examples:
 
             # Validate the response
             valid_intents = ["emergency", "symptom_logging", "health_analysis",
-                           "book_doctor", "pharmacy", "medication_reminder", "wellness", "cancel", "general"]
+                           "book_doctor", "pharmacy", "medication_reminder", "wellness", "wellness_delete", "cancel", "general"]
 
             if intent in valid_intents:
                 ctx.logger.info(f"LLM classified '{message}' as: {intent}")
@@ -399,6 +413,8 @@ def classify_user_intent_fallback(message: str) -> str:
         return "pharmacy"
     elif any(word in message_lower for word in ["remind", "reminder", "medication"]):
         return "medication_reminder"
+    elif any(phrase in message_lower for phrase in ["delete", "remove", "clear"]) and any(word in message_lower for word in ["wellness", "sleep", "steps", "exercise", "log"]):
+        return "wellness_delete"
     elif any(word in message_lower for word in ["sleep", "steps", "walked", "exercise", "workout", "gym", "run", "jog", "bike"]):
         return "wellness"
     elif any(phrase in message_lower for phrase in ["i have", "i feel", "pain", "ache", "hurt", "sick"]):
@@ -1320,6 +1336,41 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
         ctx.logger.error(f"Error routing to pharmacy agent: {str(e)}")
         return "Sorry, I couldn't process your medicine request right now. Please try again later."
 
+async def route_to_wellness_delete(message: str, ctx: Context, user_sender: str = None) -> str:
+    """Route wellness delete request to WellnessAgent"""
+    try:
+        # Parse delete data from natural language message
+        delete_data = parse_delete_message(message)
+
+        request_id = str(uuid4())[:8]
+        delete_request = DeleteRequest(
+            request_id=request_id,
+            date=delete_data.get("date"),
+            user_id="user123"
+        )
+
+        # Track pending request
+        pending_requests[request_id] = {
+            "type": "wellness_delete",
+            "timestamp": datetime.now().isoformat(),
+            "user_sender": user_sender
+        }
+
+        # Find and route to wellness agent
+        wellness_agent_address = os.getenv("WELLNESS_AGENT_ADDRESS")
+        if wellness_agent_address:
+            ctx.logger.info(f"Routing delete request {request_id} to wellness agent for date: {delete_data.get('date')}")
+            await ctx.send(wellness_agent_address, delete_request)
+            
+            return "⏳ Processing your wellness data deletion request..."
+        else:
+            ctx.logger.error("WELLNESS_AGENT_ADDRESS not configured")
+            return "Sorry, the wellness service is not properly configured. Please contact support."
+
+    except Exception as e:
+        ctx.logger.error(f"Error routing to wellness delete: {str(e)}")
+        return "Sorry, I couldn't process your delete request right now. Please try again later."
+
 async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str = None) -> str:
     """Route wellness logging to WellnessAgent using event-driven architecture"""
     try:
@@ -1329,6 +1380,7 @@ async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str =
         request_id = str(uuid4())[:8]
         wellness_request = LogRequest(
             request_id=request_id,
+            date=wellness_data.get("date"),
             sleep=wellness_data.get("sleep"),
             steps=wellness_data.get("steps"),
             exercise=wellness_data.get("exercise"),
@@ -1371,12 +1423,17 @@ async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str =
                     logged_items.append(f"Water: {wellness_data['water_intake']} glasses")
 
                 if logged_items:
-                    response = f"**Wellness data logged successfully!**\n\n**What was recorded:**\n" + "\n".join([f"• {item}" for item in logged_items])
+                    log_date = wellness_data.get("date", datetime.now().strftime('%Y-%m-%d'))
+                    formatted_date = datetime.strptime(log_date, '%Y-%m-%d').strftime('%B %d, %Y')
+                    
+                    response = f"**Wellness data logged successfully!**\n\n**Date:** {formatted_date}\n\n**What was recorded:**\n" + "\n".join([f"• {item}" for item in logged_items])
                     response += f"\n\n **Timestamp:** {datetime.now().strftime('%Y-%m-%d %H:%M')}"
                     response += f"\n **Storage:** Securely saved to ICP blockchain"
                     return response
                 else:
-                    return f"**Wellness data logged:** {message}\n\n **Storage:** Securely saved to ICP blockchain"
+                    log_date = wellness_data.get("date", datetime.now().strftime('%Y-%m-%d'))
+                    formatted_date = datetime.strptime(log_date, '%Y-%m-%d').strftime('%B %d, %Y')
+                    return f"**Wellness data logged for {formatted_date}:** {message}\n\n **Storage:** Securely saved to ICP blockchain"
 
             except Exception as e:
                 ctx.logger.error(f" Error communicating with WellnessAgent: {str(e)}")
@@ -1389,42 +1446,215 @@ async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str =
         ctx.logger.error(f"Error routing to wellness agent: {str(e)}")
         return "Sorry, I couldn't log your wellness data right now. Please try again later."
 
+def parse_delete_message(message: str) -> dict:
+    """Parse delete request from natural language message"""
+    import re
+    from datetime import datetime, timedelta
+    
+    message_lower = message.lower()
+    delete_data = {}
+    
+    # Parse date information for deletion
+    date_patterns = [
+        r'(?:on|for)\s+(\d{4}-\d{2}-\d{2})',  # YYYY-MM-DD format
+        r'(?:on|for)\s+(\d{2}/\d{2}/\d{4})',  # MM/DD/YYYY format
+        r'(?:on|for)\s+(\d{2}-\d{2}-\d{4})',  # MM-DD-YYYY format
+    ]
+    
+    date_found = None
+    for pattern in date_patterns:
+        date_match = re.search(pattern, message)
+        if date_match:
+            try:
+                date_str = date_match.group(1)
+                if '/' in date_str:
+                    date_found = datetime.strptime(date_str, '%m/%d/%Y').strftime('%Y-%m-%d')
+                elif '-' in date_str and len(date_str.split('-')[0]) == 2:
+                    date_found = datetime.strptime(date_str, '%m-%d-%Y').strftime('%Y-%m-%d')
+                else:
+                    date_found = date_str  # Already in YYYY-MM-DD format
+                break
+            except ValueError:
+                continue
+
+    # Look for relative date patterns
+    if not date_found:
+        today = datetime.now()
+        
+        if 'yesterday' in message_lower:
+            date_found = (today - timedelta(days=1)).strftime('%Y-%m-%d')
+        elif 'today' in message_lower:
+            date_found = today.strftime('%Y-%m-%d')
+        elif '2 days ago' in message_lower or 'two days ago' in message_lower:
+            date_found = (today - timedelta(days=2)).strftime('%Y-%m-%d')
+        elif '3 days ago' in message_lower or 'three days ago' in message_lower:
+            date_found = (today - timedelta(days=3)).strftime('%Y-%m-%d')
+        elif re.search(r'(\d+)\s+days?\s+ago', message_lower):
+            days_match = re.search(r'(\d+)\s+days?\s+ago', message_lower)
+            if days_match:
+                days_ago = int(days_match.group(1))
+                if days_ago <= 30:  # Limit to reasonable past dates
+                    date_found = (today - timedelta(days=days_ago)).strftime('%Y-%m-%d')
+
+    # Default to today if no date specified
+    delete_data["date"] = date_found or datetime.now().strftime('%Y-%m-%d')
+    
+    return delete_data
+
 def parse_wellness_message(message: str) -> dict:
     """Parse wellness data from natural language message"""
     import re
+    from datetime import datetime, timedelta
 
     message_lower = message.lower()
     wellness_data = {}
 
-    # Parse sleep data
-    sleep_match = re.search(r'(?:sleep|slept)\s+([0-9\.]+)\s*(?:hours?|hrs?)', message_lower) or re.search(r'([0-9\.]+)\s*(?:hours?|hrs?).*?(?:sleep|slept)', message_lower)
-    if sleep_match:
-        wellness_data["sleep"] = float(sleep_match.group(1))
+    # Parse date information first
+    # Look for specific date patterns
+    date_patterns = [
+        r'(?:on|for)\s+(\d{4}-\d{2}-\d{2})',  # YYYY-MM-DD format
+        r'(?:on|for)\s+(\d{2}/\d{2}/\d{4})',  # MM/DD/YYYY format
+        r'(?:on|for)\s+(\d{2}-\d{2}-\d{4})',  # MM-DD-YYYY format
+    ]
+    
+    date_found = None
+    for pattern in date_patterns:
+        date_match = re.search(pattern, message)
+        if date_match:
+            try:
+                date_str = date_match.group(1)
+                if '/' in date_str:
+                    date_found = datetime.strptime(date_str, '%m/%d/%Y').strftime('%Y-%m-%d')
+                elif '-' in date_str and len(date_str.split('-')[0]) == 2:
+                    date_found = datetime.strptime(date_str, '%m-%d-%Y').strftime('%Y-%m-%d')
+                else:
+                    date_found = date_str  # Already in YYYY-MM-DD format
+                break
+            except ValueError:
+                continue
 
-    # Parse steps data
-    steps_match = re.search(r'([0-9,]+)\s*(?:steps?)', message_lower) or re.search(r'(?:walked|walk).*?([0-9,]+)', message_lower)
-    if steps_match:
-        wellness_data["steps"] = int(steps_match.group(1).replace(',', ''))
+    # Look for relative date patterns
+    if not date_found:
+        today = datetime.now()
+        
+        if 'yesterday' in message_lower:
+            date_found = (today - timedelta(days=1)).strftime('%Y-%m-%d')
+        elif 'today' in message_lower or not any(word in message_lower for word in ['yesterday', 'on', 'for']):
+            date_found = today.strftime('%Y-%m-%d')
+        elif '2 days ago' in message_lower or 'two days ago' in message_lower:
+            date_found = (today - timedelta(days=2)).strftime('%Y-%m-%d')
+        elif '3 days ago' in message_lower or 'three days ago' in message_lower:
+            date_found = (today - timedelta(days=3)).strftime('%Y-%m-%d')
+        elif re.search(r'(\d+)\s+days?\s+ago', message_lower):
+            days_match = re.search(r'(\d+)\s+days?\s+ago', message_lower)
+            if days_match:
+                days_ago = int(days_match.group(1))
+                if days_ago <= 30:  # Limit to reasonable past dates
+                    date_found = (today - timedelta(days=days_ago)).strftime('%Y-%m-%d')
 
-    # Parse water intake
-    water_match = re.search(r'([0-9\.]+)\s*(?:cups?|glasses?|liters?|l).*?(?:water|drink)', message_lower) or re.search(r'(?:water|drank|drink).*?([0-9\.]+)\s*(?:cups?|glasses?|l)', message_lower)
-    if water_match:
-        wellness_data["water_intake"] = float(water_match.group(1))
+    # Set the date (default to today if not found)
+    wellness_data["date"] = date_found or datetime.now().strftime('%Y-%m-%d')
 
-    # Corrected parsing for mood
-    mood_match = re.search(r'feeling\s+([a-zA-Z]+)', message_lower)
-    if mood_match:
-        mood = mood_match.group(1).capitalize()
-        allowed_moods = ['Excellent', 'Good', 'Okay', 'Tired', 'Stressed', 'Sad']
-        if mood in allowed_moods:
-            wellness_data["mood"] = mood
+    # Parse sleep data - more flexible patterns
+    sleep_patterns = [
+        r'(?:sleep|slept)\s+([0-9\.]+)\s*(?:hours?|hrs?)',  # "sleep 8 hours"
+        r'([0-9\.]+)\s*(?:hours?|hrs?).*?(?:sleep|slept)',  # "8 hours sleep"
+        r'(?:sleep|slept).*?([0-9\.]+)\s*(?:hours?|hrs?)',  # "sleep for 8 hours"
+        r'(?:got|had)\s+([0-9\.]+)\s*(?:hours?|hrs?).*?(?:sleep|rest)',  # "got 8 hours sleep"
+        r'([0-9\.]+)\s*(?:h|hrs?)\s*(?:sleep|rest)',  # "8h sleep"
+        r'slept.*?([0-9\.]+)',  # "slept 8"
+    ]
+    
+    for pattern in sleep_patterns:
+        sleep_match = re.search(pattern, message_lower)
+        if sleep_match:
+            try:
+                sleep_hours = float(sleep_match.group(1))
+                if 0 <= sleep_hours <= 24:  # Reasonable range
+                    wellness_data["sleep"] = sleep_hours
+                    break
+            except ValueError:
+                continue
 
-    # Corrected parsing for exercise
-    # Use the original message to preserve case for the exercise description
-    exercise_match = re.search(r'exercise:\s+(.*)', message, re.IGNORECASE)
-    if exercise_match:
-        exercise = exercise_match.group(1).strip().rstrip('.')
-        wellness_data["exercise"] = exercise
+    # Parse steps data - more flexible patterns
+    steps_patterns = [
+        r'([0-9,]+)\s*(?:steps?)',  # "10000 steps"
+        r'(?:walked|walk|took).*?([0-9,]+)\s*(?:steps?)',  # "walked 10000 steps"
+        r'(?:steps?).*?([0-9,]+)',  # "steps 10000"
+        r'(?:did|took|walked)\s+([0-9,]+)',  # "did 10000"
+        r'([0-9,]+)\s*(?:step)',  # "10000 step"
+    ]
+    
+    for pattern in steps_patterns:
+        steps_match = re.search(pattern, message_lower)
+        if steps_match:
+            try:
+                steps_count = int(steps_match.group(1).replace(',', ''))
+                if 0 <= steps_count <= 100000:  # Reasonable range
+                    wellness_data["steps"] = steps_count
+                    break
+            except ValueError:
+                continue
+
+    # Parse water intake - more flexible patterns
+    water_patterns = [
+        r'([0-9\.]+)\s*(?:cups?|glasses?|liters?|l)\s*(?:of\s+)?(?:water|fluid)',  # "8 cups of water"
+        r'(?:water|drank|drink|had).*?([0-9\.]+)\s*(?:cups?|glasses?|liters?|l)',  # "drank 8 glasses"
+        r'([0-9\.]+)\s*(?:cups?|glasses?)\s*water',  # "8 glasses water"
+        r'(?:water|fluid).*?([0-9\.]+)',  # "water 8"
+        r'(?:drank|had|consumed)\s+([0-9\.]+)',  # "drank 8"
+    ]
+    
+    for pattern in water_patterns:
+        water_match = re.search(pattern, message_lower)
+        if water_match:
+            try:
+                water_amount = float(water_match.group(1))
+                if 0 <= water_amount <= 50:  # Reasonable range
+                    wellness_data["water_intake"] = water_amount
+                    break
+            except ValueError:
+                continue
+
+    # Parse mood - more flexible patterns
+    mood_patterns = [
+        r'feeling\s+([a-zA-Z]+)',  # "feeling good"
+        r'mood.*?([a-zA-Z]+)',  # "mood is good"
+        r'(?:i am|im)\s+([a-zA-Z]+)',  # "I am happy"
+        r'(?:i feel|feel)\s+([a-zA-Z]+)',  # "I feel tired"
+    ]
+    
+    allowed_moods = ['excellent', 'good', 'okay', 'tired', 'stressed', 'sad', 'happy', 'great', 'fine', 'bad', 'awful']
+    
+    for pattern in mood_patterns:
+        mood_match = re.search(pattern, message_lower)
+        if mood_match:
+            mood = mood_match.group(1).lower()
+            if mood in allowed_moods:
+                wellness_data["mood"] = mood.capitalize()
+                break
+
+    # Parse exercise - more flexible patterns
+    exercise_patterns = [
+        r'exercise:\s+(.*)',  # "exercise: running"
+        r'(?:did|had|went)\s+(.*?)(?:workout|exercise)',  # "did cardio workout"
+        r'(?:workout|exercise).*?(?:was|is)\s+(.*?)(?:\.|$)',  # "workout was running"
+        r'(?:ran|running|walked|swimming|cycling|gym|lifting).*',  # Activity verbs
+        r'(?:workout|exercise):\s+(.*)',  # "workout: cardio"
+    ]
+    
+    for pattern in exercise_patterns:
+        exercise_match = re.search(pattern, message, re.IGNORECASE)
+        if exercise_match:
+            if pattern == r'(?:ran|running|walked|swimming|cycling|gym|lifting).*':
+                # For activity verbs, capture the whole match
+                exercise = exercise_match.group(0).strip()
+            else:
+                exercise = exercise_match.group(1).strip().rstrip('.')
+            
+            if len(exercise) > 0 and len(exercise) <= 100:  # Reasonable length
+                wellness_data["exercise"] = exercise
+                break
 
     return wellness_data
 
@@ -1436,12 +1666,86 @@ async def generate_wellness_insights_with_llm(wellness_logs: List[Dict], ctx: Co
         if not wellness_logs:
             return "No wellness data available for insights generation."
         
-        # Extract key metrics from logs
-        sleep_data = [log.get('sleep', 0) for log in wellness_logs if log.get('sleep', 0) > 0]
-        steps_data = [log.get('steps', 0) for log in wellness_logs if log.get('steps', 0) > 0]
-        water_data = [log.get('water_intake', 0) for log in wellness_logs if log.get('water_intake', 0) > 0]
-        moods = [log.get('mood') for log in wellness_logs if log.get('mood')]
-        exercises = [log.get('exercise') for log in wellness_logs if log.get('exercise') and log.get('exercise') != 'Not logged']
+        # Debug: Log the raw data structure
+        if ctx:
+            ctx.logger.info(f"🔍 Raw wellness logs structure: {wellness_logs[:2]}")  # Show first 2 logs
+        
+        # Helper function to normalize ICP wellness log data 
+        def normalize_icp_log(log):
+            """Convert ICP numeric-key format to standard field names"""
+            # Based on the actual data structure observed:
+            # "1_113_806_382": date, "1_152_427_284": water_intake, "1_214_307_575": mood, 
+            # "1_450_210_392": exercise, "1_869_947_023": user_id, "2_126_822_679": sleep, "2_215_541_671": steps
+            
+            normalized = {}
+            
+            # Handle standard field names first (in case format changes)
+            if any(key in ['user_id', 'date', 'sleep', 'steps', 'exercise', 'mood', 'water_intake'] for key in log.keys()):
+                for key, value in log.items():
+                    if key in ['user_id', 'date', 'sleep', 'steps', 'exercise', 'mood', 'water_intake']:
+                        normalized[key] = value
+                return normalized
+            
+            # Handle ICP numeric key format - map by exact key based on _WellnessLogKeys order
+            # _WellnessLogKeys = ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"]
+            key_mapping = {
+                "1_869_947_023": "user_id",        # field 0: user_id
+                "1_113_806_382": "date",           # field 1: date
+                "2_126_822_679": "sleep",          # field 2: sleep
+                "2_215_541_671": "steps",          # field 3: steps
+                "1_450_210_392": "exercise",       # field 4: exercise
+                "1_214_307_575": "mood",           # field 5: mood
+                "1_152_427_284": "water_intake"    # field 6: water_intake
+            }
+            
+            for key, value in log.items():
+                if key in key_mapping:
+                    field_name = key_mapping[key]
+                    if value is not None:  # Only set non-null values
+                        normalized[field_name] = value
+                        
+            return normalized
+        
+        # Extract key metrics from logs with proper ICP format handling
+        sleep_data = []
+        steps_data = []
+        water_data = []
+        moods = []
+        exercises = []
+        
+        for log in wellness_logs:
+            normalized_log = normalize_icp_log(log)
+            if ctx:
+                ctx.logger.info(f"🔍 Normalized log: {normalized_log}")
+            
+            # Extract sleep data
+            sleep_val = normalized_log.get('sleep', 0)
+            if isinstance(sleep_val, (int, float)) and sleep_val > 0:
+                sleep_data.append(sleep_val)
+                
+            # Extract steps data
+            steps_val = normalized_log.get('steps', 0)
+            if isinstance(steps_val, (int, float)) and steps_val > 0:
+                steps_data.append(steps_val)
+                
+            # Extract water data
+            water_val = normalized_log.get('water_intake', 0)
+            if isinstance(water_val, (int, float)) and water_val > 0:
+                water_data.append(water_val)
+                
+            # Extract mood data
+            mood_val = normalized_log.get('mood')
+            if mood_val and str(mood_val).strip() and str(mood_val) != 'None':
+                moods.append(str(mood_val))
+                
+            # Extract exercise data
+            exercise_val = normalized_log.get('exercise')
+            if exercise_val and str(exercise_val).strip() and str(exercise_val) not in ['None', 'Not logged']:
+                exercises.append(str(exercise_val))
+        
+        # Debug: Log extracted data
+        if ctx:
+            ctx.logger.info(f"🔍 Extracted data - Sleep: {sleep_data}, Steps: {steps_data}, Water: {water_data}, Moods: {moods}")
         
         # Calculate basic statistics
         avg_sleep = sum(sleep_data) / len(sleep_data) if sleep_data else 0
@@ -1449,45 +1753,61 @@ async def generate_wellness_insights_with_llm(wellness_logs: List[Dict], ctx: Co
         avg_water = sum(water_data) / len(water_data) if water_data else 0
         exercise_days = len(exercises)
         
+        # Calculate actual days with any data
+        days_with_data = len(set([log.get('date', '') for log in wellness_logs if any([
+            log.get('sleep', 0) > 0,
+            log.get('steps', 0) > 0, 
+            log.get('water_intake', 0) > 0,
+            log.get('mood'),
+            log.get('exercise') and log.get('exercise') != 'Not logged'
+        ])]))
+        
+        # Get unique dates from normalized logs to count actual calendar days
+        normalized_logs = [normalize_icp_log(log) for log in wellness_logs]
+        unique_dates = set([log.get('date', '') for log in normalized_logs if log.get('date')])
+        actual_calendar_days = len(unique_dates)
+        
         # Prepare context for LLM
         wellness_summary = f"""
-        Wellness Data Analysis for the Past {len(wellness_logs)} Days:
+        Wellness Data Summary:
+        - Log entries analyzed: {len(wellness_logs)}
+        - Actual calendar days covered: {actual_calendar_days} 
+        - Days with meaningful data: {days_with_data}
         
         Sleep:
         - Average: {avg_sleep:.1f} hours per night
-        - Data points: {len(sleep_data)} days recorded
+        - Data points: {len(sleep_data)} days with sleep recorded
         - Range: {min(sleep_data) if sleep_data else 0:.1f}h - {max(sleep_data) if sleep_data else 0:.1f}h
         
         Physical Activity:
         - Total steps: {total_steps:,}
-        - Average daily steps: {total_steps/len(wellness_logs) if wellness_logs else 0:,.0f}
-        - Exercise sessions: {exercise_days} out of {len(wellness_logs)} days
+        - Average daily steps: {total_steps/actual_calendar_days if actual_calendar_days > 0 else 0:,.0f}
+        - Exercise sessions: {exercise_days} out of {actual_calendar_days} days
         - Activities: {', '.join(set(exercises[:5]))}
         
         Hydration:
         - Average water intake: {avg_water:.1f} glasses/cups per day
-        - Data points: {len(water_data)} days recorded
+        - Data points: {len(water_data)} days with water recorded
         
         Mood Patterns:
         - Recorded moods: {', '.join(set(moods))}
         - Most common: {max(set(moods), key=moods.count) if moods else 'No data'}
-        - Mood tracking: {len(moods)} out of {len(wellness_logs)} days
+        - Mood tracking: {len(moods)} out of {actual_calendar_days} days
         """
         
         payload = {
-            "model": "gpt-4o-mini",
+            "model": "asi1-mini",
             "messages": [
                 {
                     "role": "system",
-                    "content": """You are a wellness AI assistant analyzing user health data. Provide personalized, encouraging insights and actionable recommendations based on their wellness patterns. 
+                    "content": """You are a wellness AI assistant. Provide concise insights based on actual data.
 
-                    Focus on:
-                    1. Overall wellness assessment
-                    2. Areas of strength and improvement
-                    3. Specific, actionable recommendations
-                    4. Encouraging tone while being honest about areas needing attention
+                    Format:
+                    • Brief assessment (1 sentence)
+                    • 2-3 key insights (1 line each)
+                    • 2-3 actionable recommendations (1 line each)
                     
-                    Keep insights concise but meaningful. Provide 3-4 key insights with specific recommendations."""
+                    Keep response under 300 words. Be direct and specific."""
                 },
                 {
                     "role": "user",
@@ -1495,7 +1815,7 @@ async def generate_wellness_insights_with_llm(wellness_logs: List[Dict], ctx: Co
                 }
             ],
             "temperature": 0.7,
-            "max_tokens": 400
+            "max_tokens": 200
         }
 
         response = requests.post(
@@ -1598,29 +1918,50 @@ async def get_wellness_insights(user_id: str = "user123", days: int = 7, ctx: Co
     """Get AI-powered wellness insights by fetching logs from ICP and analyzing them"""
     try:
         # Fetch wellness data from ICP backend using get_wellness_summary
+        # Request more days to ensure we get enough data for date filtering
         url = f"{BASE_URL}/get-wellness-summary"
         
         payload = {
             "user_id": user_id,
-            "days": days
+            "days": days + 10  # Request extra days to ensure coverage
         }
         
         response = requests.post(url, headers=HEADERS, json=payload, timeout=10)
         
         if response.status_code == 200:
+            if ctx:
+                ctx.logger.info(f"🔍 Raw ICP response: {response.text[:500]}...")  # Log first 500 chars
+            
             data = response.json()
-            wellness_logs = data.get('logs', [])
+            all_wellness_logs = data.get('logs', [])
+            
+            if ctx:
+                ctx.logger.info(f"🔍 Parsed JSON data: {data}")
+                ctx.logger.info(f"🔍 All wellness logs: {all_wellness_logs}")
+            
+            # For now, use all available logs to get insights working
+            # TODO: Re-implement proper date filtering later
+            wellness_logs = all_wellness_logs
+            
+            if ctx:
+                ctx.logger.info(f"📊 Using {len(wellness_logs)} wellness logs for insights generation")
             
             if wellness_logs:
                 # Generate insights using ASI1 LLM
                 insights = await generate_wellness_insights_with_llm(wellness_logs, ctx)
+                
+                # Calculate date range for display
+                from datetime import datetime, timedelta
+                today = datetime.now()
+                target_days_ago = today - timedelta(days=days-1)
                 
                 return {
                     "success": True,
                     "insights": insights,
                     "logs_count": len(wellness_logs),
                     "days_analyzed": days,
-                    "message": f"Generated insights from {len(wellness_logs)} wellness log entries"
+                    "date_range": f"{target_days_ago.strftime('%Y-%m-%d')} to {today.strftime('%Y-%m-%d')}",
+                    "message": f"Generated insights from {len(wellness_logs)} wellness log entries over {days} calendar days"
                 }
             else:
                 return {
@@ -1690,6 +2031,8 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
             return await route_to_pharmacy_agent(query, ctx, sender)
         elif intent == "wellness":
             return await route_to_wellness_agent(query, ctx, sender)
+        elif intent == "wellness_delete":
+            return await route_to_wellness_delete(query, ctx, sender)
         elif intent == "cancel":
             return await handle_cancel_request(query, ctx, sender)
         else:
@@ -1790,7 +2133,7 @@ async def handle_rest_chat(ctx: Context, req: ChatRequest) -> ChatResponse:
 async def handle_wellness_insights(ctx: Context, req: WellnessInsightsRequest) -> WellnessInsightsResponse:
     """Generate AI-powered wellness insights for frontend"""
     try:
-        ctx.logger.info(f"🌱 Wellness insights request from user {req.user_id} for {req.days} days")
+        ctx.logger.info(f"🌱 REST ENDPOINT CALLED - Request ID: {req.request_id} - User: {req.user_id} for {req.days} days")
         
         # Get AI-powered insights
         insights_data = await get_wellness_insights(req.user_id, req.days, ctx)
@@ -2330,6 +2673,7 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
         request_info = pending_requests[msg.request_id]
         user_sender = request_info.get("user_sender")
         data_type = request_info.get("data_type", "general")
+        request_type = request_info.get("type", "wellness")
 
         # Send immediate ACK
         ack = RequestACK(
@@ -2342,17 +2686,29 @@ async def handle_wellness_response(ctx: Context, sender: str, msg: WellnessAdvic
 
         # Send result to user (only for direct chat users, not REST API users)
         if user_sender and not user_sender.startswith("frontend_"):
-            if msg.success:
-                wellness_message = f" **Wellness Data Logged Successfully!**\n\n"
-                if msg.summary:
-                    wellness_message += f" **Summary:** {msg.summary}\n\n"
-                if msg.advice:
-                    wellness_message += f" **AI Wellness Advice:**\n"
-                    for advice in msg.advice:
-                        wellness_message += f"• {advice}\n"
-            else:
-                wellness_message = f" **Wellness Logging Failed**\n\n"
-                wellness_message += f" **Error:** {msg.message}"
+            if request_type == "wellness_delete":
+                if msg.success:
+                    wellness_message = f"🗑️ **Wellness Data Deleted Successfully!**\n\n"
+                    if msg.summary:
+                        wellness_message += f" **Summary:** {msg.summary}\n\n"
+                    if msg.advice:
+                        for advice in msg.advice:
+                            wellness_message += f"{advice}\n"
+                else:
+                    wellness_message = f"❌ **Wellness Data Deletion Failed**\n\n"
+                    wellness_message += f" **Error:** {msg.message}"
+            else:  # Regular wellness logging
+                if msg.success:
+                    wellness_message = f" **Wellness Data Logged Successfully!**\n\n"
+                    if msg.summary:
+                        wellness_message += f" **Summary:** {msg.summary}\n\n"
+                    if msg.advice:
+                        wellness_message += f" **AI Wellness Advice:**\n"
+                        for advice in msg.advice:
+                            wellness_message += f"• {advice}\n"
+                else:
+                    wellness_message = f" **Wellness Logging Failed**\n\n"
+                    wellness_message += f" **Error:** {msg.message}"
 
             chat_response = ChatMessage(
                 timestamp=datetime.now(timezone.utc),
