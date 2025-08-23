@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import Navbar from './nav';
+import ReactMarkdown from 'react-markdown';
+// If you want to use markdown rendering for AI insights, ensure you use ReactMarkdown in your JSX:
+// <ReactMarkdown>{aiInsights}</ReactMarkdown>
 import { logWellnessData, fetchWellnessData, getWellnessInsights } from './services/flaskService';
 
 interface WellnessData {
@@ -454,9 +457,6 @@ const Wellness = () => {
                     <span className="text-xs text-stone-500 font-light">Powered by ASI1</span>
                   </div>
                 </div>
-                <p className="text-stone-500 font-light mt-1 text-sm">
-                  Personalized insights from your wellness data
-                </p>
               </div>
               
               <div className="p-6">
@@ -498,19 +498,13 @@ const Wellness = () => {
                     </div>
                     <div className="prose prose-sm max-w-none">
                       <div className="text-sm text-stone-700 font-light leading-relaxed whitespace-pre-line">
-                        {aiInsights}
+                        <ReactMarkdown>{aiInsights}</ReactMarkdown>
                       </div>
                     </div>
                     <div className="flex justify-between items-center mt-4 pt-4 border-t border-emerald-200">
                       <p className="text-xs text-stone-500">
                         Last updated: {new Date().toLocaleTimeString()}
                       </p>
-                      <button
-                        onClick={loadAiInsights}
-                        className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-light"
-                      >
-                        Refresh Insights
-                      </button>
                     </div>
                   </div>
                 ) : (
