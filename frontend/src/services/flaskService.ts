@@ -790,3 +790,187 @@ export const fetchUserProfile = async (userId: string): Promise<any> => {
   console.log('Profile fetch failed, returning null');
   return { success: false, message: 'User profile not found', profile: null };
 };
+
+// Place medicine order to ICP backend
+export const placeMedicineOrder = async (medicineId: string, quantity: number, userId: string = 'user123'): Promise<any> => {
+  try {
+    console.log('Placing medicine order:', { medicineId, quantity, userId });
+    
+    // Try direct canister HTTP request first
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/place-medicine-order`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        medicine_id: medicineId, 
+        quantity: quantity,
+        user_id: userId
+      })
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      console.log('Order placement response from backend:', data);
+      return data;
+    }
+    
+    console.warn('Order placement canister response not ok:', icpResponse.status);
+    
+  } catch (error) {
+    console.error('Error placing order to canister:', error);
+  }
+  
+  // Fallback to HTTP interface
+  try {
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/place-medicine-order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        medicine_id: medicineId, 
+        quantity: quantity,
+        user_id: userId
+      })
+    });
+    
+    if (httpResponse.ok) {
+      const data = await httpResponse.json();
+      console.log('HTTP interface order placement data:', data);
+      return data;
+    }
+    
+  } catch (error) {
+    console.error('Error placing order via HTTP interface:', error);
+  }
+  
+  return { success: false, message: 'Failed to place order' };
+};
+
+// Cancel doctor appointment
+export const cancelAppointment = async (appointmentId: string, userId: string = 'user123'): Promise<any> => {
+  try {
+    console.log('Cancelling appointment:', { appointmentId, userId });
+    
+    // Try direct canister HTTP request first
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/cancel-appointment`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        appointment_id: appointmentId,
+        user_id: userId
+      })
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      console.log('Appointment cancellation response from backend:', data);
+      return data;
+    }
+    
+    console.warn('Appointment cancellation canister response not ok:', icpResponse.status);
+    
+  } catch (error) {
+    console.error('Error cancelling appointment to canister:', error);
+  }
+  
+  // Fallback to HTTP interface
+  try {
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/cancel-appointment`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        appointment_id: appointmentId,
+        user_id: userId
+      })
+    });
+    
+    if (httpResponse.ok) {
+      const data = await httpResponse.json();
+      console.log('Appointment cancellation via HTTP interface:', data);
+      return data;
+    }
+    
+    console.warn('HTTP interface appointment cancellation failed:', httpResponse.status);
+    
+  } catch (error) {
+    console.error('Error cancelling appointment via HTTP interface:', error);
+  }
+  
+  // Return default error response
+  return {
+    success: false,
+    message: 'Failed to cancel appointment: Unable to connect to backend services',
+    cancelled_id: null
+  };
+};
+
+// Cancel medicine order
+export const cancelMedicineOrder = async (orderId: string, userId: string = 'user123'): Promise<any> => {
+  try {
+    console.log('Cancelling medicine order:', { orderId, userId });
+    
+    // Try direct canister HTTP request first
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/cancel-medicine-order`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        order_id: orderId,
+        user_id: userId
+      })
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      console.log('Order cancellation response from backend:', data);
+      return data;
+    }
+    
+    console.warn('Order cancellation canister response not ok:', icpResponse.status);
+    
+  } catch (error) {
+    console.error('Error cancelling order to canister:', error);
+  }
+  
+  // Fallback to HTTP interface
+  try {
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/cancel-medicine-order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        order_id: orderId,
+        user_id: userId
+      })
+    });
+    
+    if (httpResponse.ok) {
+      const data = await httpResponse.json();
+      console.log('Order cancellation via HTTP interface:', data);
+      return data;
+    }
+    
+    console.warn('HTTP interface order cancellation failed:', httpResponse.status);
+    
+  } catch (error) {
+    console.error('Error cancelling order via HTTP interface:', error);
+  }
+  
+  // Return default error response
+  return {
+    success: false,
+    message: 'Failed to cancel order: Unable to connect to backend services',
+    cancelled_id: null
+  };
+};

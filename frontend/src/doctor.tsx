@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactElement } from 'react';
 import Navbar from './nav';
-import { fetchDoctors, fetchAppointments } from './services/flaskService';
+import { fetchDoctors, fetchAppointments, cancelAppointment } from './services/flaskService';
 import { Star } from 'lucide-react';
 
 interface Doctor {
@@ -30,7 +30,7 @@ interface Appointment {
   date: string;
   time: string;
   type: 'consultation' | 'follow-up' | 'emergency';
-  status: 'scheduled' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'confirmed';
 }
 
 const Doctor = () => {
@@ -48,6 +48,7 @@ const Doctor = () => {
     notes: ''
   });
   const [isBooking, setIsBooking] = useState(false);
+  const [cancellingAppointments, setCancellingAppointments] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
   const specialties = [
@@ -110,6 +111,29 @@ const Doctor = () => {
     }
   ];
 
+  const getDefaultAppointments = (): Appointment[] => [
+    {
+      id: 'APT-20250823-CD28BC',
+      doctorId: '1',
+      doctorName: 'Dr. Amir Hassan',
+      specialty: 'cardiology',
+      date: '2024-08-24',
+      time: '09:00',
+      type: 'consultation',
+      status: 'scheduled'
+    },
+    {
+      id: 'APT-20250825-DR45XY',
+      doctorId: '2',
+      doctorName: 'Dr. Sarah Chen',
+      specialty: 'dermatology',
+      date: '2024-08-25',
+      time: '14:30',
+      type: 'follow-up',
+      status: 'scheduled'
+    }
+  ];
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -137,7 +161,7 @@ const Doctor = () => {
           location: 'Medical Center', // Default location since not in backend
           availability: generateAvailabilityDates(doctor["2_213_151_757"] || doctor.available_days),
           price: Math.floor(Math.random() * 100) + 100, // Generate price since not in backend
-          image: getSpecialtyEmoji((doctor["2_069_078_014"] || doctor.specialty || 'General Practice').toLowerCase()),
+          image: 'icon',
           bio: `Experienced ${doctor["2_069_078_014"] || doctor.specialty || 'general practice'} specialist with ${doctor["825_774_209"] || doctor.experience_years || 5}+ years of experience. ${doctor["1_692_858_852"] || doctor.qualifications || ''}.`,
           languages: ['English'], // Default since not in backend
           image_url: doctor["914_348_363"] || doctor.image_url || '',
@@ -155,17 +179,17 @@ const Doctor = () => {
           date: appointment.date || appointment.appointment_date,
           time: appointment.time || appointment.appointment_time,
           type: appointment.type || 'consultation',
-          status: appointment.status || 'scheduled'
+          status: appointment.status || 'confirmed'  // Default to 'confirmed' to match backend
         }));
         
         setDoctors(parsedDoctors.length > 0 ? parsedDoctors : getDefaultDoctors());
-        setAppointments(parsedAppointments);
+        setAppointments(parsedAppointments.length > 0 ? parsedAppointments : getDefaultAppointments());
         
       } catch (error) {
         console.error('Error loading data from backend:', error);
         // Fallback to default data if backend is unavailable
         setDoctors(getDefaultDoctors());
-        setAppointments([]);
+        setAppointments(getDefaultAppointments());
       } finally {
         setIsLoading(false);
       }
@@ -174,19 +198,49 @@ const Doctor = () => {
     loadData();
   }, [selectedSpecialty]);
 
-  const getSpecialtyEmoji = (specialty: string) => {
-    const emojiMap: Record<string, string> = {
-      'cardiology': '❤️',
-      'dermatology': '🧴',
-      'neurology': '🧠',
-      'orthopedics': '🦴',
-      'pediatrics': '👶',
-      'psychiatry': '🧘',
-      'oncology': '🎗️',
-      'general practitioner': '👨‍⚕️',
-      'general-practice': '👨‍⚕️'
+  const getSpecialtyIcon = (specialty: string) => {
+    const iconMap: Record<string, ReactElement> = {
+      'cardiology': (
+        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+      ),
+      'dermatology': (
+        <svg className="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+        </svg>
+      ),
+      'neurology': (
+        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      ),
+      'orthopedics': (
+        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      ),
+      'pediatrics': (
+        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a1.5 1.5 0 001.5-1.5V6a3 3 0 10-6 0v2.5A1.5 1.5 0 007.5 10H9z" />
+        </svg>
+      ),
+      'psychiatry': (
+        <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+      ),
+      'oncology': (
+        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+      )
     };
-    return emojiMap[specialty.toLowerCase()] || '👨‍⚕️';
+    return iconMap[specialty.toLowerCase()] || (
+      <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    );
   };
 
 
@@ -226,6 +280,34 @@ const Doctor = () => {
     setShowBookingModal(false);
     setBookingData({ date: '', time: '', type: 'consultation', symptoms: '', notes: '' });
     setIsBooking(false);
+  };
+
+  const handleCancelAppointment = async (appointmentId: string) => {
+    setCancellingAppointments(prev => new Set(prev).add(appointmentId));
+    
+    try {
+      const result = await cancelAppointment(appointmentId, 'user123');
+      
+      if (result.success) {
+        // Remove the cancelled appointment from the list
+        setAppointments(prev => prev.filter(apt => apt.id !== appointmentId));
+        
+        // Show success message (you can replace with a toast library)
+        alert(`Appointment cancelled successfully!\n\nID: ${appointmentId}\nStatus: ${result.message}`);
+      } else {
+        // Show error message
+        alert(`Failed to cancel appointment:\n${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling appointment:', error);
+      alert('Error cancelling appointment. Please try again.');
+    } finally {
+      setCancellingAppointments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(appointmentId);
+        return newSet;
+      });
+    }
   };
 
   const getSpecialtyColor = (specialty: string) => {
@@ -273,8 +355,10 @@ const Doctor = () => {
                   <div key={appointment.id} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
-                        <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">
-                          👨‍⚕️
+                        <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                          <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
                         </div>
                         <div>
                           <h3 className="font-medium text-stone-800">{appointment.doctorName}</h3>
@@ -286,20 +370,39 @@ const Doctor = () => {
                       </span>
                     </div>
                     
-                    <div className="flex items-center text-stone-600 space-x-4">
-                      <span className="flex items-center">
-                        {new Date(appointment.date).toLocaleDateString()}
-                      </span>
-                      <span className="flex items-center">
-                        {appointment.time}
-                      </span>
-                      <span className={`px-2 py-1 rounded text-xs ${
-                        appointment.status === 'scheduled' ? 'bg-green-100 text-green-700' :
-                        appointment.status === 'completed' ? 'bg-blue-100 text-blue-700' :
-                        'bg-gray-100 text-gray-700'
-                      }`}>
-                        {appointment.status}
-                      </span>
+                    <div className="space-y-3">
+                      <div className="flex items-center text-stone-600 space-x-4">
+                        <span className="flex items-center">
+                          📅 {new Date(appointment.date).toLocaleDateString()}
+                        </span>
+                        <span className="flex items-center">
+                          🕒 {appointment.time}
+                        </span>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          appointment.status === 'scheduled' ? 'bg-green-100 text-green-700' :
+                          appointment.status === 'completed' ? 'bg-blue-100 text-blue-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {appointment.status}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-stone-500 font-mono bg-stone-50 px-2 py-1 rounded border">
+                          ID: {appointment.id}
+                        </div>
+                        
+                        {/* Show cancel button for confirmed and scheduled appointments */}
+                        {(appointment.status === 'scheduled' || appointment.status === 'confirmed') && (
+                          <button
+                            onClick={() => handleCancelAppointment(appointment.id)}
+                            disabled={cancellingAppointments.has(appointment.id)}
+                            className="px-3 py-1 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 border border-red-200 rounded-lg transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {cancellingAppointments.has(appointment.id) ? 'Cancelling...' : 'Cancel'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -364,18 +467,28 @@ const Doctor = () => {
                 <div className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-4">
-                      <div className="w-16 h-16 rounded-full overflow-hidden">
-                        <img 
-                          src={doctor.image_url || doctor.image} 
-                          alt={doctor.name}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            // Fallback to emoji if image fails to load
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            target.parentElement!.innerHTML = `<div class="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-3xl">${doctor.image}</div>`;
-                          }}
-                        />
+                      <div className="w-16 h-16 rounded-xl overflow-hidden bg-stone-100">
+                        {doctor.image_url ? (
+                          <img 
+                            src={doctor.image_url} 
+                            alt={doctor.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to specialty icon if image fails
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const container = target.parentElement!;
+                              container.innerHTML = '';
+                              const iconWrapper = document.createElement('div');
+                              iconWrapper.className = 'w-16 h-16 bg-stone-100 rounded-xl flex items-center justify-center';
+                              container.appendChild(iconWrapper);
+                            }}
+                          />
+                        ) : (
+                          <div className="w-16 h-16 bg-stone-100 rounded-xl flex items-center justify-center">
+                            {getSpecialtyIcon(doctor.specialty)}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h3 className="text-xl font-light text-stone-800 mb-1">{doctor.name}</h3>
@@ -463,17 +576,28 @@ const Doctor = () => {
                 </button>
               </div>
               <div className="flex items-center space-x-3 mt-4">
-                <div className="w-12 h-12 rounded-full overflow-hidden">
-                  <img 
-                    src={selectedDoctor.image_url || selectedDoctor.image} 
-                    alt={selectedDoctor.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      target.parentElement!.innerHTML = `<div class="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-2xl">${selectedDoctor.image}</div>`;
-                    }}
-                  />
+                <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100">
+                  {selectedDoctor.image_url ? (
+                    <img 
+                      src={selectedDoctor.image_url} 
+                      alt={selectedDoctor.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        // Fallback to specialty icon if image fails
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const container = target.parentElement!;
+                        container.innerHTML = '';
+                        const iconWrapper = document.createElement('div');
+                        iconWrapper.className = 'w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center';
+                        container.appendChild(iconWrapper);
+                      }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-stone-100 rounded-xl flex items-center justify-center">
+                      {getSpecialtyIcon(selectedDoctor.specialty)}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h3 className="font-medium text-stone-800">{selectedDoctor.name}</h3>

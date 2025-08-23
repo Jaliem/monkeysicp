@@ -117,6 +117,23 @@ class MedicineOrderResponse(Model):
     message: str
     suggested_alternatives: Optional[List[dict]] = None
 
+# === NEW: Unified Medicine Purchase Models (like Doctor Booking) ===
+class MedicinePurchaseRequest(Model):
+    request_id: str  # For correlation
+    medicine_name: str
+    quantity: int = 1
+    user_id: str = "user123"
+    prescription_id: Optional[str] = None
+    auto_order: bool = True  # Automatically place order if available
+
+class MedicinePurchaseResponse(Model):
+    request_id: str  # Echo back for correlation
+    status: str  # "success", "error", "insufficient_stock", "prescription_required"
+    medicine_name: Optional[str] = None
+    order_id: Optional[str] = None
+    total_price: Optional[float] = None
+    message: str
+
 class LogRequest(Model):
     request_id: str  # For correlation
     sleep: Optional[float] = None
@@ -138,10 +155,23 @@ class WellnessAdviceResponse(Model):
     success: bool = True
     message: str = ""
 
+class CancelRequest(Model):
+    request_id: str  # For correlation
+    cancel_type: str  # "appointment" or "order"
+    item_id: str  # appointment_id or order_id
+    user_id: str = "user123"
+
+class CancelResponse(Model):
+    request_id: str  # Echo back for correlation
+    success: bool
+    message: str
+    cancelled_id: Optional[str] = None
+
 # Create protocols for inter-agent communication
 doctor_protocol = Protocol(name="DoctorBookingProtocol", version="1.0")
 pharmacy_protocol = Protocol(name="PharmacyProtocol", version="1.0")
 wellness_protocol = Protocol(name="WellnessProtocol", version="1.0")
+cancel_protocol = Protocol(name="CancelProtocol", version="1.0")
 ack_protocol = Protocol(name="ACKProtocol", version="1.0")
 
 # Agent addresses - loaded from environment variables
@@ -283,7 +313,8 @@ async def classify_user_intent_with_llm(message: str, ctx: Context) -> str:
 5. "pharmacy" - Medicine availability, buying drugs, prescription requests, pharmacy queries
 6. "medication_reminder" - Setting up pill reminders, medication scheduling
 7. "wellness" - Activity tracking, sleep logging, exercise, steps, water intake, mood logging
-8. "general" - Greetings, general questions, anything not healthcare-related
+8. "cancel" - Cancelling appointments, orders, bookings, or other healthcare services
+9. "general" - Greetings, general questions, anything not healthcare-related
 
 IMPORTANT: Respond with ONLY the intent name, nothing else.
 
@@ -295,6 +326,8 @@ Examples:
 - "What disease might I have?" → health_analysis
 - "Remind me to take pills at 8PM" → medication_reminder
 - "Emergency! Chest pain!" → emergency
+- "Cancel my appointment APT-123" → cancel
+- "Cancel order ORD-456" → cancel
 - "Hello, how are you?" → general"""
 
         user_prompt = f"User message: \"{message}\""
@@ -322,7 +355,7 @@ Examples:
 
             # Validate the response
             valid_intents = ["emergency", "symptom_logging", "health_analysis",
-                           "book_doctor", "pharmacy", "medication_reminder", "wellness", "general"]
+                           "book_doctor", "pharmacy", "medication_reminder", "wellness", "cancel", "general"]
 
             if intent in valid_intents:
                 ctx.logger.info(f"LLM classified '{message}' as: {intent}")
@@ -652,6 +685,231 @@ async def handle_doctor_booking_cancellation(sender: str, ctx: Context) -> str:
 
     return "No problem! Your symptoms are still logged. You can ask for a doctor booking anytime by saying 'book me a doctor appointment'."
 
+async def extract_cancellation_intent_with_llm(message: str, ctx: Context) -> dict:
+    """Use ASI1 LLM to intelligently extract cancellation information from natural language"""
+    try:
+        system_prompt = """You are a healthcare AI assistant that helps users cancel appointments and orders. Analyze the user's message and extract cancellation information.
+
+Extract the following information:
+1. What they want to cancel (appointment/order)
+2. Any specific ID mentioned
+3. If no ID is provided, determine if they want to cancel their most recent item or need help finding the right one
+4. The urgency or reason for cancellation (optional)
+
+Respond in JSON format with:
+{
+  "cancel_type": "appointment" or "order" or "unknown",
+  "specific_id": "extracted ID" or null,
+  "intent": "cancel_specific" or "cancel_recent" or "need_help",
+  "description": "brief description of what they want to cancel",
+  "reason": "reason for cancellation if mentioned" or null
+}
+
+Examples:
+- "Cancel my doctor appointment APT-123" → {"cancel_type": "appointment", "specific_id": "APT-123", "intent": "cancel_specific", "description": "doctor appointment", "reason": null}
+- "I need to cancel my latest medicine order" → {"cancel_type": "order", "specific_id": null, "intent": "cancel_recent", "description": "latest medicine order", "reason": null}
+- "Cancel my appointment, something came up" → {"cancel_type": "appointment", "specific_id": null, "intent": "cancel_recent", "description": "appointment", "reason": "something came up"}
+- "How do I cancel my booking?" → {"cancel_type": "appointment", "specific_id": null, "intent": "need_help", "description": "booking", "reason": null}"""
+
+        user_prompt = f"User message: \"{message}\""
+
+        payload = {
+            "model": "asi1-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 200,
+            "response_format": {"type": "json_object"}
+        }
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json=payload,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            content = result["choices"][0]["message"]["content"]
+
+            try:
+                cancellation_info = json.loads(content)
+                ctx.logger.info(f"LLM extracted cancellation info: {cancellation_info}")
+                return cancellation_info
+            except json.JSONDecodeError:
+                ctx.logger.warning("LLM returned invalid JSON for cancellation extraction")
+                return {"cancel_type": "unknown", "specific_id": None, "intent": "need_help", "description": "request", "reason": None}
+        else:
+            ctx.logger.warning(f"ASI1 API error in cancellation extraction: {response.status_code}")
+            return {"cancel_type": "unknown", "specific_id": None, "intent": "need_help", "description": "request", "reason": None}
+
+    except Exception as e:
+        ctx.logger.error(f"LLM cancellation extraction failed: {str(e)}")
+        return {"cancel_type": "unknown", "specific_id": None, "intent": "need_help", "description": "request", "reason": None}
+
+async def get_user_recent_items(cancel_type: str, user_id: str, ctx: Context) -> list:
+    """Get user's recent appointments or orders for selection"""
+    try:
+        if cancel_type == "appointment":
+            # Get user appointments from ICP backend
+            result = await get_from_icp("get-user-appointments", {"user_id": user_id})
+            if "error" not in result and "appointments" in result:
+                # Return the most recent confirmed appointments
+                appointments = [apt for apt in result["appointments"] if apt.get("status") == "confirmed"]
+                return sorted(appointments, key=lambda x: x.get("created_at", ""), reverse=True)[:3]
+        else:
+            # Get user medicine orders from ICP backend
+            result = await get_from_icp("get-user-medicine-orders", {"user_id": user_id})
+            if "error" not in result and isinstance(result, list):
+                # Return the most recent confirmed orders
+                orders = [order for order in result if order.get("status") == "confirmed"]
+                return sorted(orders, key=lambda x: x.get("order_date", ""), reverse=True)[:3]
+        
+        return []
+    except Exception as e:
+        ctx.logger.error(f"Error getting user recent items: {str(e)}")
+        return []
+
+async def generate_natural_cancel_response(cancellation_info: dict, cancel_result: dict, ctx: Context) -> str:
+    """Use ASI1 LLM to generate natural language cancellation responses"""
+    try:
+        if cancel_result.get("success"):
+            system_prompt = """You are a healthcare AI assistant providing confirmation of successful cancellations. Create a natural, empathetic response that confirms the cancellation and provides next steps if appropriate.
+
+Be friendly, professional, and include relevant details. Use emojis appropriately."""
+        else:
+            system_prompt = """You are a healthcare AI assistant helping with cancellation issues. Create a helpful, empathetic response that explains why the cancellation failed and offers next steps or alternatives.
+
+Be understanding and provide clear guidance. Use emojis appropriately."""
+
+        context = {
+            "success": cancel_result.get("success", False),
+            "message": cancel_result.get("message", ""),
+            "cancelled_id": cancel_result.get("cancelled_id"),
+            "cancel_type": cancellation_info.get("cancel_type"),
+            "reason": cancellation_info.get("reason"),
+            "description": cancellation_info.get("description")
+        }
+
+        user_prompt = f"Generate a natural response for this cancellation result: {json.dumps(context)}"
+
+        payload = {
+            "model": "asi1-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 300
+        }
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json=payload,
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            natural_response = result["choices"][0]["message"]["content"].strip()
+            
+            # Add technical details for successful cancellations
+            if cancel_result.get("success"):
+                natural_response += f"\n\n📋 **Details:**\n"
+                if cancel_result.get("cancelled_id"):
+                    natural_response += f"• ID: {cancel_result.get('cancelled_id')}\n"
+                natural_response += f"• Status: {cancel_result.get('message', 'Cancelled')}\n"
+                natural_response += f"• Storage: Recorded on ICP blockchain"
+            
+            return natural_response
+        else:
+            # Fallback to structured response
+            if cancel_result.get("success"):
+                return f"✅ Your {cancellation_info.get('cancel_type', 'item')} has been cancelled successfully!\n\n📋 **Details:**\n• ID: {cancel_result.get('cancelled_id')}\n• Storage: Recorded on ICP blockchain"
+            else:
+                return f"❌ I wasn't able to cancel your {cancellation_info.get('cancel_type', 'item')}.\n\n**Issue:** {cancel_result.get('message', 'Unknown error')}\n\nPlease try again or contact support if you need assistance."
+
+    except Exception as e:
+        ctx.logger.error(f"Error generating natural cancel response: {str(e)}")
+        # Fallback to basic response
+        if cancel_result.get("success"):
+            return f"✅ Your {cancellation_info.get('cancel_type', 'item')} has been cancelled successfully!"
+        else:
+            return f"❌ Unable to cancel your {cancellation_info.get('cancel_type', 'item')}: {cancel_result.get('message', 'Unknown error')}"
+
+async def handle_cancel_request(message: str, ctx: Context, sender: str = None) -> str:
+    """Handle cancellation requests using ASI1 LLM for natural language understanding"""
+    try:
+        ctx.logger.info(f"Processing natural language cancel request: '{message}'")
+        
+        # Use LLM to extract cancellation intent and information
+        cancellation_info = await extract_cancellation_intent_with_llm(message, ctx)
+        cancel_type = cancellation_info.get("cancel_type")
+        specific_id = cancellation_info.get("specific_id")
+        intent = cancellation_info.get("intent")
+        
+        if cancel_type == "unknown":
+            return "I'd be happy to help you cancel something! Could you please specify what you'd like to cancel? For example:\n\n• 'Cancel my doctor appointment'\n• 'Cancel my medicine order'\n• 'I need to cancel my latest booking'"
+        
+        # Handle different cancellation intents
+        if intent == "need_help":
+            if cancel_type == "appointment":
+                return "I can help you cancel your appointment! Do you have the appointment ID (like APT-123ABC), or would you like me to show you your recent appointments so you can choose which one to cancel?"
+            else:
+                return "I can help you cancel your medicine order! Do you have the order ID (like ORD-123456), or would you like me to show you your recent orders so you can choose which one to cancel?"
+        
+        elif intent == "cancel_recent":
+            # Get user's recent items to find the most recent one
+            recent_items = await get_user_recent_items(cancel_type, "user123", ctx)
+            
+            if not recent_items:
+                return f"I don't see any recent {cancel_type}s that can be cancelled. You may not have any confirmed {cancel_type}s, or they may have already been processed."
+            
+            # Auto-cancel the most recent item
+            most_recent = recent_items[0]
+            if cancel_type == "appointment":
+                item_id = most_recent.get("appointment_id")
+                endpoint = "cancel-appointment"
+                request_data = {"appointment_id": item_id, "user_id": "user123"}
+            else:
+                item_id = most_recent.get("order_id")
+                endpoint = "cancel-medicine-order"
+                request_data = {"order_id": item_id, "user_id": "user123"}
+            
+            cancellation_info["specific_id"] = item_id
+            
+        elif intent == "cancel_specific" and specific_id:
+            # Use the specific ID provided
+            item_id = specific_id
+            if cancel_type == "appointment":
+                endpoint = "cancel-appointment"
+                request_data = {"appointment_id": item_id, "user_id": "user123"}
+            else:
+                endpoint = "cancel-medicine-order"
+                request_data = {"order_id": item_id, "user_id": "user123"}
+                
+        else:
+            # Need more information
+            return f"I understand you want to cancel your {cancel_type}. Could you provide the ID, or say 'cancel my latest {cancel_type}' to cancel the most recent one?"
+        
+        # Validate that we have the required variables set
+        if 'item_id' not in locals() or 'endpoint' not in locals() or 'request_data' not in locals():
+            return f"I need the {cancel_type} ID to cancel it. Could you provide it? For example: 'cancel {cancel_type} APT-123ABC'"
+        
+        # Make the cancellation request
+        cancel_result = await store_to_icp(endpoint, request_data)
+        
+        # Generate natural language response
+        return await generate_natural_cancel_response(cancellation_info, cancel_result, ctx)
+        
+    except Exception as e:
+        ctx.logger.error(f"Error handling natural cancel request: {str(e)}")
+        return "I apologize, but I encountered an issue processing your cancellation request. Please try again, or if you continue to have problems, please contact support for assistance."
+
 async def get_medicine_usage_hint(medicine_name: str, ctx: Context) -> str:
     """Use ASI1 LLM to provide intelligent medicine usage insights"""
     try:
@@ -965,7 +1223,7 @@ If medicine name is unclear, use the closest match or "medication"."""
         return {"medicine_name": "medication", "request_type": "check", "quantity": 1, "requirements": ""}
 
 async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str = None) -> str:
-    """Route medicine check/order to PharmacyAgent using ASI1 LLM for intelligent parsing"""
+    """Route medicine purchase to PharmacyAgent using unified request like doctor booking"""
     try:
         # Use ASI1 LLM to intelligently extract medicine information
         ctx.logger.info(f"Analyzing medicine request with AI: '{message}'")
@@ -981,89 +1239,62 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
         except (ValueError, TypeError):
             quantity = 1
 
-        # Create request based on LLM-extracted information
-        is_order_request = request_type == "order"
+        # Determine if this is an order request (buy, purchase, order) vs check request
+        is_order_request = request_type == "order" or any(word in message.lower() for word in [
+            "buy", "purchase", "order", "get me", "i need", "i want"
+        ])
 
-        ctx.logger.info(f"Creating MedicineCheckRequest with: medicine_name='{medicine_name}' (type: {type(medicine_name)}), quantity={quantity} (type: {type(quantity)})")
+        ctx.logger.info(f"Medicine: {medicine_name}, Type: {request_type}, Quantity: {quantity}, Is Order: {is_order_request}")
 
         try:
-            if is_order_request:
-                # For order requests, we need medicine_id - first check availability to get it
-                ctx.logger.info(f"Processing medicine order request for: {medicine_name} (qty: {quantity})")
-                request_id = str(uuid4())[:8]
-                medicine_request = MedicineCheckRequest(
-                    request_id=request_id,
-                    medicine_name=medicine_name,
-                    quantity=quantity
-                )
+            # Use unified medicine purchase request (like doctor booking)
+            ctx.logger.info(f"Processing unified medicine {'purchase' if is_order_request else 'check'} for: {medicine_name} (qty: {quantity})")
+            request_id = str(uuid4())[:8]
+            medicine_request = MedicinePurchaseRequest(
+                request_id=request_id,
+                medicine_name=medicine_name,
+                quantity=quantity,
+                user_id="user123",
+                auto_order=is_order_request  # Auto-order only if user wants to buy
+            )
 
-                # Track pending request
-                pending_requests[request_id] = {
-                    "type": "pharmacy",
-                    "medicine": medicine_name,
-                    "timestamp": datetime.now(),
-                    "user_sender": user_sender,
-                    "is_order_request": is_order_request,
-                    "quantity": quantity
-                }
-                if user_sender:
-                    user_request_mapping[request_id] = user_sender
-            else:
-                # Availability check
-                ctx.logger.info(f"Processing medicine availability check for: {medicine_name}")
-                request_id = str(uuid4())[:8]
-                medicine_request = MedicineCheckRequest(
-                    request_id=request_id,
-                    medicine_name=medicine_name,
-                    quantity=quantity
-                )
+            # Track pending request
+            pending_requests[request_id] = {
+                "type": "pharmacy_purchase",
+                "medicine": medicine_name,
+                "timestamp": datetime.now(),
+                "user_sender": user_sender,
+                "is_order_request": is_order_request,
+                "quantity": quantity
+            }
+            if user_sender:
+                user_request_mapping[request_id] = user_sender
 
-                # Track pending request
-                pending_requests[request_id] = {
-                    "type": "pharmacy",
-                    "medicine": medicine_name,
-                    "timestamp": datetime.now(),
-                    "user_sender": user_sender,
-                    "is_order_request": is_order_request,
-                    "quantity": quantity
-                }
-                if user_sender:
-                    user_request_mapping[request_id] = user_sender
-
-            ctx.logger.info(f"Successfully created MedicineCheckRequest: {type(medicine_request)}")
+            ctx.logger.info(f"Successfully created MedicinePurchaseRequest: {type(medicine_request)}")
 
         except Exception as e:
-            ctx.logger.error(f"   Failed to create MedicineCheckRequest: {str(e)}")
-            ctx.logger.error(f"   Medicine name: '{medicine_name}' (type: {type(medicine_name)})")
-            ctx.logger.error(f"   Quantity: {quantity} (type: {type(quantity)})")
+            ctx.logger.error(f"Failed to create MedicinePurchaseRequest: {str(e)}")
             raise
 
         # Send request to PharmacyAgent if available
         if PHARMACY_AGENT_ADDRESS:
             try:
-                ctx.logger.info(f"Sending medicine request to PharmacyAgent")
-
-                # Events no longer needed - using pure event-driven architecture
-
-                # Note: For REST API users, immediate notifications are handled via the API response
-                # No need to send chat messages to REST API user IDs
+                ctx.logger.info(f"Sending unified medicine purchase request to PharmacyAgent")
 
                 await ctx.send(PHARMACY_AGENT_ADDRESS, medicine_request)
-                ctx.logger.info(f"Medicine request sent (ID: {request_id}), user notified")
+                ctx.logger.info(f"Medicine purchase request sent (ID: {request_id})")
 
                 # Create detailed immediate response showing what was requested
-                response = f"**Medicine request submitted!**\n\n **Request Details:**\n"
+                response = f"**Medicine {'purchase' if is_order_request else 'availability check'} request submitted!**\n\n"
+                response += f"**Request Details:**\n"
                 response += f"• Medicine: {medicine_name}\n"
                 response += f"• Quantity: {quantity}\n"
-                response += f"• Request type: {'Purchase order' if is_order_request else 'Availability check'}\n"
+                response += f"• Action: {'Auto-purchase if available' if is_order_request else 'Check availability only'}\n"
                 response += f"\n**Request ID:** {request_id}"
-                response += f"\n**Status:** Checking pharmacy inventory..."
+                response += f"\n**Status:** Processing with pharmacy agent..."
                 response += f"\n**Storage:** Request saved to ICP blockchain"
 
                 return response
-
-                # No polling needed - response will come via event handler
-                # Response processing moved to handle_pharmacy_check_response
 
             except Exception as e:
                 ctx.logger.error(f"Error communicating with PharmacyAgent: {str(e)}")
@@ -1222,6 +1453,8 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
             return await route_to_pharmacy_agent(query, ctx, sender)
         elif intent == "wellness":
             return await route_to_wellness_agent(query, ctx, sender)
+        elif intent == "cancel":
+            return await handle_cancel_request(query, ctx, sender)
         else:
             # Clear any waiting context when showing general help
             clear_user_context(sender)
@@ -1248,6 +1481,11 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
                    "• 'Remind me to take my pills at 8PM'\n\n"
                    " **Emergency Support:**\n"
                    "• Just type 'emergency' for urgent help\n\n"
+                   " **Natural Language Cancellation:**\n"
+                   "• 'Cancel my latest appointment'\n"
+                   "• 'I need to cancel my medicine order'\n"
+                   "• 'Cancel my doctor booking, something came up'\n"
+                   "• 'Cancel appointment APT-123ABC'\n\n"
                    " **Smart AI Features:**\n"
                    "• ASI1-powered natural language understanding\n"
                    "• Context-aware conversations & follow-ups\n"
@@ -1406,6 +1644,105 @@ async def handle_chat_acknowledgement(ctx: Context, sender: str, msg: ChatAcknow
     if msg.metadata:
         ctx.logger.info(f"Ack metadata: {msg.metadata}")
 
+# Handler for unified medicine purchase responses (like doctor booking)
+@pharmacy_protocol.on_message(model=MedicinePurchaseResponse)
+async def handle_medicine_purchase_response(ctx: Context, sender: str, msg: MedicinePurchaseResponse):
+    """Handle unified medicine purchase responses from PharmacyAgent"""
+    ctx.logger.info(f"Received medicine purchase response: {msg.status} - {msg.medicine_name}")
+    
+    try:
+        # Find the corresponding request info
+        request_info = pending_requests.get(msg.request_id)
+        if not request_info:
+            ctx.logger.warning(f"No pending request found for purchase response ID: {msg.request_id}")
+            return
+        
+        # Get user sender from request mapping
+        user_sender = user_request_mapping.get(msg.request_id) or request_info.get("user_sender")
+        
+        if msg.status == "success":
+            # Order placed successfully
+            success_message = f"🎉 **Medicine Order Successfully Placed!**\n\n"
+            success_message += f"**Medicine:** {msg.medicine_name}\n"
+            success_message += f"**Order ID:** `{msg.order_id}`\n"
+            success_message += f"**Total Price:** ${msg.total_price:.2f}\n\n"
+            success_message += f"💡 **Keep this Order ID to track or cancel your order**\n\n"
+            success_message += f"💾 **Storage:** Order saved to ICP blockchain\n"
+            success_message += f"📍 **Pickup:** {msg.message}"
+            
+            if user_sender and not user_sender.startswith("frontend_"):
+                chat_response = ChatMessage(
+                    timestamp=datetime.now(timezone.utc),
+                    sender=user_sender,
+                    message=success_message,
+                    message_type="pharmacy_order_success",
+                    request_id=msg.request_id
+                )
+                await store_to_icp("store-chat", {"chat": chat_response.dict()})
+        
+        elif msg.status == "insufficient_stock":
+            # Not enough stock
+            stock_message = f"⚠️ **Insufficient Stock**\n\n"
+            stock_message += f"**Medicine:** {msg.medicine_name}\n"
+            stock_message += f"**Issue:** {msg.message}\n\n"
+            stock_message += f"Please try again later or contact the pharmacy directly."
+            
+            if user_sender and not user_sender.startswith("frontend_"):
+                chat_response = ChatMessage(
+                    timestamp=datetime.now(timezone.utc),
+                    sender=user_sender,
+                    message=stock_message,
+                    message_type="pharmacy_stock_error",
+                    request_id=msg.request_id
+                )
+                await store_to_icp("store-chat", {"chat": chat_response.dict()})
+        
+        elif msg.status == "available":
+            # Medicine available but not ordered (availability check only)
+            available_message = f"✅ **Medicine Available**\n\n"
+            available_message += f"**Medicine:** {msg.medicine_name}\n"
+            available_message += f"**Price:** ${msg.total_price:.2f}\n"
+            available_message += f"**Details:** {msg.message}\n\n"
+            available_message += f"💡 Say 'I want to order {msg.medicine_name}' to place an order"
+            
+            if user_sender and not user_sender.startswith("frontend_"):
+                chat_response = ChatMessage(
+                    timestamp=datetime.now(timezone.utc),
+                    sender=user_sender,
+                    message=available_message,
+                    message_type="pharmacy_available",
+                    request_id=msg.request_id
+                )
+                await store_to_icp("store-chat", {"chat": chat_response.dict()})
+        
+        else:
+            # Error case
+            error_message = f"❌ **Medicine Request Error**\n\n"
+            error_message += f"**Medicine:** {msg.medicine_name or 'Unknown'}\n"
+            error_message += f"**Error:** {msg.message}\n\n"
+            error_message += f"Please try again or contact support if the issue persists."
+            
+            if user_sender and not user_sender.startswith("frontend_"):
+                chat_response = ChatMessage(
+                    timestamp=datetime.now(timezone.utc),
+                    sender=user_sender,
+                    message=error_message,
+                    message_type="pharmacy_error",
+                    request_id=msg.request_id
+                )
+                await store_to_icp("store-chat", {"chat": chat_response.dict()})
+        
+        # Clean up pending request
+        if msg.request_id in pending_requests:
+            del pending_requests[msg.request_id]
+        if msg.request_id in user_request_mapping:
+            del user_request_mapping[msg.request_id]
+            
+        ctx.logger.info(f"Medicine purchase response processed successfully")
+
+    except Exception as e:
+        ctx.logger.error(f"Error in medicine purchase response handler: {str(e)}")
+
 # Handler for doctor booking responses
 @doctor_protocol.on_message(model=DoctorBookingResponse)
 async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingResponse):
@@ -1442,7 +1779,13 @@ async def handle_doctor_response(ctx: Context, sender: str, msg: DoctorBookingRe
         # Send result to user (only for direct chat users, not REST API users)
         if user_sender and not user_sender.startswith("frontend_"):
             if msg.status == "success":
-                success_message = f" Appointment booked! {msg.doctor_name} ({request_info['specialty']}) on {msg.appointment_time}. Reference: {msg.appointment_id}"
+                success_message = f"🎉 **Appointment Successfully Booked!**\n\n" \
+                                 f"**Doctor:** {msg.doctor_name}\n" \
+                                 f"**Specialty:** {request_info['specialty']}\n" \
+                                 f"**Date & Time:** {msg.appointment_time}\n\n" \
+                                 f"📋 **Your Appointment ID:** `{msg.appointment_id}`\n" \
+                                 f"💡 **Keep this ID to cancel or modify your appointment**\n\n" \
+                                 f"💾 **Storage:** Appointment saved to ICP blockchain"
             else:
                 success_message = f" Booking failed: {msg.message}"
 
@@ -1502,46 +1845,93 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
         )
         await ctx.send(sender, ack)
 
-        # Send result to user (only for direct chat users, not REST API users)
-        if user_sender and not user_sender.startswith("frontend_"):
-            if msg.available:
-                if is_order_request:
-                    # User wants to order - provide comprehensive ordering information
-                    order_message = f" **{msg.medicine}** is available for purchase!\n\n"
-                    order_message += f" **Stock:** {msg.stock} units available\n"
-                    order_message += f" **Price:** ${msg.price:.2f} per unit\n"
-                    order_message += f" **Pharmacy:** {msg.pharmacy_name}\n\n"
-                    order_message += f"**To complete your order:**\n"
-                    order_message += f"• Specify quantity needed (you requested {quantity})\n"
-                    order_message += f"• Example: 'Order {quantity} units of {msg.medicine}'"
-                else:
-                    # Just availability check
-                    order_message = f" **{msg.medicine}** is available at {msg.pharmacy_name}\n\n"
-                    order_message += f" **Stock:** {msg.stock} units in inventory\n"
-                    order_message += f" **Price:** ${msg.price:.2f} per unit\n\n"
-                    order_message += f"Would you like me to help you place an order for this medicine?"
-            else:
-                # Unavailable message
-                order_message = f" **{msg.medicine}** is currently {msg.status}\n\n"
-                order_message += f" **Pharmacy:** {msg.pharmacy_name}\n"
-                order_message += f" **Details:** {msg.message}\n\n"
-
-                # Add alternative suggestions
-                alternatives = await get_medicine_alternatives(medicine_name, ctx)
-                if alternatives:
-                    order_message += f" **AI Suggestions - Similar medicines you might consider:**\n"
-                    for alt in alternatives[:3]:
-                        order_message += f"• {alt}\n"
-                    order_message += f"\nWould you like me to check availability for any of these alternatives?"
-
-            chat_response = ChatMessage(
-                timestamp=datetime.now(timezone.utc),
-                msg_id=uuid4(),
-                content=[TextContent(type="text", text=order_message)]
-            )
-            await ctx.send(user_sender, chat_response)
+        # Handle order placement if this was an order request and medicine is available
+        if is_order_request and msg.available:
+            try:
+                ctx.logger.info(f"Auto-placing order for {msg.medicine} (qty: {quantity})")
+                
+                # Create medicine order request - we need medicine_id from the availability response
+                # For now, use the medicine name as ID (pharmacy agent should handle this)
+                order_request_id = str(uuid4())[:8]
+                medicine_order = MedicineOrderRequest(
+                    medicine_id=msg.medicine,  # Use medicine name as fallback ID
+                    medicine_name=msg.medicine,
+                    quantity=quantity,
+                    user_id="user123"
+                )
+                
+                # Track the order request
+                pending_requests[order_request_id] = {
+                    "type": "pharmacy_order",
+                    "medicine": msg.medicine,
+                    "timestamp": datetime.now(),
+                    "user_sender": user_sender,
+                    "quantity": quantity,
+                    "original_request_id": msg.request_id
+                }
+                if user_sender:
+                    user_request_mapping[order_request_id] = user_sender
+                
+                # Send order request to pharmacy agent
+                await ctx.send(sender, medicine_order)
+                ctx.logger.info(f"Order request sent for {msg.medicine}")
+                
+                # Don't send immediate response - wait for order confirmation
+                
+            except Exception as e:
+                ctx.logger.error(f"Error placing automatic order: {str(e)}")
+                # Fall back to manual order instructions
+                if user_sender and not user_sender.startswith("frontend_"):
+                    order_message = f" **{msg.medicine}** is available but automatic ordering failed!\n\n"
+                    order_message += f" **Error:** {str(e)}\n\n"
+                    order_message += f"Please try manual ordering: 'Order {quantity} units of {msg.medicine}'"
+                    
+                    chat_response = ChatMessage(
+                        timestamp=datetime.now(timezone.utc),
+                        msg_id=uuid4(),
+                        content=[TextContent(type="text", text=order_message)]
+                    )
+                    await ctx.send(user_sender, chat_response)
         else:
-            ctx.logger.info(f" Pharmacy result for REST API user {user_sender}: {msg.status} - {msg.medicine}")
+            # Send result to user (only for direct chat users, not REST API users)
+            if user_sender and not user_sender.startswith("frontend_"):
+                if msg.available:
+                    if is_order_request:
+                        # This should not happen since we handle orders above
+                        order_message = f" **{msg.medicine}** is available for purchase!\n\n"
+                        order_message += f" **Stock:** {msg.stock} units available\n"
+                        order_message += f" **Price:** ${msg.price:.2f} per unit\n"
+                        order_message += f" **Total:** ${msg.price * quantity:.2f} for {quantity} units\n"
+                        order_message += f" **Pharmacy:** {msg.pharmacy_name}\n\n"
+                        order_message += f"Processing your order..."
+                    else:
+                        # Just availability check
+                        order_message = f" **{msg.medicine}** is available at {msg.pharmacy_name}\n\n"
+                        order_message += f" **Stock:** {msg.stock} units in inventory\n"
+                        order_message += f" **Price:** ${msg.price:.2f} per unit\n\n"
+                        order_message += f"Would you like me to help you place an order for this medicine?"
+                else:
+                    # Unavailable message
+                    order_message = f" **{msg.medicine}** is currently {msg.status}\n\n"
+                    order_message += f" **Pharmacy:** {msg.pharmacy_name}\n"
+                    order_message += f" **Details:** {msg.message}\n\n"
+
+                    # Add alternative suggestions
+                    alternatives = await get_medicine_alternatives(medicine_name, ctx)
+                    if alternatives:
+                        order_message += f" **AI Suggestions - Similar medicines you might consider:**\n"
+                        for alt in alternatives[:3]:
+                            order_message += f"• {alt}\n"
+                        order_message += f"\nWould you like me to check availability for any of these alternatives?"
+
+                chat_response = ChatMessage(
+                    timestamp=datetime.now(timezone.utc),
+                    msg_id=uuid4(),
+                    content=[TextContent(type="text", text=order_message)]
+                )
+                await ctx.send(user_sender, chat_response)
+            else:
+                ctx.logger.info(f" Pharmacy result for REST API user {user_sender}: {msg.status} - {msg.medicine}")
 
         # Clean up pending request
         del pending_requests[msg.request_id]
@@ -1559,7 +1949,85 @@ async def handle_pharmacy_order_response(ctx: Context, sender: str, msg: Medicin
     """Handle medicine order responses from PharmacyAgent"""
     ctx.logger.info(f" Received medicine order response: {msg.status} - {msg.medicine}")
     ctx.logger.info(f"Order ID: {msg.order_id}, Total: ${msg.price}")
-    # For now, just log the order response - could be extended to relay back to user
+    
+    try:
+        # Find the corresponding request info (we don't have request_id in MedicineOrderResponse)
+        request_info = None
+        original_request_id = None
+        user_sender = None
+        
+        # Look for pending pharmacy order requests
+        for req_id, req_info in list(pending_requests.items()):
+            if (req_info.get("type") == "pharmacy_order" and 
+                req_info.get("medicine") == msg.medicine):
+                request_info = req_info
+                original_request_id = req_id
+                user_sender = req_info.get("user_sender")
+                break
+        
+        # Send ACK if we found the request
+        if original_request_id:
+            ack = RequestACK(
+                request_id=original_request_id,
+                agent_type="pharmacy",
+                message=f"Received order response: {msg.status}",
+                timestamp=datetime.now(timezone.utc).isoformat()
+            )
+            await ctx.send(sender, ack)
+        
+        # Send result to user (only for direct chat users, not REST API users)
+        if user_sender and not user_sender.startswith("frontend_"):
+            if msg.status == "confirmed":
+                order_message = f"🎉 **Order Confirmed!**\n\n"
+                order_message += f"**Medicine:** {msg.medicine}\n"
+                order_message += f"**Quantity:** {msg.qty} units\n"
+                order_message += f"**Total Price:** ${msg.price:.2f}\n"
+                if msg.order_id:
+                    order_message += f"**Order ID:** {msg.order_id}\n"
+                order_message += f"\n📍 **Pickup Instructions:**\n"
+                order_message += f"{msg.message}\n\n"
+                order_message += f"💾 **Storage:** Order saved to ICP blockchain"
+            elif msg.status == "insufficient_stock":
+                order_message = f"❌ **Order Failed - Insufficient Stock**\n\n"
+                order_message += f"**Medicine:** {msg.medicine}\n"
+                order_message += f"**Requested:** {msg.qty} units\n"
+                order_message += f"**Details:** {msg.message}\n\n"
+                
+                if msg.suggested_alternatives:
+                    order_message += f"🔄 **Alternative Suggestions:**\n"
+                    for alt in msg.suggested_alternatives:
+                        order_message += f"• {alt.get('name', 'Unknown')} - ${alt.get('price', 0):.2f} ({alt.get('stock', 0)} available)\n"
+                    order_message += f"\nWould you like to order one of these alternatives instead?"
+            elif msg.status == "prescription_required":
+                order_message = f"📋 **Prescription Required**\n\n"
+                order_message += f"**Medicine:** {msg.medicine}\n"
+                order_message += f"**Details:** {msg.message}\n\n"
+                order_message += f"Please provide a valid prescription to order this medicine."
+            else:
+                order_message = f"❌ **Order Error**\n\n"
+                order_message += f"**Medicine:** {msg.medicine}\n"
+                order_message += f"**Status:** {msg.status}\n"
+                order_message += f"**Details:** {msg.message}"
+            
+            chat_response = ChatMessage(
+                timestamp=datetime.now(timezone.utc),
+                msg_id=uuid4(),
+                content=[TextContent(type="text", text=order_message)]
+            )
+            await ctx.send(user_sender, chat_response)
+        else:
+            ctx.logger.info(f"Order result for REST API user {user_sender}: {msg.status} - {msg.medicine}")
+        
+        # Clean up pending request if found
+        if original_request_id and original_request_id in pending_requests:
+            del pending_requests[original_request_id]
+            if original_request_id in user_request_mapping:
+                del user_request_mapping[original_request_id]
+        
+        ctx.logger.info(f"Pharmacy order response processed successfully")
+        
+    except Exception as e:
+        ctx.logger.error(f"Error in pharmacy order response handler: {str(e)}")
 
 # Handler for wellness advice responses
 @wellness_protocol.on_message(model=WellnessAdviceResponse)
@@ -1639,6 +2107,7 @@ agent.include(chat_proto)
 agent.include(doctor_protocol)
 agent.include(pharmacy_protocol)
 agent.include(wellness_protocol)
+agent.include(cancel_protocol)
 agent.include(ack_protocol)
 
 # Manual configuration - no discovery service needed

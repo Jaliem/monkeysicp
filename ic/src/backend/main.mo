@@ -1704,6 +1704,136 @@ doctors.add(("gp_008", gp8));
     };
   };
 
+  // ----- Cancel Functions -----
+
+  // Cancel doctor appointment
+  public shared func cancel_appointment(appointment_id: Text, user_id: Text): async Types.CancelResponse {
+    Debug.print("[CANCEL]: Attempting to cancel appointment " # appointment_id # " for user " # user_id);
+    
+    var found = false;
+    let appointments_temp = Buffer.Buffer<(Text, Types.Appointment)>(appointments.size());
+    
+    for ((id, appointment) in appointments.vals()) {
+      if (appointment.appointment_id == appointment_id and appointment.user_id == user_id) {
+        // Update appointment status to cancelled
+        let cancelled_appointment: Types.Appointment = {
+          appointment_id = appointment.appointment_id;
+          doctor_id = appointment.doctor_id;
+          doctor_name = appointment.doctor_name;
+          specialty = appointment.specialty;
+          patient_symptoms = appointment.patient_symptoms;
+          appointment_date = appointment.appointment_date;
+          appointment_time = appointment.appointment_time;
+          status = "cancelled";
+          urgency = appointment.urgency;
+          created_at = appointment.created_at;
+          user_id = appointment.user_id;
+        };
+        appointments_temp.add((id, cancelled_appointment));
+        found := true;
+        Debug.print("[CANCEL]: Appointment " # appointment_id # " cancelled successfully");
+      } else {
+        appointments_temp.add((id, appointment));
+      };
+    };
+    
+    if (found) {
+      appointments := appointments_temp;
+      return {
+        success = true;
+        message = "Appointment cancelled successfully";
+        cancelled_id = ?appointment_id;
+      };
+    } else {
+      return {
+        success = false;
+        message = "Appointment not found or you don't have permission to cancel it";
+        cancelled_id = null;
+      };
+    };
+  };
+
+  // Cancel medicine order
+  public shared func cancel_medicine_order(order_id: Text, user_id: Text): async Types.CancelResponse {
+    Debug.print("[CANCEL]: Attempting to cancel order " # order_id # " for user " # user_id);
+    
+    var found = false;
+    let orders_temp = Buffer.Buffer<(Text, Types.MedicineOrder)>(medicine_orders.size());
+    
+    for ((id, order) in medicine_orders.vals()) {
+      if (order.order_id == order_id and order.user_id == user_id) {
+        // Only allow cancellation if order is not already shipped/delivered
+        if (order.status == "confirmed") {
+          // Update order status to cancelled and restore medicine stock
+          let cancelled_order: Types.MedicineOrder = {
+            order_id = order.order_id;
+            medicine_id = order.medicine_id;
+            medicine_name = order.medicine_name;
+            quantity = order.quantity;
+            unit_price = order.unit_price;
+            total_price = order.total_price;
+            user_id = order.user_id;
+            order_date = order.order_date;
+            status = "cancelled";
+            prescription_id = order.prescription_id;
+            pharmacy_notes = ?"Order cancelled by user request";
+          };
+          
+          // Restore medicine stock
+          let medicines_temp = Buffer.Buffer<(Text, Types.Medicine)>(medicines.size());
+          for ((med_id, medicine) in medicines.vals()) {
+            if (medicine.medicine_id == order.medicine_id) {
+              let updated_medicine: Types.Medicine = {
+                medicine_id = medicine.medicine_id;
+                name = medicine.name;
+                generic_name = medicine.generic_name;
+                category = medicine.category;
+                stock = medicine.stock + order.quantity; // Restore stock
+                price = medicine.price;
+                manufacturer = medicine.manufacturer;
+                description = medicine.description;
+                requires_prescription = medicine.requires_prescription;
+                active_ingredient = medicine.active_ingredient;
+                dosage = medicine.dosage;
+              };
+              medicines_temp.add((med_id, updated_medicine));
+            } else {
+              medicines_temp.add((med_id, medicine));
+            };
+          };
+          medicines := medicines_temp;
+          
+          orders_temp.add((id, cancelled_order));
+          found := true;
+          Debug.print("[CANCEL]: Order " # order_id # " cancelled successfully, stock restored");
+        } else {
+          return {
+            success = false;
+            message = "Order cannot be cancelled (status: " # order.status # ")";
+            cancelled_id = null;
+          };
+        };
+      } else {
+        orders_temp.add((id, order));
+      };
+    };
+    
+    if (found) {
+      medicine_orders := orders_temp;
+      return {
+        success = true;
+        message = "Order cancelled successfully and stock restored";
+        cancelled_id = ?order_id;
+      };
+    } else {
+      return {
+        success = false;
+        message = "Order not found or you don't have permission to cancel it";
+        cancelled_id = null;
+      };
+    };
+  };
+
   // ----- User Profile functions -----
 
   // Store or update user profile
@@ -2074,6 +2204,42 @@ doctors.add(("gp_008", gp8));
     };
   };
 
+  // Extracts appointment_id/order_id and user_id from cancel request body
+  private func extractCancelRequest(body : Blob) : ?(Text, Text) {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return null };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return null;
+    };
+
+    type CancelRequest = {
+      appointment_id : ?Text;
+      order_id : ?Text; 
+      user_id : Text;
+    };
+    let cancelRequest : ?CancelRequest = from_candid (blob);
+
+    switch (cancelRequest) {
+      case null { null };
+      case (?req) {
+        // Support both appointment_id and order_id fields
+        let id = switch(req.appointment_id) {
+          case (?id) { id };
+          case null {
+            switch(req.order_id) {
+              case (?id) { id };
+              case null { return null };
+            };
+          };
+        };
+        ?(id, req.user_id);
+      };
+    };
+  };
+
   // Constructs a JSON HTTP response using serde
   private func makeJsonResponse(statusCode : Nat16, jsonText : Text) : Types.HttpResponse {
     {
@@ -2118,7 +2284,7 @@ doctors.add(("gp_008", gp8));
           upgrade = null;
         };
       };
-      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/add-wellness-log" or "/get-wellness-summary" or "/store-user-profile" or "/get-user-profile") {
+      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/cancel-appointment" or "/cancel-medicine-order" or "/add-wellness-log" or "/get-wellness-summary" or "/store-user-profile" or "/get-user-profile") {
         {
           status_code = 200;
           headers = [("content-type", "application/json")];
@@ -2403,6 +2569,38 @@ doctors.add(("gp_008", gp8));
         let blob = to_candid (response);
         let #ok(jsonText) = JSON.toText(blob, MedicineSearchResponseKeys, null) else return makeSerializationErrorResponse();
         makeJsonResponse(200, jsonText);
+      };
+
+      // Cancel endpoints
+      case ("POST", "/cancel-appointment") {
+        let cancelRequest = extractCancelRequest(body);
+        switch(cancelRequest) {
+          case null {
+            makeJsonResponse(400, "{\"error\": \"Invalid cancel request data. Required: appointment_id, user_id\"}");
+          };
+          case (?(appointment_id, user_id)) {
+            let response = await cancel_appointment(appointment_id, user_id);
+            let blob = to_candid(response);
+            let cancelResponseKeys = ["success", "message", "cancelled_id"];
+            let #ok(jsonText) = JSON.toText(blob, cancelResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/cancel-medicine-order") {
+        let cancelRequest = extractCancelRequest(body);
+        switch(cancelRequest) {
+          case null {
+            makeJsonResponse(400, "{\"error\": \"Invalid cancel request data. Required: order_id (as appointment_id), user_id\"}");
+          };
+          case (?(order_id, user_id)) {
+            let response = await cancel_medicine_order(order_id, user_id);
+            let blob = to_candid(response);
+            let cancelResponseKeys = ["success", "message", "cancelled_id"];
+            let #ok(jsonText) = JSON.toText(blob, cancelResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
       };
 
       // Wellness endpoints

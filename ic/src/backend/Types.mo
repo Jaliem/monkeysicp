@@ -237,4 +237,10 @@ module {
     stock_level : Nat;
     estimated_restock : ?Text;
   };
+
+  public type CancelResponse = {
+    success : Bool;
+    message : Text;
+    cancelled_id : ?Text;
+  };
 };

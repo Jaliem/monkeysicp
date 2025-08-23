@@ -84,12 +84,12 @@ Just speak naturally - I'll understand and connect you with the right healthcare
   }, [messages]);
 
   const quickActions: QuickAction[] = [
-    { label: 'Log Sleep', icon: '', prompt: 'I slept 8 hours last night', category: 'wellness' },
-    { label: 'Steps Today', icon: '', prompt: 'I walked 5000 steps today', category: 'wellness' },
-    { label: 'Book Doctor', icon: '', prompt: 'I need to see a cardiologist', category: 'doctor' },
-    { label: 'Check Medicine', icon: '', prompt: 'Do you have paracetamol available?', category: 'pharmacy' },
-    { label: 'Symptom Check', icon: '', prompt: 'I have a headache and feel tired', category: 'symptom' },
-    { label: 'Water Intake', icon: '', prompt: 'I drank 6 glasses of water', category: 'wellness' },
+    { label: 'Log Sleep', icon: 'sleep', prompt: 'I slept 8 hours last night', category: 'wellness' },
+    { label: 'Steps Today', icon: 'steps', prompt: 'I walked 5000 steps today', category: 'wellness' },
+    { label: 'Book Doctor', icon: 'doctor', prompt: 'I need to see a cardiologist', category: 'doctor' },
+    { label: 'Check Medicine', icon: 'medicine', prompt: 'Do you have paracetamol available?', category: 'pharmacy' },
+    { label: 'Symptom Check', icon: 'symptom', prompt: 'I have a headache and feel tired', category: 'symptom' },
+    { label: 'Water Intake', icon: 'water', prompt: 'I drank 6 glasses of water', category: 'wellness' },
   ];
 
   // Auto-focus input after messages are loaded
@@ -361,7 +361,14 @@ Just speak naturally - I'll understand and connect you with the right healthcare
                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                  {quickActions.map((action, index) => (
                    <button key={index} onClick={() => handleQuickAction(action)} className={`p-3 rounded-lg border text-center hover:shadow-md transition-all duration-200 font-light ${getCategoryColor(action.category)}`}>
-                     <div className="text-lg mb-1">{action.icon}</div>
+                     <div className="w-6 h-6 mx-auto mb-2">
+                       {action.icon === 'sleep' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>}
+                       {action.icon === 'steps' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                       {action.icon === 'doctor' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+                       {action.icon === 'medicine' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>}
+                       {action.icon === 'symptom' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>}
+                       {action.icon === 'water' && <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>}
+                     </div>
                      <div className="text-xs font-bold">{action.label}</div>
                    </button>
                  ))}

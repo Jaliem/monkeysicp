@@ -162,13 +162,13 @@ const Wellness = () => {
     }
   };
 
-  const moodEmojis = {
-    'Excellent': '😄',
-    'Good': '😊',
-    'Okay': '😐',
-    'Tired': '😴',
-    'Stressed': '😰',
-    'Sad': '😢'
+  const moodOptions = {
+    'Excellent': { color: 'bg-emerald-100 border-emerald-200 text-emerald-800' },
+    'Good': { color: 'bg-blue-100 border-blue-200 text-blue-800' },
+    'Okay': { color: 'bg-gray-100 border-gray-200 text-gray-800' },
+    'Tired': { color: 'bg-purple-100 border-purple-200 text-purple-800' },
+    'Stressed': { color: 'bg-orange-100 border-orange-200 text-orange-800' },
+    'Sad': { color: 'bg-red-100 border-red-200 text-red-800' }
   };
 
   return (
@@ -190,21 +190,25 @@ const Wellness = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">😴</span>
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
                 </div>
                 <span className="text-sm text-stone-500 font-light">Last 7 days</span>
               </div>
               <h3 className="text-2xl font-light text-stone-800 mb-1">
-                {weeklySummary.avgSleep.toFixed(2)}h
+                {weeklySummary.avgSleep.toFixed(1)}h
               </h3>
               <p className="text-stone-500 font-light">Avg Sleep</p>
             </div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">👟</span>
+                <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
                 </div>
                 <span className="text-sm text-stone-500 font-light">This week</span>
               </div>
@@ -216,21 +220,25 @@ const Wellness = () => {
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-cyan-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">💧</span>
+                <div className="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                  </svg>
                 </div>
                 <span className="text-sm text-stone-500 font-light">Daily avg</span>
               </div>
               <h3 className="text-2xl font-light text-stone-800 mb-1">
-                {weeklySummary.avgWater} cups
+                {weeklySummary.avgWater.toFixed(1)} cups
               </h3>
               <p className="text-stone-500 font-light">Water Intake</p>
             </div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
               <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">💪</span>
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
                 </div>
                 <span className="text-sm text-stone-500 font-light">This week</span>
               </div>
@@ -354,19 +362,18 @@ const Wellness = () => {
                   <label className="block text-stone-700 font-light mb-3 text-lg">
                     How are you feeling?
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {Object.entries(moodEmojis).map(([mood, emoji]) => (
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(moodOptions).map(([mood, config]) => (
                       <button
                         key={mood}
                         onClick={() => handleQuickLog('mood', mood)}
                         className={`p-4 rounded-lg border transition-all duration-200 font-light ${
                           todayData.mood === mood
-                            ? 'border-emerald-500 bg-emerald-50 text-emerald-700'
+                            ? `${config.color} border-current`
                             : 'border-stone-200 bg-white text-stone-600 hover:bg-stone-50'
                         }`}
                       >
-                        <span className="text-2xl mb-2 block">{emoji}</span>
-                        <span className="text-sm">{mood}</span>
+                        <span className="text-sm font-medium">{mood}</span>
                       </button>
                     ))}
                   </div>
@@ -414,9 +421,16 @@ const Wellness = () => {
                 </h3>
               </div>
               <div className="p-6 space-y-4">
-                <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-100">
-                  <h4 className="font-medium text-emerald-800 mb-2">Sleep Quality</h4>
-                  <p className="text-sm text-emerald-700 font-light leading-relaxed">
+                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                    </div>
+                    <h4 className="font-medium text-stone-800">Sleep Quality</h4>
+                  </div>
+                  <p className="text-sm text-stone-600 font-light leading-relaxed">
                     {weeklySummary.avgSleep > 0 ? (
                       weeklySummary.avgSleep >= 7 && weeklySummary.avgSleep <= 9 ?
                       `Excellent! Your ${weeklySummary.avgSleep.toFixed(1)}h average is in the optimal range for recovery and mental performance.` :
@@ -429,9 +443,16 @@ const Wellness = () => {
                   </p>
                 </div>
                 
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-                  <h4 className="font-medium text-blue-800 mb-2">Activity Level</h4>
-                  <p className="text-sm text-blue-700 font-light leading-relaxed">
+                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <h4 className="font-medium text-stone-800">Activity Level</h4>
+                  </div>
+                  <p className="text-sm text-stone-600 font-light leading-relaxed">
                     {weeklySummary.totalSteps > 0 ? (
                       weeklySummary.totalSteps >= 70000 ? // 10k steps * 7 days
                       `Outstanding! ${weeklySummary.totalSteps.toLocaleString()} steps this week shows excellent activity levels.` :
@@ -444,9 +465,16 @@ const Wellness = () => {
                   </p>
                 </div>
                 
-                <div className="p-4 bg-cyan-50 rounded-lg border border-cyan-100">
-                  <h4 className="font-medium text-cyan-800 mb-2">Hydration</h4>
-                  <p className="text-sm text-cyan-700 font-light leading-relaxed">
+                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                      </svg>
+                    </div>
+                    <h4 className="font-medium text-stone-800">Hydration</h4>
+                  </div>
+                  <p className="text-sm text-stone-600 font-light leading-relaxed">
                     {weeklySummary.avgWater > 0 ? (
                       weeklySummary.avgWater >= 8 ?
                       `Excellent hydration! Your ${weeklySummary.avgWater.toFixed(1)} glasses daily average supports optimal health.` :
@@ -459,9 +487,16 @@ const Wellness = () => {
                   </p>
                 </div>
 
-                <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
-                  <h4 className="font-medium text-purple-800 mb-2">Exercise Progress</h4>
-                  <p className="text-sm text-purple-700 font-light leading-relaxed">
+                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </div>
+                    <h4 className="font-medium text-stone-800">Exercise Progress</h4>
+                  </div>
+                  <p className="text-sm text-stone-600 font-light leading-relaxed">
                     {wellnessHistory.length > 0 ? (
                       weeklySummary.exerciseDays >= 5 ?
                       `Amazing consistency! You exercised ${weeklySummary.exerciseDays} out of 7 days this week.` :
@@ -478,6 +513,82 @@ const Wellness = () => {
               </div>
             </div>
           </div>
+
+          {/* Wellness History */}
+          {wellnessHistory.length > 0 && (
+            <div className="mt-8 bg-white rounded-2xl shadow-sm border border-stone-100">
+              <div className="p-6 border-b border-stone-100">
+                <h3 className="text-xl font-light text-stone-800 font-serif">
+                  Recent Wellness Logs
+                </h3>
+                <p className="text-stone-500 font-light mt-1">
+                  Your wellness journey over the past {wellnessHistory.length} days
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4 max-h-96 overflow-y-auto">
+                  {wellnessHistory.slice().reverse().map((log, index) => (
+                    <div key={index} className="flex items-center justify-between p-4 bg-stone-50 rounded-lg border border-stone-100">
+                      <div className="flex items-center space-x-6">
+                        <div className="text-center">
+                          <div className="text-sm font-medium text-stone-800">
+                            {new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </div>
+                          <div className="text-xs text-stone-500">
+                            {new Date(log.date).toLocaleDateString('en-US', { weekday: 'short' })}
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center space-x-4 text-sm">
+                          {log.sleep > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                              </svg>
+                              <span className="text-stone-600">{log.sleep}h</span>
+                            </div>
+                          )}
+                          
+                          {log.steps > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                              </svg>
+                              <span className="text-stone-600">{log.steps.toLocaleString()}</span>
+                            </div>
+                          )}
+                          
+                          {log.water > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <svg className="w-4 h-4 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                              </svg>
+                              <span className="text-stone-600">{log.water} cups</span>
+                            </div>
+                          )}
+                          
+                          {log.mood && log.mood !== 'Unknown' && (
+                            <div className="flex items-center space-x-1">
+                              <div className={`w-3 h-3 rounded-full ${
+                                moodOptions[log.mood] ? moodOptions[log.mood].color.split(' ')[0] : 'bg-stone-300'
+                              }`}></div>
+                              <span className="text-stone-600">{log.mood}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {log.exercise && log.exercise !== 'Not logged' && (
+                        <div className="text-right max-w-xs">
+                          <p className="text-xs text-stone-500 truncate">{log.exercise}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

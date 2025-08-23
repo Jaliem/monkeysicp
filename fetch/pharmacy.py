@@ -71,6 +71,23 @@ class MedicineOrderResponse(Model):
     message: str
     suggested_alternatives: Optional[List[dict]] = None
 
+# === NEW: Unified Medicine Purchase Request (like DoctorBookingRequest) ===
+class MedicinePurchaseRequest(Model):
+    request_id: str  # For correlation
+    medicine_name: str
+    quantity: int = 1
+    user_id: str = "user123"
+    prescription_id: Optional[str] = None
+    auto_order: bool = True  # Automatically place order if available
+
+class MedicinePurchaseResponse(Model):
+    request_id: str  # Echo back for correlation
+    status: str  # "success", "error", "insufficient_stock", "prescription_required"
+    medicine_name: Optional[str] = None
+    order_id: Optional[str] = None
+    total_price: Optional[float] = None
+    message: str
+
 # === ICP Integration Functions ===
 def parse_medicine_data(medicine_data: dict) -> dict:
     """Parse medicine data with numeric keys from ICP backend to proper field names"""
@@ -355,9 +372,26 @@ async def handle_medicine_order(ctx: Context, sender: str, msg: MedicineOrderReq
     ctx.logger.info(f"Received medicine order request from {sender}: {msg.medicine_id}, qty: {msg.quantity}")
     
     try:
+        # If medicine_id looks like a medicine name, search for the actual ID first
+        actual_medicine_id = msg.medicine_id
+        medicine_name = msg.medicine_name or msg.medicine_id
+        
+        if not msg.medicine_id.startswith("med_"):
+            # medicine_id is likely a medicine name, search for the actual medicine
+            ctx.logger.info(f"Searching for medicine ID using name: {msg.medicine_id}")
+            search_result = await search_medicine_by_name(msg.medicine_id, ctx)
+            
+            if "error" not in search_result and search_result.get("medicines"):
+                medicine = search_result["medicines"][0]
+                actual_medicine_id = medicine.get("medicine_id", msg.medicine_id)
+                medicine_name = medicine.get("name", msg.medicine_id)
+                ctx.logger.info(f"Found medicine ID: {actual_medicine_id} for name: {medicine_name}")
+            else:
+                ctx.logger.warning(f"Could not find medicine ID for: {msg.medicine_id}")
+        
         # Place the order through ICP backend
         order_result = await place_medicine_order(
-            msg.medicine_id, 
+            actual_medicine_id, 
             msg.quantity, 
             msg.user_id, 
             msg.prescription_id, 
@@ -383,8 +417,8 @@ async def handle_medicine_order(ctx: Context, sender: str, msg: MedicineOrderReq
                 suggested_alternatives = format_medicine_alternatives(order_result["suggested_alternatives"])
             
             response = MedicineOrderResponse(
-                medicine=msg.medicine_name or "Unknown Medicine",
-                medicine_id=msg.medicine_id,
+                medicine=medicine_name,
+                medicine_id=actual_medicine_id,
                 qty=msg.quantity,
                 price=0.0,
                 status=status,
@@ -395,8 +429,8 @@ async def handle_medicine_order(ctx: Context, sender: str, msg: MedicineOrderReq
             # Order was successful
             order_data = order_result.get("order", {})
             response = MedicineOrderResponse(
-                medicine=order_data.get("medicine_name", msg.medicine_name or "Unknown Medicine"),
-                medicine_id=msg.medicine_id,
+                medicine=order_data.get("medicine_name", medicine_name),
+                medicine_id=actual_medicine_id,
                 qty=msg.quantity,
                 price=order_data.get("total_price", 0.0),
                 status="confirmed",
@@ -410,12 +444,119 @@ async def handle_medicine_order(ctx: Context, sender: str, msg: MedicineOrderReq
     except Exception as e:
         ctx.logger.error(f"Error handling medicine order: {str(e)}")
         error_response = MedicineOrderResponse(
-            medicine=msg.medicine_name or "Unknown Medicine",
+            medicine=msg.medicine_name or msg.medicine_id,
             medicine_id=msg.medicine_id,
             qty=msg.quantity,
             price=0.0,
             status="error",
             message=f"Internal error processing order: {str(e)}"
+        )
+        await ctx.send(sender, error_response)
+
+# === NEW: Unified Medicine Purchase Handler (like Doctor Booking) ===
+@pharmacy_protocol.on_message(model=MedicinePurchaseRequest, replies=MedicinePurchaseResponse)
+async def handle_medicine_purchase(ctx: Context, sender: str, msg: MedicinePurchaseRequest):
+    """Handle unified medicine purchase requests from HealthAgent - like doctor booking"""
+    
+    ctx.logger.info(f"Received medicine purchase request from {sender}: {msg.medicine_name} (qty: {msg.quantity})")
+    
+    try:
+        # Send immediate ACK
+        ack = RequestACK(
+            request_id=msg.request_id,
+            message=f"Medicine purchase request received: {msg.medicine_name}",
+            timestamp=datetime.now(timezone.utc).isoformat()
+        )
+        await ctx.send(sender, ack)
+        
+        # Step 1: Search for medicine by name
+        ctx.logger.info(f"Step 1: Searching for medicine: {msg.medicine_name}")
+        search_result = await search_medicine_by_name(msg.medicine_name, ctx)
+        
+        if "error" in search_result:
+            response = MedicinePurchaseResponse(
+                request_id=msg.request_id,
+                status="error",
+                message=f"Error searching for medicine: {search_result['error']}"
+            )
+        elif not search_result.get("medicines", []):
+            response = MedicinePurchaseResponse(
+                request_id=msg.request_id,
+                status="error",
+                medicine_name=msg.medicine_name,
+                message=f"Medicine '{msg.medicine_name}' not found in our inventory"
+            )
+        else:
+            # Step 2: Get medicine details
+            medicine = search_result["medicines"][0]
+            medicine_id = medicine.get("medicine_id")
+            medicine_name = medicine.get("name", msg.medicine_name)
+            stock_level = medicine.get("stock", 0)
+            price = medicine.get("price", 0.0)
+            
+            ctx.logger.info(f"Step 1 complete: Found {medicine_name} (ID: {medicine_id}, Stock: {stock_level})")
+            
+            # Step 3: Check availability and place order if requested
+            if stock_level < msg.quantity:
+                response = MedicinePurchaseResponse(
+                    request_id=msg.request_id,
+                    status="insufficient_stock",
+                    medicine_name=medicine_name,
+                    message=f"Insufficient stock. Available: {stock_level} units, Requested: {msg.quantity} units"
+                )
+            elif msg.auto_order:
+                # Step 4: Place order automatically (like doctor booking)
+                ctx.logger.info(f"Step 2: Auto-placing order for {medicine_name}")
+                order_result = await place_medicine_order(
+                    medicine_id, 
+                    msg.quantity, 
+                    msg.user_id, 
+                    msg.prescription_id, 
+                    ctx
+                )
+                
+                if "error" in order_result:
+                    response = MedicinePurchaseResponse(
+                        request_id=msg.request_id,
+                        status="error",
+                        medicine_name=medicine_name,
+                        message=f"Order placement failed: {order_result['error']}"
+                    )
+                else:
+                    # Order successful
+                    order_data = order_result.get("order", {})
+                    total_price = order_data.get("total_price", price * msg.quantity)
+                    order_id = order_data.get("order_id")
+                    
+                    response = MedicinePurchaseResponse(
+                        request_id=msg.request_id,
+                        status="success",
+                        medicine_name=medicine_name,
+                        order_id=order_id,
+                        total_price=total_price,
+                        message=f"Order placed successfully! Order ID: {order_id}. Total: ${total_price:.2f}. Ready for pickup at HealthPlus Pharmacy."
+                    )
+                    ctx.logger.info(f"SUCCESS: Medicine order placed: {order_id}")
+            else:
+                # Just availability check, no auto-order
+                response = MedicinePurchaseResponse(
+                    request_id=msg.request_id,
+                    status="available",
+                    medicine_name=medicine_name,
+                    total_price=price * msg.quantity,
+                    message=f"Medicine available! Stock: {stock_level} units, Price: ${price:.2f} each. Total: ${price * msg.quantity:.2f}"
+                )
+        
+        ctx.logger.info(f"Step 3: Sending response: {response.status}")
+        await ctx.send(sender, response)
+        
+    except Exception as e:
+        ctx.logger.error(f"Error in medicine purchase handler: {str(e)}")
+        error_response = MedicinePurchaseResponse(
+            request_id=msg.request_id,
+            status="error",
+            medicine_name=msg.medicine_name,
+            message=f"Internal error: {str(e)}"
         )
         await ctx.send(sender, error_response)
 

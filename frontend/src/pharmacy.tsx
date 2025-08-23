@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import Navbar from './nav';
-import { fetchMedicines, fetchOrders } from './services/flaskService';
+import { fetchMedicines, fetchOrders, placeMedicineOrder, cancelMedicineOrder } from './services/flaskService';
 import { Apple, Brain, Flower, Heart, Pill, Syringe } from 'lucide-react';
 
 interface Medicine {
@@ -46,6 +46,7 @@ const Pharmacy = () => {
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [isOrdering, setIsOrdering] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [cancellingOrders, setCancellingOrders] = useState<Set<string>>(new Set());
 
   const categories = [
     'all', 'pain relief', 'antibiotic', 'vitamin', 'allergy', 
@@ -220,26 +221,80 @@ const Pharmacy = () => {
 
   const handleCheckout = async () => {
     setIsOrdering(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    try {
+      // Place each order with the ICP backend
+      const orderPromises = cart.map(item => 
+        placeMedicineOrder(item.medicine.id, item.quantity, 'user123')
+      );
+      
+      const orderResults = await Promise.all(orderPromises);
+      console.log('Order results:', orderResults);
+      
+      // Check if all orders were successful
+      const successfulOrders = orderResults.filter(result => result.success);
+      
+      if (successfulOrders.length > 0) {
+        // Create local order objects for immediate UI update
+        const newOrders: Order[] = cart.map((item, index) => {
+          const orderResult = orderResults[index];
+          return {
+            id: orderResult.order_id || `ord_${Date.now()}_${index}`,
+            medicineId: item.medicine.id,
+            medicineName: `${item.medicine.name} ${item.medicine.dosage}`,
+            quantity: item.quantity,
+            totalPrice: item.medicine.price * item.quantity,
+            status: 'pending',
+            orderDate: new Date().toISOString().split('T')[0],
+            pharmacyName: 'HealthPlus Pharmacy'
+          };
+        });
 
-    const newOrders: Order[] = cart.map(item => ({
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      medicineId: item.medicine.id,
-      medicineName: `${item.medicine.name} ${item.medicine.dosage}`,
-      quantity: item.quantity,
-      totalPrice: item.medicine.price * item.quantity,
-      status: 'pending',
-      orderDate: new Date().toISOString().split('T')[0],
-      pharmacyName: 'HealthPlus Pharmacy'
-    }));
-
-    setOrders(prev => [...prev, ...newOrders]);
-    setCart([]);
-    setShowCart(false);
-    setIsOrdering(false);
+        setOrders(prev => [...prev, ...newOrders]);
+        setCart([]);
+        setShowCart(false);
+        
+        // Show success message
+        alert(`Successfully placed ${successfulOrders.length} order(s) on the blockchain!`);
+      } else {
+        alert('Failed to place orders. Please try again.');
+      }
+      
+    } catch (error) {
+      console.error('Error during checkout:', error);
+      alert('Error placing orders. Please try again.');
+    } finally {
+      setIsOrdering(false);
+    }
   };
 
+  const handleCancelOrder = async (orderId: string) => {
+    setCancellingOrders(prev => new Set(prev).add(orderId));
+    
+    try {
+      const result = await cancelMedicineOrder(orderId, 'user123');
+      
+      if (result.success) {
+        // Remove the cancelled order from the list
+        setOrders(prev => prev.filter(order => order.id !== orderId));
+        
+        // Show success message
+        alert(`Order cancelled successfully!\n\nID: ${orderId}\nStatus: ${result.message}`);
+      } else {
+        // Show error message
+        alert(`Failed to cancel order:\n${result.message}`);
+      }
+    } catch (error) {
+      console.error('Error cancelling order:', error);
+      alert('Error cancelling order. Please try again.');
+    } finally {
+      setCancellingOrders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(orderId);
+        return newSet;
+      });
+    }
+  };
 
   const formatCategory = (category: string) => {
     return category.split('-').map(word => 
@@ -294,16 +349,30 @@ const Pharmacy = () => {
                         <div>
                           <h3 className="font-medium text-stone-800">{order.medicineName}</h3>
                           <p className="text-sm text-stone-500 font-light">{order.pharmacyName}</p>
+                          <div className="text-xs text-stone-500 font-mono bg-stone-50 px-2 py-1 rounded border mt-1">
+                            ID: {order.id}
+                          </div>
                         </div>
                       </div>
-                      <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                        order.status === 'ready' ? 'bg-green-100 text-green-700' :
-                        order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                        order.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
-                        'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {order.status}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                          order.status === 'ready' ? 'bg-green-100 text-green-700' :
+                          order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                          order.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {order.status}
+                        </span>
+                        {(order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing') && (
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            disabled={cancellingOrders.has(order.id)}
+                            className="px-3 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                          >
+                            {cancellingOrders.has(order.id) ? 'Cancelling...' : 'Cancel'}
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="flex items-center justify-between text-stone-600">
