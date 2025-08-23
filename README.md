@@ -22,12 +22,12 @@ This project demonstrates a decentralized healthcare ecosystem where multiple Fe
 
 ### Agent Details
 
-| Agent Name         | Type           | Address                                      | Purpose                                               |
-|--------------------|----------------|----------------------------------------------|-------------------------------------------------------|
-| HealthCoordinator  | Main Agent     | 0x1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t   | Coordinates between all healthcare services           |
-| MedDiagnostician   | Doctor Agent   | 0x2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u   | Provides medical diagnosis and make appointment       |
-| PharmaManager      | Pharmacy Agent | 0x3c4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v   | Manages medication inventory and prescription         |
-| WellnessAdvisor    | Wellness Agent | 0x4d5e6f7g8h9i0j1k2l3m4n5o6p7q8r9s0t1u2v3w   | Offers health monitoring and wellness recommendations |
+| Agent Name    | Type           | Address                                                             | Purpose                                               |
+|---------------|----------------|---------------------------------------------------------------------|-------------------------------------------------------|
+| HealthAgent   | Main Agent     | agent1qv9wjqqwamnrlwv4knwrxkkw035sq7yhgshv6a2zu9ks7k0sndf55kr5ufy   | Coordinates between all healthcare services           |
+| DoctorAgent   | Doctor Agent   | agent1qwqyy4k7jfccfuymlvujxefvt3fj2x3qus84mg7nruunr9gmezv6wruawru   | Provides medical diagnosis and make appointment       |
+| PharmacyAgent | Pharmacy Agent | agent1q2dlr9x8hkcl5p2dchemnt3utf2h4g05rcpku88rtaulxh33jlgs6spw49c   | Manages medication inventory and prescription         |
+| WellnessAgent | Wellness Agent | agent1q0vpdcvka3dyzvcc4vs9m8wy0rvh9r39v0wfk04f25nckmkt5cqmvhedtyt   | Offers health monitoring and wellness recommendations |
 
 #### Agent Capabilities
 

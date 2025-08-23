@@ -50,8 +50,6 @@ emergency_status = False
 # Conversation context tracking
 user_contexts = {}  # Store user conversation states
 
-# Removed hard-coded symptom mappings - now using ASI1 LLM for all analysis
-
 # REST endpoint models for Flask API integration
 class ChatRequest(Model):
     message: str

@@ -74,8 +74,8 @@ fi
 
 echo "Setup complete!"
 echo ""
+echo "Please cd ic && dfx start --clean --background"
 echo "If you haven't already, please update the .env file with your:"
-echo "1. cd ic && dfx start --clean --background"
 echo "2. CANISTER_ID and BASE_URL from 'dfx deploy backend'"
 echo "3. ASI1_API_KEY from https://asi1.ai/dashboard/api-keys"
 echo "4. NGROK_AUTHTOKEN from https://dashboard.ngrok.com/get-started/your-authtoken"
