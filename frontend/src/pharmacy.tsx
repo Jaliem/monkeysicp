@@ -25,7 +25,7 @@ interface Order {
   medicineName: string;
   quantity: number;
   totalPrice: number;
-  status: 'pending' | 'processing' | 'ready' | 'delivered';
+  status: 'pending' | 'processing' | 'ready' | 'delivered' | 'cancelled';
   orderDate: string;
   pharmacyName: string;
 }
@@ -78,16 +78,32 @@ const Pharmacy = () => {
         }));
         
         // Parse ICP orders data format
-        const parsedOrders = ordersData.map((order: any) => ({
-          id: order.order_id || order.id || `ord_${Date.now()}`,
-          medicineId: order.medicine_id || order.medicineId,
-          medicineName: order.medicine_name || order.medicineName || 'Unknown Medicine',
-          quantity: order.quantity || order.qty || 1,
-          totalPrice: order.total_price || order.totalPrice || order.price || 0,
-          status: order.status || 'pending',
-          orderDate: order.order_date || order.orderDate || new Date().toISOString().split('T')[0],
-          pharmacyName: order.pharmacy_name || order.pharmacyName || 'HealthPlus Pharmacy'
-        }));
+        const parsedOrders = ordersData.map((order: any) => {
+          // Convert ICP nanosecond timestamp to proper date
+          let formattedDate = new Date().toISOString().split('T')[0]; // fallback
+          if (order.order_date || order.orderDate) {
+            const timestamp = order.order_date || order.orderDate;
+            if (typeof timestamp === 'string' && timestamp.length > 10) {
+              // Convert nanoseconds to milliseconds
+              const milliseconds = parseInt(timestamp) / 1_000_000;
+              formattedDate = new Date(milliseconds).toISOString().split('T')[0];
+            } else {
+              // Already in proper format
+              formattedDate = timestamp;
+            }
+          }
+          
+          return {
+            id: order.order_id || order.id || `ord_${Date.now()}`,
+            medicineId: order.medicine_id || order.medicineId,
+            medicineName: order.medicine_name || order.medicineName || 'Unknown Medicine',
+            quantity: order.quantity || order.qty || 1,
+            totalPrice: order.total_price || order.totalPrice || order.price || 0,
+            status: order.status || 'pending',
+            orderDate: formattedDate,
+            pharmacyName: order.pharmacy_name || order.pharmacyName || 'HealthPlus Pharmacy'
+          };
+        });
         
         setMedicines(parsedMedicines.length > 0 ? parsedMedicines : getDefaultMedicines());
         setOrders(parsedOrders);
@@ -331,13 +347,13 @@ const Pharmacy = () => {
 
         <div className="p-8 max-w-7xl mx-auto">
           {/* My Orders Section */}
-          {orders.length > 0 && (
+          {orders.filter(order => order.status !== 'cancelled').length > 0 && (
             <div className="mb-8">
               <h2 className="text-2xl font-light text-stone-800 font-serif mb-4">
                 Recent Orders
               </h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-                {orders.slice(0, 2).map((order) => {
+                {orders.filter(order => order.status !== 'cancelled').slice(0, 2).map((order) => {
                   const medicine = medicines.find(m => m.id === order.medicineId);
                   return (
                   <div key={order.id} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
@@ -510,7 +526,7 @@ const Pharmacy = () => {
 
       {/* Cart Modal */}
       {showCart && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-stone-200">
               <div className="flex items-center justify-between">
@@ -608,12 +624,12 @@ const Pharmacy = () => {
 
       {/* Medicine Detail Modal */}
       {showMedicineModal && selectedMedicine && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 border-b border-stone-200">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl border ${getCategoryProfile(selectedMedicine.category)}`}>
+                <div className="flex items-center space-x-4">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl border-2 ${getCategoryProfile(selectedMedicine.category)} shadow-sm`}>
                     {selectedMedicine.image}
                   </div>
                   <div>
@@ -625,7 +641,7 @@ const Pharmacy = () => {
                 </div>
                 <button
                   onClick={() => setShowMedicineModal(false)}
-                  className="text-stone-400 hover:text-stone-600 text-2xl"
+                  className="text-stone-400 hover:text-stone-600 text-2xl transition-colors duration-200"
                 >
                   ×
                 </button>
@@ -688,27 +704,28 @@ const Pharmacy = () => {
                 </div>
               </div>
 
-              {!selectedMedicine.prescriptionRequired && (
-                <div className="bg-stone-50 rounded-lg p-4">
-                  <button
-                    onClick={() => {
-                      addToCart(selectedMedicine);
-                      setShowMedicineModal(false);
-                    }}
-                    className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200"
-                  >
-                  Add to Cart - ${selectedMedicine.price.toFixed(2)}
-                  </button>
+              {/* Prescription Info */}
+              {selectedMedicine.prescriptionRequired && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="px-2 py-1 bg-orange-200 text-orange-800 rounded text-xs font-medium">Rx Required</span>
+                    <p className="text-orange-800 font-light text-sm">
+                      This medicine requires a prescription. Please consult with a doctor first.
+                    </p>
+                  </div>
                 </div>
               )}
 
-              {selectedMedicine.prescriptionRequired && (
-                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                  <p className="text-orange-800 font-light text-center">
-                    This medicine requires a prescription. Please consult with a doctor first.
+              {/* Dosage and Usage */}
+              <div>
+                <h3 className="text-lg font-medium text-stone-800 mb-2">Dosage & Usage</h3>
+                <div className="bg-stone-50 border border-stone-200 rounded-lg p-4">
+                  <p className="text-stone-700 font-medium">{selectedMedicine.dosage}</p>
+                  <p className="text-stone-600 font-light text-sm mt-1">
+                    Follow your healthcare provider's instructions for proper usage.
                   </p>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

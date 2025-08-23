@@ -167,6 +167,19 @@ class CancelResponse(Model):
     message: str
     cancelled_id: Optional[str] = None
 
+class WellnessInsightsRequest(Model):
+    request_id: str
+    user_id: str = "user123"
+    days: int = 7
+
+class WellnessInsightsResponse(Model):
+    request_id: str
+    success: bool
+    insights: Optional[str] = None
+    summary: Optional[str] = None
+    recommendations: List[str] = []
+    message: str = ""
+
 # Create protocols for inter-agent communication
 doctor_protocol = Protocol(name="DoctorBookingProtocol", version="1.0")
 pharmacy_protocol = Protocol(name="PharmacyProtocol", version="1.0")
@@ -1416,6 +1429,230 @@ def parse_wellness_message(message: str) -> dict:
     return wellness_data
 
 
+async def generate_wellness_insights_with_llm(wellness_logs: List[Dict], ctx: Context) -> str:
+    """Generate AI-powered wellness insights from user's wellness logs using ASI1 LLM"""
+    try:
+        # Prepare wellness data summary for the LLM
+        if not wellness_logs:
+            return "No wellness data available for insights generation."
+        
+        # Extract key metrics from logs
+        sleep_data = [log.get('sleep', 0) for log in wellness_logs if log.get('sleep', 0) > 0]
+        steps_data = [log.get('steps', 0) for log in wellness_logs if log.get('steps', 0) > 0]
+        water_data = [log.get('water_intake', 0) for log in wellness_logs if log.get('water_intake', 0) > 0]
+        moods = [log.get('mood') for log in wellness_logs if log.get('mood')]
+        exercises = [log.get('exercise') for log in wellness_logs if log.get('exercise') and log.get('exercise') != 'Not logged']
+        
+        # Calculate basic statistics
+        avg_sleep = sum(sleep_data) / len(sleep_data) if sleep_data else 0
+        total_steps = sum(steps_data)
+        avg_water = sum(water_data) / len(water_data) if water_data else 0
+        exercise_days = len(exercises)
+        
+        # Prepare context for LLM
+        wellness_summary = f"""
+        Wellness Data Analysis for the Past {len(wellness_logs)} Days:
+        
+        Sleep:
+        - Average: {avg_sleep:.1f} hours per night
+        - Data points: {len(sleep_data)} days recorded
+        - Range: {min(sleep_data) if sleep_data else 0:.1f}h - {max(sleep_data) if sleep_data else 0:.1f}h
+        
+        Physical Activity:
+        - Total steps: {total_steps:,}
+        - Average daily steps: {total_steps/len(wellness_logs) if wellness_logs else 0:,.0f}
+        - Exercise sessions: {exercise_days} out of {len(wellness_logs)} days
+        - Activities: {', '.join(set(exercises[:5]))}
+        
+        Hydration:
+        - Average water intake: {avg_water:.1f} glasses/cups per day
+        - Data points: {len(water_data)} days recorded
+        
+        Mood Patterns:
+        - Recorded moods: {', '.join(set(moods))}
+        - Most common: {max(set(moods), key=moods.count) if moods else 'No data'}
+        - Mood tracking: {len(moods)} out of {len(wellness_logs)} days
+        """
+        
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": """You are a wellness AI assistant analyzing user health data. Provide personalized, encouraging insights and actionable recommendations based on their wellness patterns. 
+
+                    Focus on:
+                    1. Overall wellness assessment
+                    2. Areas of strength and improvement
+                    3. Specific, actionable recommendations
+                    4. Encouraging tone while being honest about areas needing attention
+                    
+                    Keep insights concise but meaningful. Provide 3-4 key insights with specific recommendations."""
+                },
+                {
+                    "role": "user",
+                    "content": f"Please analyze this wellness data and provide personalized insights and recommendations:\n\n{wellness_summary}"
+                }
+            ],
+            "temperature": 0.7,
+            "max_tokens": 400
+        }
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json=payload,
+            timeout=15
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            insights = result["choices"][0]["message"]["content"]
+            ctx.logger.info(f"✨ Generated wellness insights with ASI1 LLM")
+            return insights.strip()
+        else:
+            ctx.logger.warning(f"ASI1 API error for insights: {response.status_code} - {response.text}")
+            # Provide a basic fallback analysis based on the data
+            return generate_fallback_insights(wellness_logs)
+
+    except Exception as e:
+        ctx.logger.error(f"Error generating wellness insights: {str(e)}")
+        return generate_fallback_insights(wellness_logs) if 'wellness_logs' in locals() else "Unable to generate AI insights at the moment. Please try again later."
+
+
+def generate_fallback_insights(wellness_logs: List[Dict]) -> str:
+    """Generate basic wellness insights when ASI1 API is not available"""
+    if not wellness_logs:
+        return """Welcome to your wellness journey! 🌱
+
+To get personalized insights, start logging your daily activities:
+• Sleep hours (aim for 7-9 hours)
+• Daily steps (target 8,000-10,000)
+• Water intake (8 glasses recommended)
+• Exercise activities
+• Daily mood
+
+Once you have some data, I'll provide personalized recommendations to help you achieve your health goals!"""
+
+    # Extract basic statistics
+    sleep_data = [log.get('sleep', 0) for log in wellness_logs if log.get('sleep', 0) > 0]
+    steps_data = [log.get('steps', 0) for log in wellness_logs if log.get('steps', 0) > 0]
+    water_data = [log.get('water_intake', 0) for log in wellness_logs if log.get('water_intake', 0) > 0]
+    moods = [log.get('mood') for log in wellness_logs if log.get('mood')]
+    exercises = [log.get('exercise') for log in wellness_logs if log.get('exercise') and log.get('exercise') != 'Not logged']
+    
+    insights = f"**Your Wellness Summary ({len(wellness_logs)} days tracked):**\n\n"
+    
+    # Sleep analysis
+    if sleep_data:
+        avg_sleep = sum(sleep_data) / len(sleep_data)
+        if avg_sleep >= 7:
+            insights += f"✅ **Sleep**: Great job! Averaging {avg_sleep:.1f}h per night.\n"
+        else:
+            insights += f"⚠️ **Sleep**: {avg_sleep:.1f}h average - try for 7-9 hours.\n"
+    else:
+        insights += "📊 **Sleep**: Start tracking your sleep patterns for better insights.\n"
+    
+    # Activity analysis
+    if steps_data:
+        avg_steps = sum(steps_data) / len(steps_data)
+        if avg_steps >= 8000:
+            insights += f"🚶 **Activity**: Excellent! {avg_steps:,.0f} steps daily average.\n"
+        else:
+            insights += f"🚶 **Activity**: {avg_steps:,.0f} steps daily - aim for 8,000+.\n"
+    else:
+        insights += "🚶 **Activity**: Track your daily steps to monitor activity levels.\n"
+        
+    # Hydration analysis
+    if water_data:
+        avg_water = sum(water_data) / len(water_data)
+        if avg_water >= 8:
+            insights += f"💧 **Hydration**: Perfect! {avg_water:.1f} glasses daily.\n"
+        else:
+            insights += f"💧 **Hydration**: {avg_water:.1f} glasses - try for 8 glasses daily.\n"
+    else:
+        insights += "💧 **Hydration**: Log your water intake for hydration tracking.\n"
+        
+    # Exercise analysis
+    if exercises:
+        insights += f"💪 **Exercise**: Active {len(exercises)} days - keep it up!\n"
+    else:
+        insights += "💪 **Exercise**: Add some physical activity for better health.\n"
+        
+    # Mood analysis
+    if moods:
+        mood_counts = {}
+        for mood in moods:
+            mood_counts[mood] = mood_counts.get(mood, 0) + 1
+        top_mood = max(mood_counts, key=mood_counts.get)
+        insights += f"😊 **Mood**: Most common: {top_mood}. Keep tracking for patterns!\n"
+    else:
+        insights += "😊 **Mood**: Track your daily mood to understand patterns.\n"
+        
+    insights += "\n**Keep logging your wellness data for more detailed AI-powered insights!**"
+    
+    return insights
+
+
+async def get_wellness_insights(user_id: str = "user123", days: int = 7, ctx: Context = None) -> Dict:
+    """Get AI-powered wellness insights by fetching logs from ICP and analyzing them"""
+    try:
+        # Fetch wellness data from ICP backend using get_wellness_summary
+        url = f"{BASE_URL}/get-wellness-summary"
+        
+        payload = {
+            "user_id": user_id,
+            "days": days
+        }
+        
+        response = requests.post(url, headers=HEADERS, json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            wellness_logs = data.get('logs', [])
+            
+            if wellness_logs:
+                # Generate insights using ASI1 LLM
+                insights = await generate_wellness_insights_with_llm(wellness_logs, ctx)
+                
+                return {
+                    "success": True,
+                    "insights": insights,
+                    "logs_count": len(wellness_logs),
+                    "days_analyzed": days,
+                    "message": f"Generated insights from {len(wellness_logs)} wellness log entries"
+                }
+            else:
+                return {
+                    "success": False,
+                    "insights": "No wellness data available for the specified period. Start logging your daily activities to receive personalized insights!",
+                    "logs_count": 0,
+                    "days_analyzed": days,
+                    "message": "No wellness logs found"
+                }
+        else:
+            ctx.logger.error(f"Failed to fetch wellness data: {response.status_code}")
+            return {
+                "success": False,
+                "insights": "Unable to fetch wellness data at the moment. Please try again later.",
+                "logs_count": 0,
+                "days_analyzed": days,
+                "message": "Backend connection error"
+            }
+            
+    except Exception as e:
+        ctx.logger.error(f"Error fetching wellness insights: {str(e)}")
+        # Provide fallback insights even when there's an error
+        fallback_insights = generate_fallback_insights([])
+        return {
+            "success": True,
+            "insights": fallback_insights,
+            "logs_count": 0,
+            "days_analyzed": days,
+            "message": f"Generated fallback insights due to error: {str(e)}"
+        }
+
+
 async def process_health_query(query: str, ctx: Context, sender: str = "default_user") -> str:
     """Process health-related queries and route appropriately"""
     try:
@@ -1502,7 +1739,7 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
 agent = Agent(
     name='health-agent',
     port=8000,
-    # mailbox=True,
+    mailbox=True,
 )
 
 # Add REST endpoint for Flask API integration
@@ -1546,6 +1783,46 @@ async def handle_rest_chat(ctx: Context, req: ChatRequest) -> ChatResponse:
             sender=agent.address,
             user_id=req.user_id,
             communication_status="error"
+        )
+
+# Add wellness insights endpoint for frontend
+@agent.on_rest_post("/api/wellness-insights", WellnessInsightsRequest, WellnessInsightsResponse)
+async def handle_wellness_insights(ctx: Context, req: WellnessInsightsRequest) -> WellnessInsightsResponse:
+    """Generate AI-powered wellness insights for frontend"""
+    try:
+        ctx.logger.info(f"🌱 Wellness insights request from user {req.user_id} for {req.days} days")
+        
+        # Get AI-powered insights
+        insights_data = await get_wellness_insights(req.user_id, req.days, ctx)
+        
+        if insights_data["success"]:
+            return WellnessInsightsResponse(
+                request_id=req.request_id,
+                success=True,
+                insights=insights_data["insights"],
+                summary=f"Analyzed {insights_data['logs_count']} wellness entries over {req.days} days",
+                recommendations=[],  # Can be expanded later
+                message=insights_data["message"]
+            )
+        else:
+            return WellnessInsightsResponse(
+                request_id=req.request_id,
+                success=False,
+                insights=insights_data["insights"],
+                summary="No data available",
+                recommendations=[],
+                message=insights_data["message"]
+            )
+            
+    except Exception as e:
+        ctx.logger.error(f"Error in wellness insights endpoint: {str(e)}")
+        return WellnessInsightsResponse(
+            request_id=req.request_id,
+            success=False,
+            insights="Unable to generate wellness insights at the moment.",
+            summary="Error occurred",
+            recommendations=[],
+            message=f"Error: {str(e)}"
         )
 
 # Add health check endpoint for Flask API
@@ -2139,62 +2416,3 @@ if __name__ == "__main__":
     print(f"Agent Address: {agent.address}")
     print("Ready to assist with your healthcare needs!")
     agent.run()
-
-"""
-HEALTH AGENT - ASI1 AI-ENHANCED SAMPLE CONVERSATIONS
-
- **AI-Powered Symptom Analysis:**
-- "I have fever and cough" → AI provides detailed condition analysis with confidence scores
-- "I'm experiencing headache and fatigue" → Smart specialist recommendations
-- "I have chest pain and shortness of breath" → Urgency assessment with emergency protocols
-
-💊 **Intelligent Pharmacy Services:**
-- "Check if paracetamol is available" → Real-time stock + AI usage insights
-- "I need to buy insulin for diabetes" → Smart quantity suggestions + prescription guidance
-- "Do you have something for headaches?" → AI medicine recognition + alternatives
-- "Order 3 tablets of ibuprofen" → Quantity-specific ordering with safety tips
-
-👨‍⚕️ **Smart Doctor Appointments:**
-- "Book me a cardiologist tomorrow" → AI specialty matching + automated scheduling
-- "I need help with my skin problems" → AI maps to dermatology + books appointment
-- "My head hurts constantly, need a doctor" → AI routes to neurology specialist
-
-💊 **Medication Reminders:**
-- "Remind me to take my pills at 8PM" → Smart scheduling with dosage reminders
-- "Set reminder for insulin at 7AM and 7PM" → Diabetes-specific guidance
-
-💪 **Wellness Tracking:**
-- "Log my sleep: 8 hours last night" → AI sleep quality analysis
-- "I exercised for 30 minutes today" → Personalized fitness insights
-
-🚨 **Emergency Response:**
-- "emergency" → Immediate protocol activation with location services
-
-🤖 **ASI1 AI-Enhanced Example Conversation:**
-User: "I have fever and cough."
-HealthAgent: "✅ Symptoms logged: 'fever and cough'
-🔍 Detected symptoms: fever, persistent cough
-🏥 **AI Analysis - Likely conditions:**
-  • 🔵 **Upper Respiratory Infection** (85% confidence)
-  • 🟡 **Influenza** (70% confidence)
-👨‍⚕️ **Recommended specialists:** General Practitioner
-💡 **AI Insight:** These symptoms commonly indicate viral or bacterial respiratory infections.
-📅 Would you like me to book an appointment with a General Practitioner?"
-
-User: "Yes, book it"
-HealthAgent: "✅ Appointment booked! Dr. Sarah Wilson (General Practitioner) on Tomorrow at 10:00 AM. Reference: APT-20250820-A1B2C3"
-
-User: "Check if paracetamol is available"
-HealthAgent: "✅ **Paracetamol** is available at HealthPlus Pharmacy
-📦 **Stock:** 150 units in inventory
-💰 **Price:** $5.99 per unit
-💡 **AI Insight:** pain relief and fever reduction
-Would you like me to help you place an order for this medicine?"
-
-🎯 **Key ASI1 AI Features:**
-- Natural language medicine name extraction
-- Intelligent symptom-to-specialist mapping
-- Real-time inventory with smart alternatives
-- Confidence-based medical condition analysis
-- Contextual health insights and recommendations
-"""

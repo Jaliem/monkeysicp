@@ -974,3 +974,88 @@ export const cancelMedicineOrder = async (orderId: string, userId: string = 'use
     cancelled_id: null
   };
 };
+
+// Wellness insights service - using chat agent for AI insights
+export const getWellnessInsights = async (userId: string = 'user123', days: number = 7) => {
+  try {
+    console.log(`Requesting AI wellness insights for ${days} days for user: ${userId}`);
+    
+    // First, try to call the health agent's wellness insights endpoint
+    try {
+      const response = await fetch(`${AGENT_BASE_URL}/api/wellness-insights`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          request_id: Date.now().toString(),
+          user_id: userId,
+          days: days
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Wellness insights response:', data);
+        
+        if (data.success) {
+          return {
+            success: true,
+            insights: data.insights,
+            summary: data.summary,
+            message: data.message,
+            recommendations: data.recommendations || []
+          };
+        } else {
+          return {
+            success: false,
+            insights: data.insights || "No wellness data available for insights generation.",
+            summary: "No data available",
+            message: data.message || "Unable to generate insights",
+            recommendations: []
+          };
+        }
+      } else {
+        console.warn('Health agent wellness insights failed:', response.status);
+      }
+    } catch (agentError) {
+      console.warn('Health agent not available for insights:', agentError);
+    }
+    
+    // Fallback: Use chat agent to generate insights
+    console.log('Falling back to chat-based insights generation...');
+    
+    const chatResponse = await sendChatMessage(
+      `Can you analyze my wellness data from the past ${days} days and provide personalized health insights and recommendations?`,
+      userId
+    );
+    
+    if (chatResponse.response) {
+      return {
+        success: true,
+        insights: chatResponse.response,
+        summary: `AI analysis of ${days} days of wellness data`,
+        message: "Insights generated via health agent chat",
+        recommendations: []
+      };
+    } else {
+      return {
+        success: false,
+        insights: "Unable to generate wellness insights at the moment. Please ensure you have some wellness data logged and try again.",
+        summary: "No insights available",
+        message: "Chat agent could not generate insights",
+        recommendations: []
+      };
+    }
+    
+  } catch (error) {
+    console.error('Error fetching wellness insights:', error);
+    return {
+      success: false,
+      insights: "Unable to generate wellness insights at the moment. Please check your connection and try again.",
+      summary: "Error occurred",
+      message: "Network or service error",
+      recommendations: []
+    };
+  }
+};

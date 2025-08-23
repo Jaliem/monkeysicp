@@ -38,16 +38,8 @@ const Doctor = () => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
-  const [bookingData, setBookingData] = useState({
-    date: '',
-    time: '',
-    type: 'consultation' as const,
-    symptoms: '',
-    notes: ''
-  });
-  const [isBooking, setIsBooking] = useState(false);
   const [cancellingAppointments, setCancellingAppointments] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
 
@@ -253,34 +245,11 @@ const Doctor = () => {
   });
 
 
-  const handleBookAppointment = (doctor: Doctor) => {
+  const handleDoctorClick = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
-    setShowBookingModal(true);
+    setShowDoctorModal(true);
   };
 
-  const handleConfirmBooking = async () => {
-    if (!selectedDoctor || !bookingData.date || !bookingData.time) return;
-
-    setIsBooking(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    const newAppointment: Appointment = {
-      id: Date.now().toString(),
-      doctorId: selectedDoctor.id,
-      doctorName: selectedDoctor.name,
-      specialty: selectedDoctor.specialty,
-      date: bookingData.date,
-      time: bookingData.time,
-      type: bookingData.type,
-      status: 'scheduled'
-    };
-
-    setAppointments(prev => [...prev, newAppointment]);
-    setShowBookingModal(false);
-    setBookingData({ date: '', time: '', type: 'consultation', symptoms: '', notes: '' });
-    setIsBooking(false);
-  };
 
   const handleCancelAppointment = async (appointmentId: string) => {
     setCancellingAppointments(prev => new Set(prev).add(appointmentId));
@@ -345,13 +314,13 @@ const Doctor = () => {
 
         <div className="p-8 max-w-7xl mx-auto">
           {/* My Appointments Section */}
-          {appointments.length > 0 && (
+          {appointments.filter(appointment => appointment.status !== 'cancelled').length > 0 && (
             <div className="mb-8">
               <h2 className="text-2xl font-light text-stone-800 font-serif mb-4">
                 Upcoming Appointments
               </h2>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-                {appointments.map((appointment) => (
+                {appointments.filter(appointment => appointment.status !== 'cancelled').map((appointment) => (
                   <div key={appointment.id} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center space-x-3">
@@ -544,12 +513,14 @@ const Doctor = () => {
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => handleBookAppointment(doctor)}
-                    className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200"
+                  <div 
+                    onClick={() => handleDoctorClick(doctor)}
+                    className="cursor-pointer"
                   >
-                    Book Appointment
-                  </button>
+                    <div className="w-full py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200 text-center">
+                      View Details
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -559,17 +530,17 @@ const Doctor = () => {
         </div>
       </div>
 
-      {/* Booking Modal */}
-      {showBookingModal && selectedDoctor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      {/* Doctor Details Modal */}
+      {showDoctorModal && selectedDoctor && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-20 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-stone-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-light text-stone-800 font-serif">
-                  Book Appointment
+                  Doctor Details
                 </h2>
                 <button
-                  onClick={() => setShowBookingModal(false)}
+                  onClick={() => setShowDoctorModal(false)}
                   className="text-stone-400 hover:text-stone-600 text-2xl"
                 >
                   ×
@@ -607,107 +578,92 @@ const Doctor = () => {
             </div>
 
             <div className="p-6 space-y-6">
-              <div>
-                <label className="block text-stone-700 font-light mb-2">Select Date</label>
-                <select
-                  value={bookingData.date}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, date: e.target.value }))}
-                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                >
-                  <option value="">Choose a date</option>
-                  {selectedDoctor.availability.map((date) => (
-                    <option key={date} value={date}>
-                      {new Date(date).toLocaleDateString('en-US', { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-stone-700 font-light mb-2">Select Time</label>
-                <select
-                  value={bookingData.time}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, time: e.target.value }))}
-                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                >
-                  <option value="">Choose a time</option>
-                  <option value="09:00">9:00 AM</option>
-                  <option value="10:00">10:00 AM</option>
-                  <option value="11:00">11:00 AM</option>
-                  <option value="14:00">2:00 PM</option>
-                  <option value="15:00">3:00 PM</option>
-                  <option value="16:00">4:00 PM</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-stone-700 font-light mb-2">Appointment Type</label>
-                <select
-                  value={bookingData.type}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, type: e.target.value as any }))}
-                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                >
-                  <option value="consultation">Consultation</option>
-                  <option value="follow-up">Follow-up</option>
-                  <option value="emergency">Emergency</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-stone-700 font-light mb-2">Symptoms/Reason</label>
-                <textarea
-                  value={bookingData.symptoms}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, symptoms: e.target.value }))}
-                  placeholder="Describe your symptoms or reason for visit..."
-                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-stone-700 font-light mb-2">Additional Notes</label>
-                <textarea
-                  value={bookingData.notes}
-                  onChange={(e) => setBookingData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Any additional information..."
-                  className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
-                  rows={2}
-                />
-              </div>
-
-              <div className="bg-stone-50 rounded-lg p-4">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-stone-600 font-light">Consultation Fee:</span>
-                  <span className="font-medium text-stone-800">${selectedDoctor.price}</span>
+              {/* Rating and Price */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-stone-500 font-light mb-2">Rating</p>
+                  <div className="flex items-center space-x-1">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-5 h-5 ${
+                          i < Math.floor(selectedDoctor.rating) 
+                            ? 'text-yellow-400 fill-current' 
+                            : 'text-stone-300'
+                        }`}
+                      />
+                    ))}
+                    <span className="ml-2 text-stone-600 font-medium">({selectedDoctor.rating})</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-stone-500 font-light mb-2">Consultation Fee</p>
+                  <p className="text-xl font-semibold text-emerald-600">${selectedDoctor.price}</p>
                 </div>
               </div>
 
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setShowBookingModal(false)}
-                  className="flex-1 py-3 border border-stone-200 text-stone-600 rounded-lg font-medium hover:bg-stone-50 transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmBooking}
-                  disabled={!bookingData.date || !bookingData.time || isBooking}
-                  className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isBooking ? (
-                    <span className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Booking...
+              {/* Bio */}
+              <div>
+                <h3 className="text-lg font-medium text-stone-800 mb-2">About</h3>
+                <p className="text-stone-600 font-light leading-relaxed">{selectedDoctor.bio}</p>
+              </div>
+
+              {/* Experience & Languages */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-stone-500 font-light mb-2">Experience</p>
+                  <p className="text-stone-700 font-medium">{selectedDoctor.experience} years</p>
+                </div>
+                <div>
+                  <p className="text-sm text-stone-500 font-light mb-2">Languages</p>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedDoctor.languages.map((lang, index) => (
+                      <span key={index} className="px-2 py-1 bg-stone-100 text-stone-700 rounded-full text-xs font-medium">
+                        {lang}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Availability */}
+              <div>
+                <h3 className="text-lg font-medium text-stone-800 mb-2">Available Days</h3>
+                <div className="flex flex-wrap gap-2">
+                  {selectedDoctor.available_days?.map((day: string, index: number) => (
+                    <span key={index} className={`px-3 py-1 rounded-lg text-sm font-medium border ${getSpecialtyColor(selectedDoctor.specialty)}`}>
+                      {day}
                     </span>
-                  ) : (
-                    'Confirm Booking'
+                  )) || (
+                    <span className="text-stone-500 font-light text-sm">No availability information</span>
                   )}
-                </button>
+                </div>
+              </div>
+
+              {/* Time Slots */}
+              <div>
+                <h3 className="text-lg font-medium text-stone-800 mb-2">Available Time Slots</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {selectedDoctor.available_slots?.map((slot: string, index: number) => (
+                    <div key={index} className="px-3 py-2 bg-stone-50 border border-stone-200 rounded-lg text-center text-sm text-stone-600">
+                      {slot}
+                    </div>
+                  )) || (
+                    <span className="text-stone-500 font-light text-sm col-span-3 text-center">No time slots available</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Specialty Badge */}
+              <div className="bg-gradient-to-r from-emerald-50 to-stone-50 border border-emerald-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className={`px-4 py-2 rounded-xl text-sm font-medium border-2 ${getSpecialtyColor(selectedDoctor.specialty)}`}>
+                    {formatSpecialty(selectedDoctor.specialty)} Specialist
+                  </span>
+                  <div className="text-sm text-stone-600 font-light">
+                    Professional healthcare services
+                  </div>
+                </div>
               </div>
             </div>
           </div>

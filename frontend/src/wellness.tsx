@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Navbar from './nav';
-import { logWellnessData, fetchWellnessData } from './services/flaskService';
+import { logWellnessData, fetchWellnessData, getWellnessInsights } from './services/flaskService';
 
 interface WellnessData {
   sleep: number;
@@ -39,9 +39,13 @@ const Wellness = () => {
 
   const [wellnessHistory, setWellnessHistory] = useState<WellnessData[]>([]);
   const [isLogging, setIsLogging] = useState(false);
+  const [aiInsights, setAiInsights] = useState<string>('');
+  const [isLoadingInsights, setIsLoadingInsights] = useState(false);
+  const [insightsError, setInsightsError] = useState<string>('');
 
   useEffect(() => {
     loadWellnessData();
+    loadAiInsights();
   }, []);
 
   const handleQuickLog = (type: string, value: number | string) => {
@@ -102,8 +106,8 @@ const Wellness = () => {
           const exerciseDays = recentLogs.filter((log: WellnessData) => log.exercise && log.exercise !== 'Not logged').length;
           
           // Count days with actual data for accurate averages
-          const sleepDays = recentLogs.filter(log => log.sleep > 0).length;
-          const waterDays = recentLogs.filter(log => log.water > 0).length;
+          const sleepDays = recentLogs.filter((log: WellnessData) => log.sleep > 0).length;
+          const waterDays = recentLogs.filter((log: WellnessData) => log.water > 0).length;
           
           // Find most common mood
           const moodCounts: Record<string, number> = {};
@@ -138,6 +142,30 @@ const Wellness = () => {
     }
   };
 
+  const loadAiInsights = async () => {
+    setIsLoadingInsights(true);
+    setInsightsError('');
+    
+    try {
+      console.log('Loading AI wellness insights...');
+      const insightsData = await getWellnessInsights('user123', 7);
+      
+      if (insightsData.success) {
+        setAiInsights(insightsData.insights);
+        console.log('AI insights loaded successfully:', insightsData.summary);
+      } else {
+        setInsightsError(insightsData.message);
+        setAiInsights(insightsData.insights); // This might contain a fallback message
+      }
+    } catch (error) {
+      console.error('Error loading AI insights:', error);
+      setInsightsError('Failed to load AI insights');
+      setAiInsights('Unable to load AI insights at the moment. Please try again later.');
+    } finally {
+      setIsLoadingInsights(false);
+    }
+  };
+
   const handleSaveData = async () => {
     setIsLogging(true);
     
@@ -149,9 +177,10 @@ const Wellness = () => {
       // Show success message
       alert('Wellness data saved to blockchain successfully!');
       
-      // Refresh the data after successful save
+      // Refresh the data and AI insights after successful save
       setTimeout(() => {
         loadWellnessData();
+        loadAiInsights(); // Reload AI insights with updated data
       }, 1000); // Wait 1 second for the data to be fully stored
       
     } catch (error) {
@@ -162,7 +191,7 @@ const Wellness = () => {
     }
   };
 
-  const moodOptions = {
+  const moodOptions: Record<string, { color: string }> = {
     'Excellent': { color: 'bg-emerald-100 border-emerald-200 text-emerald-800' },
     'Good': { color: 'bg-blue-100 border-blue-200 text-blue-800' },
     'Okay': { color: 'bg-gray-100 border-gray-200 text-gray-800' },
@@ -413,103 +442,98 @@ const Wellness = () => {
               </div>
             </div>
 
-            {/* AI Insights */}
+            {/* AI Wellness Insights */}
             <div className="bg-white rounded-2xl shadow-sm border border-stone-100">
               <div className="p-6 border-b border-stone-100">
-                <h3 className="text-xl font-light text-stone-800 font-serif">
-                  AI Wellness Insights
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-light text-stone-800 font-serif">
+                    AI Wellness Insights
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-stone-500 font-light">Powered by ASI1</span>
+                  </div>
+                </div>
+                <p className="text-stone-500 font-light mt-1 text-sm">
+                  Personalized insights from your wellness data
+                </p>
               </div>
-              <div className="p-6 space-y-4">
-                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    </div>
-                    <h4 className="font-medium text-stone-800">Sleep Quality</h4>
+              
+              <div className="p-6">
+                {isLoadingInsights ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mb-4"></div>
+                    <p className="text-stone-500 font-light">Analyzing your wellness data...</p>
+                    <p className="text-xs text-stone-400 mt-1">This may take a few moments</p>
                   </div>
-                  <p className="text-sm text-stone-600 font-light leading-relaxed">
-                    {weeklySummary.avgSleep > 0 ? (
-                      weeklySummary.avgSleep >= 7 && weeklySummary.avgSleep <= 9 ?
-                      `Excellent! Your ${weeklySummary.avgSleep.toFixed(1)}h average is in the optimal range for recovery and mental performance.` :
-                      weeklySummary.avgSleep < 7 ?
-                      `Your ${weeklySummary.avgSleep.toFixed(1)}h average could be improved. Aim for 7-8 hours for better wellness.` :
-                      `Great sleep quality! ${weeklySummary.avgSleep.toFixed(1)}h shows you prioritize rest.`
-                    ) : (
-                      "Start tracking your sleep to get personalized insights on your rest patterns."
-                    )}
-                  </p>
-                </div>
-                
-                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
+                ) : insightsError ? (
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-lg">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        </svg>
+                      </div>
+                      <h4 className="font-medium text-red-800">Unable to Load Insights</h4>
                     </div>
-                    <h4 className="font-medium text-stone-800">Activity Level</h4>
+                    <p className="text-sm text-red-600 font-light leading-relaxed mb-3">
+                      {insightsError}
+                    </p>
+                    <button
+                      onClick={loadAiInsights}
+                      className="px-4 py-2 bg-red-100 text-red-700 text-sm rounded-lg hover:bg-red-200 transition-colors duration-200 font-light"
+                    >
+                      Try Again
+                    </button>
                   </div>
-                  <p className="text-sm text-stone-600 font-light leading-relaxed">
-                    {weeklySummary.totalSteps > 0 ? (
-                      weeklySummary.totalSteps >= 70000 ? // 10k steps * 7 days
-                      `Outstanding! ${weeklySummary.totalSteps.toLocaleString()} steps this week shows excellent activity levels.` :
-                      weeklySummary.totalSteps >= 35000 ? // 5k steps * 7 days
-                      `Good progress with ${weeklySummary.totalSteps.toLocaleString()} steps. Try adding ${(70000 - weeklySummary.totalSteps).toLocaleString()} more to reach 10k daily.` :
-                      `You're building momentum with ${weeklySummary.totalSteps.toLocaleString()} steps. Every step counts toward better health!`
-                    ) : (
-                      "Track your daily steps to see insights about your activity patterns and set achievable goals."
-                    )}
-                  </p>
-                </div>
-                
-                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                      </svg>
+                ) : aiInsights ? (
+                  <div className="p-4 bg-gradient-to-br from-emerald-50 to-blue-50 border border-emerald-100 rounded-lg">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                      </div>
+                      <h4 className="font-medium text-stone-800">Personalized Wellness Analysis</h4>
                     </div>
-                    <h4 className="font-medium text-stone-800">Hydration</h4>
-                  </div>
-                  <p className="text-sm text-stone-600 font-light leading-relaxed">
-                    {weeklySummary.avgWater > 0 ? (
-                      weeklySummary.avgWater >= 8 ?
-                      `Excellent hydration! Your ${weeklySummary.avgWater.toFixed(1)} glasses daily average supports optimal health.` :
-                      weeklySummary.avgWater >= 6 ?
-                      `Good hydration with ${weeklySummary.avgWater.toFixed(1)} glasses daily. Try to reach 8 glasses for optimal benefits.` :
-                      `Your ${weeklySummary.avgWater.toFixed(1)} glass average is a start! Gradually increase to 8 glasses daily.`
-                    ) : (
-                      "Start logging your water intake to maintain proper hydration and support your overall wellness."
-                    )}
-                  </p>
-                </div>
-
-                <div className="p-4 bg-stone-50 rounded-lg border border-stone-100">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                      <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
+                    <div className="prose prose-sm max-w-none">
+                      <div className="text-sm text-stone-700 font-light leading-relaxed whitespace-pre-line">
+                        {aiInsights}
+                      </div>
                     </div>
-                    <h4 className="font-medium text-stone-800">Exercise Progress</h4>
+                    <div className="flex justify-between items-center mt-4 pt-4 border-t border-emerald-200">
+                      <p className="text-xs text-stone-500">
+                        Last updated: {new Date().toLocaleTimeString()}
+                      </p>
+                      <button
+                        onClick={loadAiInsights}
+                        className="px-3 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-light"
+                      >
+                        Refresh Insights
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-sm text-stone-600 font-light leading-relaxed">
-                    {wellnessHistory.length > 0 ? (
-                      weeklySummary.exerciseDays >= 5 ?
-                      `Amazing consistency! You exercised ${weeklySummary.exerciseDays} out of 7 days this week.` :
-                      weeklySummary.exerciseDays >= 3 ?
-                      `Good effort with ${weeklySummary.exerciseDays}/7 exercise days. Try adding ${7 - weeklySummary.exerciseDays} more sessions!` :
-                      weeklySummary.exerciseDays > 0 ?
-                      `You're getting started with ${weeklySummary.exerciseDays} exercise day(s). Build the habit gradually!` :
-                      "No exercise logged this week. Even 10 minutes of movement daily can make a big difference!"
-                    ) : (
-                      "Start logging your exercise activities to track your fitness journey and build healthy habits."
-                    )}
-                  </p>
-                </div>
+                ) : (
+                  <div className="p-4 bg-stone-50 border border-stone-100 rounded-lg">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-8 h-8 bg-stone-100 rounded-lg flex items-center justify-center">
+                        <svg className="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h4 className="font-medium text-stone-600">No Insights Available</h4>
+                    </div>
+                    <p className="text-sm text-stone-500 font-light leading-relaxed mb-3">
+                      Start logging your daily wellness activities to receive personalized AI insights about your health patterns and recommendations for improvement.
+                    </p>
+                    <button
+                      onClick={loadAiInsights}
+                      className="px-4 py-2 bg-stone-100 text-stone-600 text-sm rounded-lg hover:bg-stone-200 transition-colors duration-200 font-light"
+                    >
+                      Generate Insights
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
