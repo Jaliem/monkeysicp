@@ -453,11 +453,11 @@ const Pharmacy = () => {
               {/* Medicine Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredMedicines.map((medicine) => (
-              <div key={medicine.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 hover:shadow-lg transition-all duration-300 cursor-pointer">
-                <div className="p-6" onClick={() => handleMedicineClick(medicine)}>
+              <div key={medicine.id} className="bg-white rounded-2xl shadow-sm border border-stone-100 hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col h-full">
+                <div className="p-6 flex-1" onClick={() => handleMedicineClick(medicine)}>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl border ${getCategoryProfile(medicine.category)}`}>
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl border ${getCategoryProfile(medicine.category)}`}> 
                         {medicine.image}
                       </div>
                       <div>
@@ -473,7 +473,7 @@ const Pharmacy = () => {
                   </div>
 
                   <div className="mb-4">
-                    <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getCategoryProfile(medicine.category)}`}>
+                    <span className={`px-3 py-1 rounded-lg text-sm font-medium border ${getCategoryProfile(medicine.category)}`}> 
                       {formatCategory(medicine.category)}
                     </span>
                   </div>
