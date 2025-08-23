@@ -48,9 +48,10 @@ if [ -z "$ASI1_API_KEY" ] || [ -z "$CANISTER_ID" ] || [ -z "$BASE_URL" ]; then
     exit 1
 fi
 
+cd fetch
+
 # Activate venv
 source venv/bin/activate
-cd fetch
 
 echo "Starting Agent service on port 8000..."
 $PYTHON_CMD agent.py &
