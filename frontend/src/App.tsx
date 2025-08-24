@@ -11,6 +11,7 @@ import Wellness from './wellness';
 import Profile from './profile';
 import Admin from './admin';
 import Admin2 from './admin2';
+import Admin3 from './admin3';
 
 function App() {
   return (
@@ -28,6 +29,7 @@ function App() {
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin2" element={<Admin2 />} />
+            <Route path="/admin3" element={<Admin3 />} />
           </Routes>
         </Router>
       </div>

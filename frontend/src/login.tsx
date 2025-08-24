@@ -9,7 +9,7 @@ const Login = () => {
 
   const adminPrincipals = [
     "oe63i-xkqdd-nolac-hdyjg-evw3c-4si3e-ijboe-5vwgg-x55dj-env47-jqe",
-    
+
 
   ];
   const [authClient, setAuthClient] = useState<AuthClient | null>(null);
@@ -31,7 +31,7 @@ const Login = () => {
       const principal = identity.getPrincipal().toText();
       
       if (adminPrincipals.includes(principal)) {
-        navigate("/admin");
+        navigate("/admin2");
       } else {
         navigate("/chat");
       }
