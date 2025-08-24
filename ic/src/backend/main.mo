@@ -241,7 +241,7 @@ persistent actor {
         rating = 4.7;
         available_days = ["Monday", "Wednesday", "Friday"];
         available_slots = ["08:30", "10:30", "13:30", "15:30"];
-        image_url = "https://images.unsplash.com/photo-1594824804732-ca8db0daf43e?w=400&h=400&fit=crop&crop=face";
+        image_url = "https://img.freepik.com/free-photo/female-doctor-hospital-with-stethoscope_23-2148827774.jpg?semt=ais_hybrid&w=740&q=80";
     };
     doctors.add(("pedia_002", pedia2));
 
@@ -308,7 +308,7 @@ persistent actor {
         rating = 4.8;
         available_days = ["Tuesday", "Thursday"];
         available_slots = ["09:00", "12:00", "15:00"];
-        image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
+        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQI3lsxUqYV0T-Tsp3ZsrqAvw5KAmjxXrpThsCXVO_0sRlbyprZqg40YeUYV8Uth6zpH04&usqp=CAU";
     };
     doctors.add(("onco_002", onco2));
 
@@ -335,7 +335,7 @@ persistent actor {
         rating = 4.6;
         available_days = ["Monday", "Tuesday", "Thursday"];
         available_slots = ["08:00", "11:00", "13:00", "16:00"];
-        image_url = "https://images.unsplash.com/photo-1594824804732-ca8db0daf43e?w=400&h=400&fit=crop&crop=face";
+        image_url = "https://thumbs.dreamstime.com/b/passionate-helping-patients-headshot-portrait-profile-picture-social-networks-successful-professional-young-female-doctor-356873660.jpg";
     };
     doctors.add(("gp_002", gp2));
 
