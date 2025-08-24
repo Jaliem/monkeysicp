@@ -39,6 +39,47 @@ interface CartItem {
 const Pharmacy = () => {
   const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
 
+  // Define getCategoryIcon before using it in state initialization
+  const getCategoryIcon = (category: string): ReactNode => {
+    const iconMap: Record<string, ReactNode> = {
+      "pain relief": <Pill className="w-8 h-8 text-emerald-600" />,
+      "pain-relief": <Pill className="w-8 h-8 text-emerald-600" />,
+      "antibiotic": <Syringe className="w-8 h-8 text-blue-600" />,
+      "antibiotics": <Syringe className="w-8 h-8 text-blue-600" />,
+      "vitamin": <Apple className="w-8 h-8 text-orange-500" />,
+      "vitamins": <Apple className="w-8 h-8 text-orange-500" />,
+      "allergy": <Flower className="w-8 h-8 text-pink-500" />,
+      "diabetes": <Syringe className="w-8 h-8 text-red-500" />,
+      "heart": <Heart className="w-8 h-8 text-red-600" />,
+      "mental-health": <Brain className="w-8 h-8 text-purple-600" />,
+      "digestive health": <Apple className="w-8 h-8 text-gray-500" />,
+      "digestive": <Apple className="w-8 h-8 text-gray-500" />,
+    };
+
+    return iconMap[category.toLowerCase()] ?? (
+      <Pill className="w-4 h-4 text-gray-500" />
+    );
+  };
+
+  const getCategoryProfile = (category: string) => {
+    const colors: Record<string, string> = {
+      "pain relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "pain-relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "antibiotic": "bg-blue-100 text-blue-700 border-blue-200",
+      "antibiotics": "bg-blue-100 text-blue-700 border-blue-200",
+      "vitamin": "bg-orange-100 text-orange-700 border-orange-200",
+      "vitamins": "bg-orange-100 text-orange-700 border-orange-200",
+      "allergy": "bg-pink-100 text-pink-700 border-pink-200",
+      "diabetes": "bg-red-100 text-red-700 border-red-200",
+      "heart": "bg-red-100 text-red-700 border-red-200",
+      "mental-health": "bg-purple-100 text-purple-700 border-purple-200",
+      "digestive health": "bg-green-100 text-green-700 border-green-200",
+      "digestive": "bg-green-100 text-green-700 border-green-200",
+    };
+
+    return colors[category.toLowerCase()] || "bg-stone-100 text-stone-700 border-stone-200";
+  };
+
   // Show loading or redirect if not authenticated
   if (authLoading) {
     return (
@@ -66,9 +107,30 @@ const Pharmacy = () => {
       </div>
     );
   }
+
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('pharmacy_cart');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          // Restore image property for each medicine
+          return parsed.map((item: CartItem) => ({
+            ...item,
+            medicine: {
+              ...item.medicine,
+              image: getCategoryIcon(item.medicine.category)
+            }
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cart from localStorage:', error);
+    }
+    return [];
+  });
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCart, setShowCart] = useState(false);
@@ -149,28 +211,8 @@ const Pharmacy = () => {
     };
     
     loadData();
-  }, []);
+  }, [principal]);
 
-  const getCategoryIcon = (category: string): ReactNode => {
-  const iconMap: Record<string, ReactNode> = {
-    "pain relief": <Pill className="w-8 h-8 text-emerald-600" />,
-    "pain-relief": <Pill className="w-8 h-8 text-emerald-600" />,
-    "antibiotic": <Syringe className="w-8 h-8 text-blue-600" />,
-    "antibiotics": <Syringe className="w-8 h-8 text-blue-600" />,
-    "vitamin": <Apple className="w-8 h-8 text-orange-500" />,
-    "vitamins": <Apple className="w-8 h-8 text-orange-500" />,
-    "allergy": <Flower className="w-8 h-8 text-pink-500" />,
-    "diabetes": <Syringe className="w-8 h-8 text-red-500" />,
-    "heart": <Heart className="w-8 h-8 text-red-600" />,
-    "mental-health": <Brain className="w-8 h-8 text-purple-600" />,
-    "digestive health": <Apple className="w-8 h-8 text-gray-500" />,
-    "digestive": <Apple className="w-8 h-8 text-gray-500" />,
-  };
-
-  return iconMap[category.toLowerCase()] ?? (
-    <Pill className="w-4 h-4 text-gray-500" />
-  );
-};
   const getDefaultMedicines = (): Medicine[] => [
     {
       id: '1',
@@ -215,49 +257,72 @@ const Pharmacy = () => {
   const addToCart = (medicine: Medicine, quantity: number = 1) => {
     setCart(prev => {
       const existingItem = prev.find(item => item.medicine.id === medicine.id);
+      let updated;
       if (existingItem) {
-        return prev.map(item =>
+        updated = prev.map(item =>
           item.medicine.id === medicine.id
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
+      } else {
+        updated = [...prev, { medicine, quantity }];
       }
-      return [...prev, { medicine, quantity }];
+      // Save to localStorage (exclude image property to avoid circular reference)
+      try {
+        const cartForStorage = updated.map(item => ({
+          ...item,
+          medicine: {
+            ...item.medicine,
+            image: undefined // Remove image property before saving
+          }
+        }));
+        localStorage.setItem('pharmacy_cart', JSON.stringify(cartForStorage));
+      } catch (error) {
+        console.error('Error saving cart to localStorage:', error);
+      }
+      return updated;
     });
   };
 
-
-  const getCategoryProfile = (category: string) => {
-  const colors: Record<string, string> = {
-    "pain relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
-    "pain-relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
-    "antibiotic": "bg-blue-100 text-blue-700 border-blue-200",
-    "antibiotics": "bg-blue-100 text-blue-700 border-blue-200",
-    "vitamin": "bg-orange-100 text-orange-700 border-orange-200",
-    "vitamins": "bg-orange-100 text-orange-700 border-orange-200",
-    "allergy": "bg-pink-100 text-pink-700 border-pink-200",
-    "diabetes": "bg-red-100 text-red-700 border-red-200",
-    "heart": "bg-red-100 text-red-700 border-red-200",
-    "mental-health": "bg-purple-100 text-purple-700 border-purple-200",
-    "digestive health": "bg-green-100 text-green-700 border-green-200",
-    "digestive": "bg-green-100 text-green-700 border-green-200",
-  };
-
-  return colors[category.toLowerCase()] || "bg-stone-100 text-stone-700 border-stone-200";
-};
-
-
   const updateCartQuantity = (medicineId: string, quantity: number) => {
     if (quantity <= 0) {
-      setCart(prev => prev.filter(item => item.medicine.id !== medicineId));
+      setCart(prev => {
+        const updated = prev.filter(item => item.medicine.id !== medicineId);
+        try {
+          const cartForStorage = updated.map(item => ({
+            ...item,
+            medicine: {
+              ...item.medicine,
+              image: undefined // Remove image property before saving
+            }
+          }));
+          localStorage.setItem('pharmacy_cart', JSON.stringify(cartForStorage));
+        } catch (error) {
+          console.error('Error saving cart to localStorage:', error);
+        }
+        return updated;
+      });
     } else {
-      setCart(prev =>
-        prev.map(item =>
+      setCart(prev => {
+        const updated = prev.map(item =>
           item.medicine.id === medicineId
             ? { ...item, quantity }
             : item
-        )
-      );
+        );
+        try {
+          const cartForStorage = updated.map(item => ({
+            ...item,
+            medicine: {
+              ...item.medicine,
+              image: undefined // Remove image property before saving
+            }
+          }));
+          localStorage.setItem('pharmacy_cart', JSON.stringify(cartForStorage));
+        } catch (error) {
+          console.error('Error saving cart to localStorage:', error);
+        }
+        return updated;
+      });
     }
   };
 
@@ -299,7 +364,12 @@ const Pharmacy = () => {
         setOrders(prev => [...prev, ...newOrders]);
         setCart([]);
         setShowCart(false);
-        
+        // Clear cart from localStorage
+        try {
+          localStorage.removeItem('pharmacy_cart');
+        } catch (error) {
+          console.error('Error clearing cart from localStorage:', error);
+        }
         // Show success message
         alert(`Successfully placed ${successfulOrders.length} order(s) on the blockchain!`);
       } else {
@@ -376,63 +446,6 @@ const Pharmacy = () => {
         </div>
 
         <div className="p-8 max-w-7xl mx-auto">
-          {/* My Orders Section */}
-          {orders.filter(order => order.status !== 'cancelled').length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-light text-stone-800 font-serif mb-4">
-                Recent Orders
-              </h2>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
-                {orders.filter(order => order.status !== 'cancelled').slice(0, 2).map((order) => {
-                  const medicine = medicines.find(m => m.id === order.medicineId);
-                  return (
-                  <div key={order.id} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl border ${medicine ? getCategoryProfile(medicine.category) : 'bg-emerald-100'}`}>
-                          {medicine ? medicine.image : '💊'}
-                        </div>
-                        <div>
-                          <h3 className="font-medium text-stone-800">{order.medicineName}</h3>
-                          <p className="text-sm text-stone-500 font-light">{order.pharmacyName}</p>
-                          <div className="text-xs text-stone-500 font-mono bg-stone-50 px-2 py-1 rounded border mt-1">
-                            ID: {order.id}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
-                          order.status === 'ready' ? 'bg-green-100 text-green-700' :
-                          order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
-                          order.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {order.status}
-                        </span>
-                        {(order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing') && (
-                          <button
-                            onClick={() => handleCancelOrder(order.id)}
-                            disabled={cancellingOrders.has(order.id)}
-                            className="px-3 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-                          >
-                            {cancellingOrders.has(order.id) ? 'Cancelling...' : 'Cancel'}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-stone-600">
-                      <span>Qty: {order.quantity}</span>
-                      <span className="font-medium">${order.totalPrice.toFixed(2)}</span>
-                      <span className="text-sm">{new Date(order.orderDate).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
           {/* Search and Filters */}
           <div className="mb-8">
             <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -442,15 +455,15 @@ const Pharmacy = () => {
                   placeholder="Search medicines by name, generic name, or category..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 font-light text-lg placeholder:opacity-30"
+                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-200 font-light text-lg placeholder:opacity-30"
                 />
               </div>
-              {/* MODIFICATION START: Wrapper for custom dropdown */}
+              {/* Custom dropdown wrapper */}
               <div className="relative">
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="appearance-none w-full md:w-auto bg-white px-6 py-4 pr-12 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
+                  className="appearance-none w-full md:w-auto bg-white px-6 py-4 pr-12 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-200 font-light text-lg"
                 >
                   <option value="all">All Categories</option>
                   {categories.slice(1).map(category => (
@@ -466,7 +479,6 @@ const Pharmacy = () => {
                   </svg>
                 </div>
               </div>
-              {/* MODIFICATION END */}
             </div>
           </div>
 
@@ -582,8 +594,7 @@ const Pharmacy = () => {
                   <div className="space-y-4 mb-6">
                     {cart.map((item) => (
                       <div key={item.medicine.id} className="flex items-center space-x-4 p-4 border border-stone-200 rounded-lg">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border ${getCategoryProfile(item.medicine.category)}`}
->
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border ${getCategoryProfile(item.medicine.category)}`}>
                           {item.medicine.image}
                         </div>
                         
