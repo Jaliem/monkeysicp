@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Navbar from './nav';
 import { sendChatMessage } from './services/flaskService';
+import { useAuth } from './contexts/AuthContext';
 
 interface Message {
   id: string;
@@ -23,6 +24,7 @@ interface QuickAction {
 }
 
 const Chat = () => {
+  const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -197,7 +199,9 @@ Just speak naturally - I'll understand and connect you with the right healthcare
 
   const callHealthAgentAPI = async (userInput: string): Promise<Message> => {
     try {
-      const data = await sendChatMessage(userInput, 'frontend_user');
+      const userIdToUse = principal || 'development_user_fallback';
+      console.log('Sending chat message with user principal:', userIdToUse);
+      const data = await sendChatMessage(userInput, userIdToUse);
       
       let type: Message['type'] = 'text';
       if (data.intent === 'wellness') type = 'wellness';

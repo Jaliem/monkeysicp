@@ -53,7 +53,7 @@ user_contexts = {}  # Store user conversation states
 # REST endpoint models for Flask API integration
 class ChatRequest(Model):
     message: str
-    user_id: str = "frontend_user"
+    user_id: str
 
 class ChatResponse(Model):
     response: str
@@ -72,7 +72,7 @@ class DoctorBookingRequest(Model):
     preferred_time: str
     urgency: str = "normal"
     symptoms: Optional[str] = None
-    user_id: str = "user123"
+    user_id: str
 
 class DoctorBookingResponse(Model):
     request_id: str  # Echo back for correlation
@@ -103,7 +103,7 @@ class MedicineOrderRequest(Model):
     medicine_id: str
     medicine_name: Optional[str] = None
     quantity: int
-    user_id: str = "user123"
+    user_id: str
     prescription_id: Optional[str] = None
 
 class MedicineOrderResponse(Model):
@@ -122,7 +122,7 @@ class MedicinePurchaseRequest(Model):
     request_id: str  # For correlation
     medicine_name: str
     quantity: int = 1
-    user_id: str = "user123"
+    user_id: str
     prescription_id: Optional[str] = None
     auto_order: bool = True  # Automatically place order if available
 
@@ -142,17 +142,17 @@ class LogRequest(Model):
     exercise: Optional[str] = None
     mood: Optional[str] = None
     water_intake: Optional[float] = None
-    user_id: str = "user123"
+    user_id: str
 
 class SummaryRequest(Model):
     request_id: str  # For correlation
     days: int = 7
-    user_id: str = "user123"
+    user_id: str
 
 class DeleteRequest(Model):
     request_id: str  # For correlation
     date: str  # Date to delete (YYYY-MM-DD format)
-    user_id: str = "user123"
+    user_id: str
 
 class WellnessAdviceResponse(Model):
     request_id: str  # Echo back for correlation
@@ -165,7 +165,7 @@ class CancelRequest(Model):
     request_id: str  # For correlation
     cancel_type: str  # "appointment" or "order"
     item_id: str  # appointment_id or order_id
-    user_id: str = "user123"
+    user_id: str
 
 class CancelResponse(Model):
     request_id: str  # Echo back for correlation
@@ -175,7 +175,7 @@ class CancelResponse(Model):
 
 class WellnessInsightsRequest(Model):
     request_id: str
-    user_id: str = "user123"
+    user_id: str
     days: int = 7
 
 class WellnessInsightsResponse(Model):
@@ -448,7 +448,7 @@ async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str =
         symptom_data = {
             "symptoms": symptoms_text,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_id": "user123"  # In production, get from user context
+            "user_id": sender
         }
 
         store_result = await store_to_icp("store-symptoms", symptom_data)
@@ -526,7 +526,7 @@ async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str =
         ctx.logger.error(f"Error in symptom logging: {str(e)}")
         return "Sorry, I encountered an error while logging your symptoms. Please try again."
 
-async def handle_medication_reminder(reminder_text: str, ctx: Context) -> str:
+async def handle_medication_reminder(reminder_text: str, ctx: Context, sender: str = "default_user") -> str:
     """Handle medication reminder setup"""
     try:
         reminder_info = extract_reminder_info(reminder_text)
@@ -535,7 +535,7 @@ async def handle_medication_reminder(reminder_text: str, ctx: Context) -> str:
             "medicine": reminder_info["medicine"],
             "time": reminder_info["time"],
             "created_at": datetime.now(timezone.utc).isoformat(),
-            "user_id": "user123",
+            "user_id": sender,
             "active": True
         }
 
@@ -551,13 +551,13 @@ async def handle_medication_reminder(reminder_text: str, ctx: Context) -> str:
         ctx.logger.error(f"Error setting medication reminder: {str(e)}")
         return "Sorry, I had trouble setting up your medication reminder. Please try again with a format like 'remind me to take paracetamol at 8PM'."
 
-async def handle_emergency(ctx: Context) -> str:
+async def handle_emergency(ctx: Context, sender: str = "default_user") -> str:
     """Handle emergency situations"""
     global emergency_status
     try:
         emergency_data = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_id": "user123",
+            "user_id": sender,
             "status": "active"
         }
 
@@ -577,7 +577,7 @@ async def analyze_historical_symptoms(ctx: Context, sender: str = "default_user"
     """Analyze all past symptoms to provide health summary and disease suggestions"""
     try:
         # Get symptom history from ICP
-        icp_result = await get_from_icp("get-symptom-history", {"user_id": "user123"})
+        icp_result = await get_from_icp("get-symptom-history", {"user_id": sender})
 
         all_symptoms = []
 
@@ -893,7 +893,7 @@ async def handle_cancel_request(message: str, ctx: Context, sender: str = None) 
         
         elif intent == "cancel_recent":
             # Get user's recent items to find the most recent one
-            recent_items = await get_user_recent_items(cancel_type, "user123", ctx)
+            recent_items = await get_user_recent_items(cancel_type, sender, ctx)
             
             if not recent_items:
                 return f"I don't see any recent {cancel_type}s that can be cancelled. You may not have any confirmed {cancel_type}s, or they may have already been processed."
@@ -903,11 +903,11 @@ async def handle_cancel_request(message: str, ctx: Context, sender: str = None) 
             if cancel_type == "appointment":
                 item_id = most_recent.get("appointment_id")
                 endpoint = "cancel-appointment"
-                request_data = {"appointment_id": item_id, "user_id": "user123"}
+                request_data = {"appointment_id": item_id, "user_id": sender}
             else:
                 item_id = most_recent.get("order_id")
                 endpoint = "cancel-medicine-order"
-                request_data = {"order_id": item_id, "user_id": "user123"}
+                request_data = {"order_id": item_id, "user_id": sender}
             
             cancellation_info["specific_id"] = item_id
             
@@ -916,10 +916,10 @@ async def handle_cancel_request(message: str, ctx: Context, sender: str = None) 
             item_id = specific_id
             if cancel_type == "appointment":
                 endpoint = "cancel-appointment"
-                request_data = {"appointment_id": item_id, "user_id": "user123"}
+                request_data = {"appointment_id": item_id, "user_id": sender}
             else:
                 endpoint = "cancel-medicine-order"
-                request_data = {"order_id": item_id, "user_id": "user123"}
+                request_data = {"order_id": item_id, "user_id": sender}
                 
         else:
             # Need more information
@@ -1116,13 +1116,14 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
             symptoms = message  # Pass the full message as symptoms context
 
         request_id = str(uuid4())[:8]
+        ctx.logger.info(f"🏥 Creating doctor booking request with user_id: '{user_sender}'")
         booking_request = DoctorBookingRequest(
             request_id=request_id,
             specialty=specialty,
             preferred_time=preferred_time,
             urgency=urgency,
             symptoms=symptoms,
-            user_id="user123"
+            user_id=user_sender
         )
 
         # Track pending request
@@ -1283,7 +1284,7 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
                 request_id=request_id,
                 medicine_name=medicine_name,
                 quantity=quantity,
-                user_id="user123",
+                user_id=user_sender,
                 auto_order=is_order_request  # Auto-order only if user wants to buy
             )
 
@@ -1346,7 +1347,7 @@ async def route_to_wellness_delete(message: str, ctx: Context, user_sender: str 
         delete_request = DeleteRequest(
             request_id=request_id,
             date=delete_data.get("date"),
-            user_id="user123"
+            user_id=user_sender
         )
 
         # Track pending request
@@ -1386,7 +1387,7 @@ async def route_to_wellness_agent(message: str, ctx: Context, user_sender: str =
             exercise=wellness_data.get("exercise"),
             mood=wellness_data.get("mood"),
             water_intake=wellness_data.get("water_intake"),
-            user_id="user123"
+            user_id=user_sender
         )
 
         # Track pending request
@@ -1914,7 +1915,7 @@ Once you have some data, I'll provide personalized recommendations to help you a
     return insights
 
 
-async def get_wellness_insights(user_id: str = "user123", days: int = 7, ctx: Context = None) -> Dict:
+async def get_wellness_insights(user_id: str, days: int = 7, ctx: Context = None) -> Dict:
     """Get AI-powered wellness insights by fetching logs from ICP and analyzing them"""
     try:
         # Fetch wellness data from ICP backend using get_wellness_summary
@@ -2014,7 +2015,7 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
         intent = await classify_user_intent_with_llm(query, ctx)
 
         if intent == "emergency":
-            return await handle_emergency(ctx)
+            return await handle_emergency(ctx, sender)
         elif intent == "confirm_doctor_booking":
             return await handle_doctor_booking_confirmation(sender, ctx)
         elif intent == "cancel_doctor_booking":
@@ -2024,7 +2025,7 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
         elif intent == "symptom_logging":
             return await handle_symptom_logging(query, ctx, sender)
         elif intent == "medication_reminder":
-            return await handle_medication_reminder(query, ctx)
+            return await handle_medication_reminder(query, ctx, sender)
         elif intent == "book_doctor":
             return await route_to_doctor_agent(query, ctx, sender)
         elif intent == "pharmacy":
@@ -2477,7 +2478,7 @@ async def handle_pharmacy_check_response(ctx: Context, sender: str, msg: Medicin
                     medicine_id=msg.medicine,  # Use medicine name as fallback ID
                     medicine_name=msg.medicine,
                     quantity=quantity,
-                    user_id="user123"
+                    user_id=user_sender
                 )
                 
                 # Track the order request

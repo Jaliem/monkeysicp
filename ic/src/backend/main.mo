@@ -1963,12 +1963,24 @@ doctors.add(("gp_008", gp8));
         null
       };
       case (#ok(jsonText)) {
+        Debug.print("[DEBUG]: Received wellness JSON: " # jsonText);
         let #ok(blob) = JSON.fromText(jsonText, null) else {
           Debug.print("[ERROR]: Invalid JSON format");
           return null;
         };
 
         let logData : ?Types.WellnessLog = from_candid (blob);
+        switch(logData) {
+          case null {
+            Debug.print("[ERROR]: from_candid returned null for wellness log");
+          };
+          case (?log) {
+            Debug.print("[DEBUG]: Successfully parsed wellness log - user: " # log.user_id # ", date: " # log.date);
+            Debug.print("[DEBUG]: Sleep value: " # (switch(log.sleep) { case null { "null" }; case (?s) { Float.toText(s) } }));
+            Debug.print("[DEBUG]: Water value: " # (switch(log.water_intake) { case null { "null" }; case (?w) { Float.toText(w) } }));
+            Debug.print("[DEBUG]: Steps value: " # (switch(log.steps) { case null { "null" }; case (?st) { Nat.toText(st) } }));
+          };
+        };
         logData;
       };
     };

@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactElement } from 'react';
 import Navbar from './nav';
 import { fetchDoctors, fetchAppointments, cancelAppointment } from './services/flaskService';
+import { useAuth } from './contexts/AuthContext';
 import { Star } from 'lucide-react';
 
 interface Doctor {
@@ -34,6 +35,8 @@ interface Appointment {
 }
 
 const Doctor = () => {
+  // ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
+  const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedSpecialty, setSelectedSpecialty] = useState('all');
@@ -42,6 +45,77 @@ const Doctor = () => {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [cancellingAppointments, setCancellingAppointments] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
+
+  // Move useEffect right after all useState hooks to comply with Rules of Hooks
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const specialtyToFetch = selectedSpecialty === 'all' ? 'general' : selectedSpecialty.replace('-', ' ');
+        
+        // Use fallback user ID if principal is not available yet
+        const userIdToUse = principal || 'development-user-fallback';
+        
+        // Fetch doctors and appointments separately to prevent one failure from blocking the other
+        const [doctorsData, appointmentsData] = await Promise.allSettled([
+          fetchDoctors(specialtyToFetch),
+          fetchAppointments(userIdToUse)
+        ]);
+        
+        const doctors = doctorsData.status === 'fulfilled' ? doctorsData.value : [];
+        const appointments = appointmentsData.status === 'fulfilled' ? appointmentsData.value : [];
+        
+        console.log('Raw doctors data from backend:', doctors);
+        console.log('Appointments fetch result:', appointmentsData);
+        
+        const parsedDoctors = doctors.map((doctor: any) => ({
+          id: doctor["3_732_697_147"] || doctor.doctor_id || `doc_${Date.now()}_${Math.random()}`,
+          name: doctor["1_224_700_491"] || doctor.name || 'Unknown Doctor',
+          specialty: (doctor["2_069_078_014"] || doctor.specialty || 'General Practice').toLowerCase().replace(/\s+/g, '-'),
+          rating: doctor["3_146_396_701"] || doctor.rating || 4.5,
+          reviews: Math.floor(Math.random() * 200) + 50, // Generate reviews since not in backend
+          experience: doctor["825_774_209"] || doctor.experience_years || 5,
+          location: 'Medical Center', // Default location since not in backend
+          availability: generateAvailabilityDates(doctor["2_213_151_757"] || doctor.available_days),
+          price: Math.floor(Math.random() * 100) + 100, // Generate price since not in backend
+          image: 'icon',
+          bio: `Experienced ${doctor["2_069_078_014"] || doctor.specialty || 'general practice'} specialist with ${doctor["825_774_209"] || doctor.experience_years || 5}+ years of experience. ${doctor["1_692_858_852"] || doctor.qualifications || ''}.`,
+          languages: ['English'], // Default since not in backend
+          image_url: doctor["914_348_363"] || doctor.image_url || '',
+          qualifications: doctor["1_692_858_852"] || doctor.qualifications || '',
+          available_days: doctor["2_213_151_757"] || doctor.available_days || [],
+          available_slots: doctor["2_467_954_303"] || doctor.available_slots || []
+        }));
+        
+        // Parse ICP appointments data format
+        const parsedAppointments = appointments.map((appointment: any) => ({
+          id: appointment.appointment_id || appointment.id || `apt_${Date.now()}`,
+          doctorId: appointment.doctor_id || appointment.doctorId,
+          doctorName: appointment.doctor_name || appointment.doctorName || 'Unknown Doctor',
+          specialty: appointment.specialty || 'general-practice',
+          date: appointment.date || appointment.appointment_date,
+          time: appointment.time || appointment.appointment_time,
+          type: appointment.type || 'consultation',
+          status: appointment.status || 'confirmed'  // Default to 'confirmed' to match backend
+        }));
+        
+        setDoctors(parsedDoctors.length > 0 ? parsedDoctors : getDefaultDoctors());
+        setAppointments(parsedAppointments); // Don't use fallback appointments - show empty state instead
+        
+      } catch (error) {
+        console.error('Error loading data from backend:', error);
+        // Fallback to default doctors but empty appointments if backend is unavailable
+        setDoctors(getDefaultDoctors());
+        setAppointments([]); // Show empty appointments instead of fake data
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadData();
+  }, [selectedSpecialty, principal]);
+
+  // Debug logging
+  console.log('Doctor component auth state:', { isAuthenticated, principal, authLoading });
 
   const specialties = [
     'all', 'cardiology', 'dermatology', 'neurology', 'orthopedics', 
@@ -126,69 +200,7 @@ const Doctor = () => {
     }
   ];
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const specialtyToFetch = selectedSpecialty === 'all' ? 'general' : selectedSpecialty.replace('-', ' ');
-        
-        // Fetch doctors and appointments separately to prevent one failure from blocking the other
-        const [doctorsData, appointmentsData] = await Promise.allSettled([
-          fetchDoctors(specialtyToFetch),
-          fetchAppointments()
-        ]);
-        
-        const doctors = doctorsData.status === 'fulfilled' ? doctorsData.value : [];
-        const appointments = appointmentsData.status === 'fulfilled' ? appointmentsData.value : [];
-        
-        console.log('Raw doctors data from backend:', doctors);
-        console.log('Appointments fetch result:', appointmentsData);
-        
-        const parsedDoctors = doctors.map((doctor: any) => ({
-          id: doctor["3_732_697_147"] || doctor.doctor_id || `doc_${Date.now()}_${Math.random()}`,
-          name: doctor["1_224_700_491"] || doctor.name || 'Unknown Doctor',
-          specialty: (doctor["2_069_078_014"] || doctor.specialty || 'General Practice').toLowerCase().replace(/\s+/g, '-'),
-          rating: doctor["3_146_396_701"] || doctor.rating || 4.5,
-          reviews: Math.floor(Math.random() * 200) + 50, // Generate reviews since not in backend
-          experience: doctor["825_774_209"] || doctor.experience_years || 5,
-          location: 'Medical Center', // Default location since not in backend
-          availability: generateAvailabilityDates(doctor["2_213_151_757"] || doctor.available_days),
-          price: Math.floor(Math.random() * 100) + 100, // Generate price since not in backend
-          image: 'icon',
-          bio: `Experienced ${doctor["2_069_078_014"] || doctor.specialty || 'general practice'} specialist with ${doctor["825_774_209"] || doctor.experience_years || 5}+ years of experience. ${doctor["1_692_858_852"] || doctor.qualifications || ''}.`,
-          languages: ['English'], // Default since not in backend
-          image_url: doctor["914_348_363"] || doctor.image_url || '',
-          qualifications: doctor["1_692_858_852"] || doctor.qualifications || '',
-          available_days: doctor["2_213_151_757"] || doctor.available_days || [],
-          available_slots: doctor["2_467_954_303"] || doctor.available_slots || []
-        }));
-        
-        // Parse ICP appointments data format
-        const parsedAppointments = appointments.map((appointment: any) => ({
-          id: appointment.appointment_id || appointment.id || `apt_${Date.now()}`,
-          doctorId: appointment.doctor_id || appointment.doctorId,
-          doctorName: appointment.doctor_name || appointment.doctorName || 'Unknown Doctor',
-          specialty: appointment.specialty || 'general-practice',
-          date: appointment.date || appointment.appointment_date,
-          time: appointment.time || appointment.appointment_time,
-          type: appointment.type || 'consultation',
-          status: appointment.status || 'confirmed'  // Default to 'confirmed' to match backend
-        }));
-        
-        setDoctors(parsedDoctors.length > 0 ? parsedDoctors : getDefaultDoctors());
-        setAppointments(parsedAppointments.length > 0 ? parsedAppointments : getDefaultAppointments());
-        
-      } catch (error) {
-        console.error('Error loading data from backend:', error);
-        // Fallback to default data if backend is unavailable
-        setDoctors(getDefaultDoctors());
-        setAppointments(getDefaultAppointments());
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadData();
-  }, [selectedSpecialty]);
+  // useEffect moved above - removed duplicate
 
   const getSpecialtyIcon = (specialty: string) => {
     const iconMap: Record<string, ReactElement> = {
@@ -255,7 +267,8 @@ const Doctor = () => {
     setCancellingAppointments(prev => new Set(prev).add(appointmentId));
     
     try {
-      const result = await cancelAppointment(appointmentId, 'user123');
+      const userIdToUse = principal || 'development-user-fallback';
+      const result = await cancelAppointment(appointmentId, userIdToUse);
       
       if (result.success) {
         // Remove the cancelled appointment from the list
@@ -297,6 +310,34 @@ const Doctor = () => {
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   };
+
+  // Handle conditional rendering after all hooks have been called
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !principal) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-stone-600 mb-4">Please log in to access doctor bookings</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">

@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(dfx canister call:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(dfx canister logs:*)"
     ],
     "deny": [],
     "ask": []

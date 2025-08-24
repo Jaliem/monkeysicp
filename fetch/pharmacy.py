@@ -57,7 +57,7 @@ class MedicineOrderRequest(Model):
     medicine_id: str
     medicine_name: Optional[str] = None
     quantity: int
-    user_id: str = "user123"
+    user_id: str
     prescription_id: Optional[str] = None
 
 class MedicineOrderResponse(Model):
@@ -76,7 +76,7 @@ class MedicinePurchaseRequest(Model):
     request_id: str  # For correlation
     medicine_name: str
     quantity: int = 1
-    user_id: str = "user123"
+    user_id: str
     prescription_id: Optional[str] = None
     auto_order: bool = True  # Automatically place order if available
 
@@ -619,7 +619,7 @@ HealthAgent -> PharmacyAgent:
   "medicine_id": "med_001",
   "medicine_name": "Paracetamol",
   "quantity": 2,
-  "user_id": "user123"
+  "user_id": "example_user_id"
 }
 
 PharmacyAgent -> HealthAgent:

@@ -41,7 +41,7 @@ class DoctorBookingRequest(Model):
     preferred_time: str
     urgency: str = "normal"
     symptoms: Optional[str] = None
-    user_id: str = "user123"
+    user_id: str
 
 class DoctorBookingResponse(Model):
     request_id: str  # Echo back for correlation
@@ -219,6 +219,8 @@ async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingReq
     handler_id = str(uuid.uuid4())[:8]
     ctx.logger.info(f"[{handler_id}] Received booking request for {msg.specialty}")
     ctx.logger.info(f"[{handler_id}] Sender address: {sender}")
+    ctx.logger.info(f"[{handler_id}] User ID from message: '{msg.user_id}'")
+    ctx.logger.info(f"[{handler_id}] Request ID: {msg.request_id}")
     
     try:
         ctx.logger.info("Step 1: Starting doctor search...")
@@ -248,6 +250,7 @@ async def handle_doctor_booking(ctx: Context, sender: str, msg: DoctorBookingReq
             
             ctx.logger.info("Step 3: Starting appointment booking...")
             # Book appointment
+            ctx.logger.info(f"[{handler_id}] About to book appointment with user_id: '{msg.user_id}'")
             booking_result = await book_appointment(
                 selected_doctor, 
                 msg.preferred_time, 

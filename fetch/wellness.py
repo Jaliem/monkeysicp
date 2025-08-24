@@ -32,17 +32,17 @@ class LogRequest(Model):
     exercise: Optional[str] = None
     mood: Optional[str] = None
     water_intake: Optional[float] = None
-    user_id: str = "user123"
+    user_id: str
 
 class SummaryRequest(Model):
     request_id: str  # For correlation
     days: int = 7
-    user_id: str = "user123"
+    user_id: str
 
 class DeleteRequest(Model):
     request_id: str  # For correlation
     date: str  # Date to delete (YYYY-MM-DD format)
-    user_id: str = "user123"
+    user_id: str
 
 class WellnessAdviceResponse(Model):
     request_id: str  # Echo back for correlation

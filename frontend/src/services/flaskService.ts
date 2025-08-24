@@ -17,7 +17,7 @@ interface ApiResponse {
 }
 
 // Chat directly with HealthAgent via REST API
-export const sendChatMessage = async (message: string, userId: string = 'frontend_user'): Promise<ApiResponse> => {
+export const sendChatMessage = async (message: string, userId: string): Promise<ApiResponse> => {
   try {
     const response = await fetch(`${AGENT_BASE_URL}/api/chat`, {
       method: 'POST',
@@ -44,91 +44,12 @@ export const sendChatMessage = async (message: string, userId: string = 'fronten
 // All healthcare requests now go through the main chat endpoint
 // The agent intelligently routes based on message content
 
-// Log wellness data directly to ICP backend or via chat
-export const logWellnessData = async (wellnessData: any, userId: string = 'frontend_user'): Promise<ApiResponse> => {
+// Log wellness data via wellness agent (same path as chat)
+export const logWellnessData = async (wellnessData: any, userId: string): Promise<ApiResponse> => {
   try {
-    // Try direct ICP backend logging first
-    console.log('Logging wellness data via ICP backend...');
+    console.log('Logging wellness data via wellness agent...');
     
-    // Helper function to get local date string
-    const getLocalDateString = () => {
-      const today = new Date();
-      return today.getFullYear() + '-' + 
-             String(today.getMonth() + 1).padStart(2, '0') + '-' + 
-             String(today.getDate()).padStart(2, '0');
-    };
-
-    // Prepare data for ICP backend
-    const apiData = {
-      user_id: userId,
-      date: wellnessData.date || getLocalDateString(), // Use provided date or current local date
-      sleep: wellnessData.sleep || null,
-      steps: wellnessData.steps || null,
-      exercise: wellnessData.exercise || null,
-      mood: wellnessData.mood || null,
-      water_intake: wellnessData.water || wellnessData.water_intake || null
-    };
-    
-    // Try canister HTTP interface first
-    try {
-      const canisterUrl = `http://${CANISTER_ID}.localhost:4943/add-wellness-log`;
-      const canisterResponse = await fetch(canisterUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(apiData)
-      });
-      
-      if (canisterResponse.ok) {
-        const data = await canisterResponse.json();
-        console.log('Wellness data logged via canister:', data);
-        
-        return {
-          response: 'Wellness data logged successfully to blockchain',
-          intent: 'wellness_log',
-          confidence: 1.0,
-          request_id: `wellness_${Date.now()}`,
-          message: data.message || 'Data logged successfully'
-        };
-      }
-    } catch (error) {
-      console.error('Canister wellness logging failed:', error);
-    }
-    
-    // Try HTTP interface fallback
-    try {
-      const httpResponse = await fetch(`${ICP_BASE_URL}/add-wellness-log`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(apiData)
-      });
-      
-      if (httpResponse.ok) {
-        const data = await httpResponse.json();
-        console.log('Wellness data logged via HTTP interface:', data);
-        
-        return {
-          response: 'Wellness data logged successfully to blockchain',
-          intent: 'wellness_log',
-          confidence: 1.0,
-          request_id: `wellness_${Date.now()}`,
-          message: data.message || 'Data logged successfully'
-        };
-      }
-    } catch (error) {
-      console.error('HTTP interface wellness logging failed:', error);
-    }
-    
-    console.warn('Direct ICP wellness logging failed, falling back to chat...');
-  } catch (error) {
-    console.error('Error with direct ICP wellness logging:', error);
-  }
-  
-  // Fallback: Convert wellness data to natural language message for chat
-  try {
+    // Convert wellness data to natural language message for the agent
     const messageParts = [];
     if (wellnessData.sleep) messageParts.push(`I slept ${wellnessData.sleep} hours`);
     if (wellnessData.steps) messageParts.push(`walked ${wellnessData.steps} steps`);
@@ -140,26 +61,38 @@ export const logWellnessData = async (wellnessData: any, userId: string = 'front
       ? `Today I ${messageParts.join(', ')}.`
       : "Wellness data logged";
 
-    return await sendChatMessage(message, userId);
+    console.log('Sending wellness message to agent:', message);
+    
+    // Send directly to chat agent which will route to wellness.py
+    const response = await sendChatMessage(message, userId);
+    
+    return {
+      response: response.response || 'Wellness data logged successfully to blockchain',
+      intent: 'wellness_log',
+      confidence: 1.0,
+      request_id: response.request_id || `wellness_${Date.now()}`,
+      message: 'Data logged via wellness agent'
+    };
+    
   } catch (error) {
-    console.error('Error in logWellnessData fallback:', error);
+    console.error('Error in logWellnessData via wellness agent:', error);
     throw error;
   }
 };
 
 // Send wellness message (uses main chat)
-export const sendWellnessMessage = async (message: string, userId: string = 'frontend_user'): Promise<ApiResponse> => {
+export const sendWellnessMessage = async (message: string, userId: string): Promise<ApiResponse> => {
   return await sendChatMessage(message, userId);
 };
 
 
 // Send doctor booking request (uses main chat)
-export const sendDoctorRequest = async (message: string, userId: string = 'frontend_user'): Promise<ApiResponse> => {
+export const sendDoctorRequest = async (message: string, userId: string): Promise<ApiResponse> => {
   return await sendChatMessage(message, userId);
 };
 
 // Send pharmacy query (uses main chat)
-export const sendPharmacyRequest = async (message: string, userId: string = 'frontend_user'): Promise<ApiResponse> => {
+export const sendPharmacyRequest = async (message: string, userId: string): Promise<ApiResponse> => {
   return await sendChatMessage(message, userId);
 };
 
@@ -289,7 +222,7 @@ const getDefaultDoctors = () => [
 
 
 // Fetch user appointments from ICP backend
-export const fetchAppointments = async (userId: string = 'user123'): Promise<any> => {
+export const fetchAppointments = async (userId: string): Promise<any> => {
   try {
     console.log('Fetching appointments for user:', userId);
     
@@ -426,7 +359,7 @@ const getDefaultMedicines = () => [
 ];
 
 // Fetch user orders from ICP backend
-export const fetchOrders = async (userId: string = 'user123'): Promise<any> => {
+export const fetchOrders = async (userId: string): Promise<any> => {
   try {
     console.log('Fetching orders for user:', userId);
     
@@ -476,7 +409,7 @@ export const fetchOrders = async (userId: string = 'user123'): Promise<any> => {
 };
 
 // Fetch wellness data from ICP backend (same pattern as other services)
-export const fetchWellnessData = async (userId: string = 'user123', days: number = 7): Promise<any> => {
+export const fetchWellnessData = async (userId: string, days: number = 7): Promise<any> => {
   try {
     console.log('Fetching wellness data for user:', userId);
     
@@ -800,7 +733,7 @@ export const fetchUserProfile = async (userId: string): Promise<any> => {
 };
 
 // Place medicine order to ICP backend
-export const placeMedicineOrder = async (medicineId: string, quantity: number, userId: string = 'user123'): Promise<any> => {
+export const placeMedicineOrder = async (medicineId: string, quantity: number, userId: string): Promise<any> => {
   try {
     console.log('Placing medicine order:', { medicineId, quantity, userId });
     
@@ -858,7 +791,7 @@ export const placeMedicineOrder = async (medicineId: string, quantity: number, u
 };
 
 // Cancel doctor appointment
-export const cancelAppointment = async (appointmentId: string, userId: string = 'user123'): Promise<any> => {
+export const cancelAppointment = async (appointmentId: string, userId: string): Promise<any> => {
   try {
     console.log('Cancelling appointment:', { appointmentId, userId });
     
@@ -921,7 +854,7 @@ export const cancelAppointment = async (appointmentId: string, userId: string = 
 };
 
 // Cancel medicine order
-export const cancelMedicineOrder = async (orderId: string, userId: string = 'user123'): Promise<any> => {
+export const cancelMedicineOrder = async (orderId: string, userId: string): Promise<any> => {
   try {
     console.log('Cancelling medicine order:', { orderId, userId });
     
@@ -984,7 +917,7 @@ export const cancelMedicineOrder = async (orderId: string, userId: string = 'use
 };
 
 // Delete wellness data for a specific date
-export const deleteWellnessData = async (date: string, userId: string = 'user123'): Promise<any> => {
+export const deleteWellnessData = async (date: string, userId: string): Promise<any> => {
   try {
     console.log(`Deleting wellness data for ${date} for user: ${userId}`);
     
@@ -1025,7 +958,7 @@ export const deleteWellnessData = async (date: string, userId: string = 'user123
 };
 
 // Wellness insights service - using chat agent for AI insights
-export const getWellnessInsights = async (userId: string = 'user123', days: number = 7) => {
+export const getWellnessInsights = async (userId: string, days: number = 7) => {
   const requestId = Date.now().toString();
   console.log(`🚀 getWellnessInsights called - Request ID: ${requestId}`);
   console.trace('Call stack:'); // This will show us where the call is coming from

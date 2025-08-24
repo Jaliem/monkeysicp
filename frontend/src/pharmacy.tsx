@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import Navbar from './nav';
 import { fetchMedicines, fetchOrders, placeMedicineOrder, cancelMedicineOrder } from './services/flaskService';
+import { useAuth } from './contexts/AuthContext';
 import { Apple, Brain, Flower, Heart, Pill, Syringe } from 'lucide-react';
 
 interface Medicine {
@@ -36,6 +37,35 @@ interface CartItem {
 }
 
 const Pharmacy = () => {
+  const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Show loading or redirect if not authenticated
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !principal) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-stone-600 mb-4">Please log in to access pharmacy</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -58,7 +88,7 @@ const Pharmacy = () => {
       try {
         // Fetch real medicines and orders data from ICP backend
         const medicinesData = await fetchMedicines();
-        const ordersData = await fetchOrders();
+        const ordersData = await fetchOrders(principal!);
         
         // Parse ICP medicine data format using numeric keys
         const parsedMedicines = medicinesData.map((medicine: any) => ({
@@ -241,7 +271,7 @@ const Pharmacy = () => {
     try {
       // Place each order with the ICP backend
       const orderPromises = cart.map(item => 
-        placeMedicineOrder(item.medicine.id, item.quantity, 'user123')
+        placeMedicineOrder(item.medicine.id, item.quantity, principal!)
       );
       
       const orderResults = await Promise.all(orderPromises);
@@ -288,7 +318,7 @@ const Pharmacy = () => {
     setCancellingOrders(prev => new Set(prev).add(orderId));
     
     try {
-      const result = await cancelMedicineOrder(orderId, 'user123');
+      const result = await cancelMedicineOrder(orderId, principal!);
       
       if (result.success) {
         // Remove the cancelled order from the list

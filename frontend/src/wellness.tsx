@@ -3,7 +3,8 @@ import Navbar from './nav';
 import ReactMarkdown from 'react-markdown';
 // If you want to use markdown rendering for AI insights, ensure you use ReactMarkdown in your JSX:
 // <ReactMarkdown>{aiInsights}</ReactMarkdown>
-import { logWellnessData, fetchWellnessData, getWellnessInsights } from './services/flaskService';
+import { logWellnessData, fetchWellnessData, getWellnessInsights, deleteWellnessData } from './services/flaskService';
+import { useAuth } from './contexts/AuthContext';
 
 interface WellnessData {
   sleep: number;
@@ -23,6 +24,8 @@ interface WeeklySummary {
 }
 
 const Wellness = () => {
+  const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
+  
   // Helper function to get local date string
   const getLocalDateString = () => {
     const today = new Date();
@@ -30,6 +33,34 @@ const Wellness = () => {
            String(today.getMonth() + 1).padStart(2, '0') + '-' + 
            String(today.getDate()).padStart(2, '0');
   };
+
+  // Show loading or redirect if not authenticated
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !principal) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-stone-600 mb-4">Please log in to access wellness dashboard</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const [todayData, setTodayData] = useState<WellnessData>({
     sleep: 0,
@@ -54,7 +85,6 @@ const Wellness = () => {
   const [aiInsights, setAiInsights] = useState<string>('');
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [insightsError, setInsightsError] = useState<string>('');
-  const [selectedDate, setSelectedDate] = useState<string>('');
   const [selectedLog, setSelectedLog] = useState<WellnessData | null>(null);
   const [showDateModal, setShowDateModal] = useState(false);
   const [insightsLoaded, setInsightsLoaded] = useState(false);
@@ -173,7 +203,7 @@ const Wellness = () => {
   const loadWellnessData = async () => {
     try {
       // Fetch wellness data from ICP backend
-      const wellnessResponse = await fetchWellnessData('user123', 30); // Get 30 days of data
+      const wellnessResponse = await fetchWellnessData(principal!, 30); // Get 30 days of data
       console.log('Fetched wellness response:', wellnessResponse);
       
       if (wellnessResponse.logs && wellnessResponse.logs.length > 0) {
@@ -246,7 +276,7 @@ const Wellness = () => {
         setWellnessHistory(aggregatedLogs);
         
         // Keep original individual logs for Recent Activity Overview
-        const individualLogs = parsedLogs.sort((a, b) => a.date.localeCompare(b.date));
+        const individualLogs = parsedLogs.sort((a: WellnessData, b: WellnessData) => a.date.localeCompare(b.date));
         setIndividualLogs(individualLogs);
         
         // Reset to first page when new data is loaded
@@ -348,7 +378,7 @@ const Wellness = () => {
       setCurrentRequestId(requestId);
       
       // Always request insights for the last 7 calendar days
-      const insightsData = await getWellnessInsights('user123', 7);
+      const insightsData = await getWellnessInsights(principal!, 7);
       
       // Only process the response if this is still the current request
       if (currentRequestId === null || currentRequestId === requestId) {
@@ -380,12 +410,12 @@ const Wellness = () => {
       
       let dataToSave = todayData;
       if (existingTodayLog) {
-        // Merge with existing data - only update fields that are actually different from existing values
+        // Merge with existing data - only update fields that have been changed (including 0 values)
         dataToSave = {
           ...existingTodayLog,
-          sleep: (todayData.sleep > 0 && todayData.sleep !== existingTodayLog.sleep) ? todayData.sleep : existingTodayLog.sleep,
-          steps: (todayData.steps > 0 && todayData.steps !== existingTodayLog.steps) ? todayData.steps : existingTodayLog.steps,
-          water: (todayData.water > 0 && todayData.water !== existingTodayLog.water) ? todayData.water : existingTodayLog.water,
+          sleep: todayData.sleep !== existingTodayLog.sleep ? todayData.sleep : existingTodayLog.sleep,
+          steps: todayData.steps !== existingTodayLog.steps ? todayData.steps : existingTodayLog.steps,
+          water: todayData.water !== existingTodayLog.water ? todayData.water : existingTodayLog.water,
           mood: (todayData.mood && todayData.mood !== '' && todayData.mood !== existingTodayLog.mood) ? todayData.mood : existingTodayLog.mood,
           exercise: (todayData.exercise && todayData.exercise !== '' && todayData.exercise !== existingTodayLog.exercise) ? todayData.exercise : existingTodayLog.exercise,
           date: todayData.date
@@ -393,8 +423,8 @@ const Wellness = () => {
         console.log('Merging with existing today log:', existingTodayLog, 'Result:', dataToSave);
       }
       
-      // Call wellness service to save data to ICP
-      const data = await logWellnessData(dataToSave, 'user123');
+      // Call wellness service to save data via wellness agent
+      const data = await logWellnessData(dataToSave, principal!);
       console.log('Wellness data logged successfully:', data);
       
       // Show success message
@@ -431,7 +461,7 @@ const Wellness = () => {
     setIsDeleting(true);
     
     try {
-      const result = await deleteWellnessData(todayData.date, 'user123');
+      const result = await deleteWellnessData(todayData.date, principal!);
       console.log('Wellness data deleted successfully:', result);
       
       // Clear the form data for the deleted date
@@ -445,7 +475,7 @@ const Wellness = () => {
       });
       
       // Refresh the data to reflect the deletion
-      await loadInitialData();
+      await loadWellnessData();
       
       alert(`Wellness data for ${todayData.date} has been deleted successfully.`);
       
@@ -457,29 +487,10 @@ const Wellness = () => {
     }
   };
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    const log = wellnessHistory.find(log => log.date === date);
-    if (log) {
-      setSelectedLog(log);
-    } else {
-      // Create empty log for selected date
-      setSelectedLog({
-        sleep: 0,
-        steps: 0,
-        water: 0,
-        mood: '',
-        exercise: '',
-        date: date
-      });
-    }
-    setShowDateModal(true);
-  };
 
   const closeDateModal = () => {
     setShowDateModal(false);
     setSelectedLog(null);
-    setSelectedDate('');
   };
 
   const moodOptions: Record<string, { color: string }> = {
