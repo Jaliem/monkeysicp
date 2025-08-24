@@ -64,10 +64,39 @@ const Navbar = () => {
     <nav className="w-64 h-screen bg-white shadow-xl border-r border-stone-200 flex flex-col font-serif">
       {/* Logo Section */}
       <div className="p-8 border-b border-stone-100">
-        <div className="text-3xl font-light text-emerald-700 tracking-wide">
-          Cura.
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-3xl font-light text-emerald-700 tracking-wide">
+              Cura.
+            </div>
+            <div className="w-12 h-1 bg-emerald-400 mt-2 rounded-full"></div>
+          </div>
+          
+          {/* Notification Bell */}
+          <button
+            onClick={() => navigate('/reminders')}
+            className="relative p-2 hover:bg-emerald-50 rounded-lg transition-colors duration-200 group"
+          >
+            <svg 
+              className="w-6 h-6 text-stone-400 group-hover:text-emerald-600 transition-colors duration-200" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={1.5} 
+                d="M10 2a2 2 0 012 2v1.5a7.5 7.5 0 017.5 7.5v1.87l1.65 3.52A1 1 0 0120.15 20H3.85a1 1 0 01-.9-1.45L4.5 15.37V12a7.5 7.5 0 017.5-7.5V4a2 2 0 012-2zm4 18a2 2 0 01-4 0"
+              />
+            </svg>
+            
+            {/* Notification Badge */}
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+              <span className="text-xs text-white font-medium">3</span>
+            </div>
+          </button>
         </div>
-        <div className="w-12 h-1 bg-emerald-400 mt-2 rounded-full"></div>
       </div>
 
       {/* Navigation Items */}

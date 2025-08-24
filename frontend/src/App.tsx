@@ -8,6 +8,7 @@ import Chat from './chat';
 import Doctor from './doctor';
 import Pharmacy from './pharmacy';
 import Wellness from './wellness';
+import Reminder from './reminder';
 import Profile from './profile';
 import Admin from './admin';
 import Admin2 from './admin2';
@@ -26,6 +27,7 @@ function App() {
             <Route path="/doctor" element={<Doctor />} />
             <Route path="/pharmacy" element={<Pharmacy />} />
             <Route path="/wellness" element={<Wellness />} />
+            <Route path="/reminders" element={<Reminder />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/admin" element={<Admin />} />
             <Route path="/admin2" element={<Admin2 />} />

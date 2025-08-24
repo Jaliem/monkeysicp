@@ -1127,3 +1127,73 @@ export const storeMedicine = async (medicineData: any): Promise<any> => {
     return { success: false, message: 'Error storing medicine' };
   }
 };
+
+// Fetch user medication reminders from ICP backend
+export const fetchMedicationReminders = async (userId: string): Promise<any> => {
+  try {
+    console.log('Fetching medication reminders for user:', userId);
+    
+    // Try direct canister HTTP request first
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-user-medication-reminders`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ user_id: userId })
+    });
+    
+    console.log('Medication reminders response status:', icpResponse.status);
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      console.log('Medication reminders data from backend:', data);
+      return data.reminders || data || [];
+    }
+    
+    console.warn('Medication reminders canister response not ok:', icpResponse.status);
+    
+  } catch (error) {
+    console.error('Error fetching medication reminders from canister:', error);
+  }
+  
+  // Fallback to HTTP interface
+  try {
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/get-user-medication-reminders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ user_id: userId })
+    });
+    
+    if (httpResponse.ok) {
+      const data = await httpResponse.json();
+      console.log('HTTP medication reminders data:', data);
+      return data.reminders || data || [];
+    }
+    
+  } catch (error) {
+    console.error('Error fetching medication reminders from HTTP interface:', error);
+  }
+  
+  // Final fallback - try using chat agent to get medication reminders
+  try {
+    console.log('Trying chat agent fallback for medication reminders...');
+    const chatResponse = await sendChatMessage(
+      'Show me my current medication reminders and prescriptions', 
+      userId
+    );
+    
+    if (chatResponse.response) {
+      // For now, return empty array since parsing chat response is complex
+      // In the future, this could parse structured data from the chat response
+      console.log('Chat response for medication reminders:', chatResponse.response);
+    }
+  } catch (error) {
+    console.error('Chat agent fallback failed:', error);
+  }
+  
+  console.log('All medication reminders fetch methods failed, returning empty array');
+  return [];
+};

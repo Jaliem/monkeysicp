@@ -4,7 +4,7 @@ import { sendChatMessage } from './services/flaskService';
 import { useAuth } from './contexts/AuthContext';
 
 interface Message {
-  id: string;
+  id: string; 
   content: string;
   timestamp: Date;
   isUser: boolean;
@@ -24,6 +24,7 @@ interface QuickAction {
 }
 
 const Chat = () => {
+  // ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
   const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -277,6 +278,34 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>');
   };
+
+  // Handle conditional rendering after all hooks have been called
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !principal) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-stone-600 mb-4">Please log in to access the health chat</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     // MODIFICATION 1: Changed gradient direction to top-right (tr)

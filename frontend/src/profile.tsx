@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AuthClient } from '@dfinity/auth-client';
 import Navbar from './nav';
 import { storeUserProfile, fetchUserProfile } from './services/flaskService';
+import { useAuth } from './contexts/AuthContext';
 
 interface HealthProfile {
   personalInfo: {
@@ -33,7 +34,8 @@ interface HealthProfile {
 }
 
 const Profile = () => {
-  const [principal, setPrincipal] = useState<string | null>(null);
+  // ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
+  const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<{type: 'success' | 'error' | null, message: string}>({type: null, message: ''});
   const [showNameModal, setShowNameModal] = useState(false);
@@ -76,36 +78,29 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState<'personal' | 'medical' | 'preferences'>('personal');
 
   useEffect(() => {
-    initAuth();
-  }, []);
+    initProfile();
+  }, [principal]); // Depend on principal from AuthContext
 
-  const initAuth = async () => {
+  const initProfile = async () => {
+    if (!principal) return; // Wait for principal to be available
+    
     setIsLoading(true);
     try {
-      const client = await AuthClient.create();
-      const isAuthenticated = await client.isAuthenticated();
-      
-      if (isAuthenticated) {
-        const identity = client.getIdentity();
-        const principalId = identity.getPrincipal().toString();
-        setPrincipal(principalId);
-        
-        // Try to load user profile from ICP backend
-        console.log('Loading user profile from ICP for principal:', principalId);
-        const result = await fetchUserProfile(principalId);
+      // Try to load user profile from ICP backend
+      console.log('Loading user profile from ICP for principal:', principal);
+      const result = await fetchUserProfile(principal);
         
         if (result.success && result.profile) {
           console.log('Profile loaded successfully:', result.profile);
           setProfile(result.profile);
           updateValidation(result.profile);
-        } else {
-          console.log('No profile found, user needs to set up profile');
-          // Show name collection modal for first-time users
-          setShowNameModal(true);
-        }
+      } else {
+        console.log('No profile found, user needs to set up profile');
+        // Show name collection modal for first-time users
+        setShowNameModal(true);
       }
     } catch (error) {
-      console.error('Error initializing auth or loading profile:', error);
+      console.error('Error loading profile:', error);
       setSaveStatus({type: 'error', message: 'Failed to load user profile'});
     } finally {
       setIsLoading(false);
@@ -260,6 +255,34 @@ const Profile = () => {
     }`;
 
   // Loading screen
+  // Handle conditional rendering after all hooks have been called
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !principal) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-stone-600 mb-4">Please log in to access your health profile</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">

@@ -93,6 +93,8 @@ const Wellness = () => {
   const itemsPerPage = 7;
   const [searchDate, setSearchDate] = useState<string>('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [longestStreak, setLongestStreak] = useState(0);
 
   // Pagination helper functions
   const getFilteredData = () => {
@@ -131,31 +133,6 @@ const Wellness = () => {
     setCurrentPage(1);
   };
 
-  // Load data for a specific date when user selects a date to log
-  const loadDataForDate = (selectedDate: string) => {
-    const existingLog = wellnessHistory.find(log => log.date === selectedDate);
-    if (existingLog) {
-      setTodayData({
-        ...existingLog,
-        water: existingLog.water || 0,
-        sleep: existingLog.sleep || 0,
-        steps: existingLog.steps || 0,
-        mood: existingLog.mood || '',
-        exercise: existingLog.exercise || '',
-        date: selectedDate
-      });
-    } else {
-      // Reset form for new date
-      setTodayData({
-        sleep: 0,
-        steps: 0,
-        water: 0,
-        mood: '',
-        exercise: '',
-        date: selectedDate
-      });
-    }
-  };
 
   useEffect(() => {
     console.log('useEffect triggered, insightsLoaded:', insightsLoaded);
@@ -198,6 +175,76 @@ const Wellness = () => {
       ...prev,
       [type]: value
     }));
+  };
+
+
+  // Calculate wellness logging streak
+  const calculateStreak = (logs: WellnessData[]) => {
+    if (!logs.length) {
+      setCurrentStreak(0);
+      setLongestStreak(0);
+      return;
+    }
+
+    // Sort logs by date (newest first)
+    const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    let currentStreakCount = 0;
+    let longestStreakCount = 0;
+    let tempStreakCount = 0;
+    
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    
+    // Check if logged today
+    const hasLoggedToday = sortedLogs.some(log => log.date === todayString);
+    
+    // Calculate current streak starting from today or yesterday
+    let checkDate = new Date(today);
+    if (!hasLoggedToday) {
+      // If not logged today, start from yesterday
+      checkDate.setDate(checkDate.getDate() - 1);
+    }
+    
+    // Count consecutive days backwards from today/yesterday
+    for (let i = 0; i < 365; i++) { // Max 365 days to prevent infinite loop
+      const dateString = checkDate.toISOString().split('T')[0];
+      const hasLogForDate = sortedLogs.some(log => log.date === dateString);
+      
+      if (hasLogForDate) {
+        currentStreakCount++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+    
+    // Calculate longest streak ever
+    const allDates = sortedLogs.map(log => log.date).sort();
+    
+    for (let i = 0; i < allDates.length; i++) {
+      tempStreakCount = 1;
+      let currentDate = new Date(allDates[i]);
+      
+      // Check consecutive days forward
+      for (let j = i + 1; j < allDates.length; j++) {
+        const nextDate = new Date(currentDate);
+        nextDate.setDate(nextDate.getDate() + 1);
+        const nextDateString = nextDate.toISOString().split('T')[0];
+        
+        if (allDates[j] === nextDateString) {
+          tempStreakCount++;
+          currentDate = nextDate;
+        } else if (allDates[j] > nextDateString) {
+          break;
+        }
+      }
+      
+      longestStreakCount = Math.max(longestStreakCount, tempStreakCount);
+    }
+    
+    setCurrentStreak(currentStreakCount);
+    setLongestStreak(longestStreakCount);
   };
 
   const loadWellnessData = async () => {
@@ -274,6 +321,9 @@ const Wellness = () => {
         console.log('Grouped wellness logs by date:', aggregatedLogs);
         
         setWellnessHistory(aggregatedLogs);
+        
+        // Calculate streak after setting wellness history
+        calculateStreak(aggregatedLogs);
         
         // Keep original individual logs for Recent Activity Overview
         const individualLogs = parsedLogs.sort((a: WellnessData, b: WellnessData) => a.date.localeCompare(b.date));
@@ -511,9 +561,43 @@ const Wellness = () => {
         <div className="bg-white shadow-sm border-b border-stone-200">
           <div className="px-8 py-6">
             <div className="flex items-center justify-between">
-              <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
-                Wellness Dashboard
-              </h1>
+              <div>
+                <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
+                  Wellness Dashboard
+                </h1>
+                
+                {/* Streak Display */}
+                <div className="mt-3 flex items-center space-x-6">
+                  <div className="flex items-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-4 py-2 rounded-full">
+                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                    </svg>
+                    <span className="text-sm font-medium">
+                      {currentStreak} day{currentStreak !== 1 ? 's' : ''} streak
+                    </span>
+                  </div>
+                  
+                  {longestStreak > 0 && (
+                    <div className="flex items-center text-stone-600">
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                      </svg>
+                      <span className="text-sm">
+                        Best: {longestStreak} day{longestStreak !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {currentStreak === 0 && wellnessHistory.length > 0 && (
+                    <div className="flex items-center text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full">
+                      <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span className="text-sm font-medium">Start your streak today!</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -601,27 +685,6 @@ const Wellness = () => {
                     </p>
                   </div>
                   
-                  {/* Date Selector */}
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2">
-                      <svg className="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <input
-                        type="date"
-                        value={todayData.date}
-                        onChange={(e) => loadDataForDate(e.target.value)}
-                        max={getLocalDateString()}
-                        className="px-3 py-2 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-sm"
-                      />
-                    </div>
-                    <button
-                      onClick={() => loadDataForDate(getLocalDateString())}
-                      className="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-light text-sm"
-                    >
-                      Today
-                    </button>
-                  </div>
                 </div>
               </div>
 

@@ -347,8 +347,7 @@ Examples:
 - "What disease might I have?" → health_analysis
 - "Remind me to take pills at 8PM" → medication_reminder
 - "Emergency! Chest pain!" → emergency
-- "Delete my wellness data for yesterday" → wellness_delete
-- "Remove my sleep log from last week" → wellness_delete
+- "Delete my wellness data for today" → wellness_delete
 - "Clear my steps from today" → wellness_delete
 - "I want to delete my workout data" → wellness_delete
 - "Erase my health logs for Monday" → wellness_delete
@@ -1455,50 +1454,9 @@ def parse_delete_message(message: str) -> dict:
     message_lower = message.lower()
     delete_data = {}
     
-    # Parse date information for deletion
-    date_patterns = [
-        r'(?:on|for)\s+(\d{4}-\d{2}-\d{2})',  # YYYY-MM-DD format
-        r'(?:on|for)\s+(\d{2}/\d{2}/\d{4})',  # MM/DD/YYYY format
-        r'(?:on|for)\s+(\d{2}-\d{2}-\d{4})',  # MM-DD-YYYY format
-    ]
-    
-    date_found = None
-    for pattern in date_patterns:
-        date_match = re.search(pattern, message)
-        if date_match:
-            try:
-                date_str = date_match.group(1)
-                if '/' in date_str:
-                    date_found = datetime.strptime(date_str, '%m/%d/%Y').strftime('%Y-%m-%d')
-                elif '-' in date_str and len(date_str.split('-')[0]) == 2:
-                    date_found = datetime.strptime(date_str, '%m-%d-%Y').strftime('%Y-%m-%d')
-                else:
-                    date_found = date_str  # Already in YYYY-MM-DD format
-                break
-            except ValueError:
-                continue
-
-    # Look for relative date patterns
-    if not date_found:
-        today = datetime.now()
-        
-        if 'yesterday' in message_lower:
-            date_found = (today - timedelta(days=1)).strftime('%Y-%m-%d')
-        elif 'today' in message_lower:
-            date_found = today.strftime('%Y-%m-%d')
-        elif '2 days ago' in message_lower or 'two days ago' in message_lower:
-            date_found = (today - timedelta(days=2)).strftime('%Y-%m-%d')
-        elif '3 days ago' in message_lower or 'three days ago' in message_lower:
-            date_found = (today - timedelta(days=3)).strftime('%Y-%m-%d')
-        elif re.search(r'(\d+)\s+days?\s+ago', message_lower):
-            days_match = re.search(r'(\d+)\s+days?\s+ago', message_lower)
-            if days_match:
-                days_ago = int(days_match.group(1))
-                if days_ago <= 30:  # Limit to reasonable past dates
-                    date_found = (today - timedelta(days=days_ago)).strftime('%Y-%m-%d')
-
-    # Default to today if no date specified
-    delete_data["date"] = date_found or datetime.now().strftime('%Y-%m-%d')
+    # Always use today's date only - no previous day deletion allowed
+    today = datetime.now()
+    delete_data["date"] = today.strftime('%Y-%m-%d')
     
     return delete_data
 
@@ -1510,51 +1468,9 @@ def parse_wellness_message(message: str) -> dict:
     message_lower = message.lower()
     wellness_data = {}
 
-    # Parse date information first
-    # Look for specific date patterns
-    date_patterns = [
-        r'(?:on|for)\s+(\d{4}-\d{2}-\d{2})',  # YYYY-MM-DD format
-        r'(?:on|for)\s+(\d{2}/\d{2}/\d{4})',  # MM/DD/YYYY format
-        r'(?:on|for)\s+(\d{2}-\d{2}-\d{4})',  # MM-DD-YYYY format
-    ]
-    
-    date_found = None
-    for pattern in date_patterns:
-        date_match = re.search(pattern, message)
-        if date_match:
-            try:
-                date_str = date_match.group(1)
-                if '/' in date_str:
-                    date_found = datetime.strptime(date_str, '%m/%d/%Y').strftime('%Y-%m-%d')
-                elif '-' in date_str and len(date_str.split('-')[0]) == 2:
-                    date_found = datetime.strptime(date_str, '%m-%d-%Y').strftime('%Y-%m-%d')
-                else:
-                    date_found = date_str  # Already in YYYY-MM-DD format
-                break
-            except ValueError:
-                continue
-
-    # Look for relative date patterns
-    if not date_found:
-        today = datetime.now()
-        
-        if 'yesterday' in message_lower:
-            date_found = (today - timedelta(days=1)).strftime('%Y-%m-%d')
-        elif 'today' in message_lower or not any(word in message_lower for word in ['yesterday', 'on', 'for']):
-            date_found = today.strftime('%Y-%m-%d')
-        elif '2 days ago' in message_lower or 'two days ago' in message_lower:
-            date_found = (today - timedelta(days=2)).strftime('%Y-%m-%d')
-        elif '3 days ago' in message_lower or 'three days ago' in message_lower:
-            date_found = (today - timedelta(days=3)).strftime('%Y-%m-%d')
-        elif re.search(r'(\d+)\s+days?\s+ago', message_lower):
-            days_match = re.search(r'(\d+)\s+days?\s+ago', message_lower)
-            if days_match:
-                days_ago = int(days_match.group(1))
-                if days_ago <= 30:  # Limit to reasonable past dates
-                    date_found = (today - timedelta(days=days_ago)).strftime('%Y-%m-%d')
-
-    # Set the date (default to today if not found)
-    wellness_data["date"] = date_found or datetime.now().strftime('%Y-%m-%d')
+    # Always use today's date only - no previous day logging allowed
+    today = datetime.now()
+    wellness_data["date"] = today.strftime('%Y-%m-%d')
 
     # Parse sleep data - more flexible patterns
     sleep_patterns = [
@@ -1597,13 +1513,13 @@ def parse_wellness_message(message: str) -> dict:
             except ValueError:
                 continue
 
-    # Parse water intake - more flexible patterns
+    # Parse water intake - more specific patterns to avoid conflicts
     water_patterns = [
         r'([0-9\.]+)\s*(?:cups?|glasses?|liters?|l)\s*(?:of\s+)?(?:water|fluid)',  # "8 cups of water"
-        r'(?:water|drank|drink|had).*?([0-9\.]+)\s*(?:cups?|glasses?|liters?|l)',  # "drank 8 glasses"
-        r'([0-9\.]+)\s*(?:cups?|glasses?)\s*water',  # "8 glasses water"
-        r'(?:water|fluid).*?([0-9\.]+)',  # "water 8"
-        r'(?:drank|had|consumed)\s+([0-9\.]+)',  # "drank 8"
+        r'\b(?:drank|drink|consumed)\s+([0-9\.]+)\s*(?:cups?|glasses?|liters?|l)\s*(?:of\s+)?(?:water|fluid)?',  # "drank 8 glasses of water"
+        r'\b(?:had|got)\s+([0-9\.]+)\s*(?:cups?|glasses?|liters?|l)\s*(?:of\s+)?(?:water|fluid)',  # "had 8 cups of water"
+        r'([0-9\.]+)\s*(?:cups?|glasses?)\s*(?:of\s+)?water',  # "8 glasses water"
+        r'water.*?([0-9\.]+)\s*(?:cups?|glasses?|liters?|l)',  # "water 8 cups"
     ]
     
     for pattern in water_patterns:
@@ -1640,14 +1556,14 @@ def parse_wellness_message(message: str) -> dict:
         r'exercise:\s+(.*)',  # "exercise: running"
         r'(?:did|had|went)\s+(.*?)(?:workout|exercise)',  # "did cardio workout"
         r'(?:workout|exercise).*?(?:was|is)\s+(.*?)(?:\.|$)',  # "workout was running"
-        r'(?:ran|running|walked|swimming|cycling|gym|lifting).*',  # Activity verbs
+        r'\b(?:ran|running|walked|walking|swimming|cycling|gym|lifting|jogging|hiking|yoga)\b.*',  # Activity verbs with word boundaries
         r'(?:workout|exercise):\s+(.*)',  # "workout: cardio"
     ]
     
     for pattern in exercise_patterns:
         exercise_match = re.search(pattern, message, re.IGNORECASE)
         if exercise_match:
-            if pattern == r'(?:ran|running|walked|swimming|cycling|gym|lifting).*':
+            if pattern == r'\b(?:ran|running|walked|walking|swimming|cycling|gym|lifting|jogging|hiking|yoga)\b.*':
                 # For activity verbs, capture the whole match
                 exercise = exercise_match.group(0).strip()
             else:
@@ -1801,14 +1717,58 @@ async def generate_wellness_insights_with_llm(wellness_logs: List[Dict], ctx: Co
             "messages": [
                 {
                     "role": "system",
-                    "content": """You are a wellness AI assistant. Provide concise insights based on actual data.
+                    "content": """You are an advanced wellness AI assistant and health analytics expert. Analyze the user's wellness data comprehensively and provide personalized, evidence-based insights and recommendations.
 
-                    Format:
-                    • Brief assessment (1 sentence)
-                    • 2-3 key insights (1 line each)
-                    • 2-3 actionable recommendations (1 line each)
+                    ## Your Analysis Framework:
                     
-                    Keep response under 300 words. Be direct and specific."""
+                    **Data Assessment Approach:**
+                    - Evaluate completeness and consistency of data entries
+                    - Identify meaningful patterns, trends, and correlations
+                    - Compare metrics against recommended health guidelines (e.g., 7-9hrs sleep, 8-10 glasses water, 10,000+ steps)
+                    - Note data gaps that may affect analysis accuracy
+                    - Consider seasonal, weekly, or contextual patterns
+                    
+                    **Health Insights to Provide:**
+                    - Sleep quality and duration analysis with circadian rhythm considerations
+                    - Physical activity levels and consistency patterns
+                    - Hydration habits and their relationship to other metrics
+                    - Exercise frequency, types, and potential optimization
+                    - Mood patterns and potential correlations with lifestyle factors
+                    - Overall wellness trajectory (improving, stable, declining)
+                    
+                    **Response Structure:**
+                    
+                    🔍 **Health Status Overview** (2-3 sentences)
+                    Brief overall assessment of wellness status and data quality
+                    
+                    📊 **Key Insights** (4-6 bullet points)
+                    • Specific findings about sleep, activity, hydration, mood patterns
+                    • Correlations between different wellness metrics
+                    • Comparisons to health recommendations
+                    • Notable trends or changes over time
+                    
+                    💡 **Personalized Recommendations** (4-6 actionable items)
+                    • Specific, measurable improvements based on their data
+                    • Priority recommendations (most impactful changes first)
+                    • Realistic goal suggestions with timeframes
+                    • Habit formation strategies tailored to their patterns
+                    • Potential health risks to address or monitor
+                    
+                    ⚠️ **Health Considerations** (if applicable)
+                    • Areas requiring medical consultation
+                    • Warning signs in the data
+                    • Limitations of analysis due to data gaps
+                    
+                    **Guidelines:**
+                    - Use actual data points and specific numbers when available
+                    - Provide context for recommendations (why they matter)
+                    - Be encouraging while honest about areas needing improvement
+                    - Include both short-term and long-term suggestions
+                    - Reference established health guidelines when relevant
+                    - Keep total response under 500 words but be comprehensive
+                    - Use emojis sparingly for visual organization only
+                    
+                    **Tone:** Professional yet approachable, motivational, evidence-based, and personalized to their specific data patterns."""
                 },
                 {
                     "role": "user",
@@ -1816,7 +1776,7 @@ async def generate_wellness_insights_with_llm(wellness_logs: List[Dict], ctx: Co
                 }
             ],
             "temperature": 0.7,
-            "max_tokens": 200
+            "max_tokens": 800
         }
 
         response = requests.post(
