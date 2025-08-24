@@ -8,7 +8,7 @@ interface Message {
   content: string;
   timestamp: Date;
   isUser: boolean;
-  type?: 'text' | 'wellness' | 'appointment' | 'medicine' | 'loading';
+  type?: 'text' | 'wellness' | 'appointment' | 'medicine' | 'loading' | 'image';
   metadata?: {
     intent?: string;
     confidence?: number;
@@ -23,6 +23,12 @@ interface QuickAction {
   category: 'wellness' | 'doctor' | 'pharmacy' | 'symptom';
 }
 
+interface UploadedFile {
+  file: File;
+  dataUrl: string;
+  type: 'image' | 'document';
+}
+
 const Chat = () => {
   // ALL HOOKS MUST BE CALLED FIRST - BEFORE ANY CONDITIONAL RETURNS
   const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -31,6 +37,7 @@ const Chat = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [showFade, setShowFade] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<UploadedFile | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -147,25 +154,58 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     setMessages([welcomeMessage]);
   };
 
+  const addErrorMessage = (content: string) => {
+    const errorMessage: Message = {
+      id: `error-${Date.now()}`,
+      content: `⚠️ **Error:** ${content}`,
+      timestamp: new Date(),
+      isUser: false,
+      type: 'text',
+    };
+    setMessages(prev => [...prev, errorMessage]);
+  };
+
   const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return;
+    if (!content.trim() && !uploadedFile) return;
+
+    const timestamp = new Date();
+    let messageContent = '';
+    
+    // Combine file and text content into a single message
+    if (uploadedFile) {
+      if (uploadedFile.type === 'image') {
+        messageContent = `<img src="${uploadedFile.dataUrl}" alt="${uploadedFile.file.name}" class="max-w-full rounded-lg" style="max-height: 300px; object-fit: contain;" />`;
+        if (content.trim()) {
+          messageContent += `<div class="mt-3 font-light">${content.trim()}</div>`;
+        }
+      } else {
+        messageContent = `📄 ${uploadedFile.file.name}`;
+        if (content.trim()) {
+          messageContent += `\n${content.trim()}`;
+        }
+      }
+    } else if (content.trim()) {
+      messageContent = content.trim();
+    }
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
-      content: content.trim(),
-      timestamp: new Date(),
+      content: messageContent,
+      timestamp: timestamp,
       isUser: true,
-      type: 'text'
+      type: uploadedFile?.type === 'image' ? 'image' : 'text'
     };
 
     setMessages(prev => [...prev, userMessage]);
     setInputValue('');
+    const fileToSend = uploadedFile;
+    setUploadedFile(null);
     setIsTyping(true);
 
     try {
       const loadingMessage: Message = {
         id: `loading-${Date.now()}`,
-        content: 'Processing with ASI1 AI...',
+        content: 'Processing with ASI1 AI...', 
         timestamp: new Date(),
         isUser: false,
         type: 'loading'
@@ -173,7 +213,7 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       
       setMessages(prev => [...prev, loadingMessage]);
 
-      const response = await callHealthAgentAPI(content);
+      const response = await callHealthAgentAPI(content, fileToSend);
       
       setMessages(prev => {
         const filtered = prev.filter(msg => msg.type !== 'loading');
@@ -198,7 +238,14 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     }
   };
 
-  const callHealthAgentAPI = async (userInput: string): Promise<Message> => {
+  const formatText = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n/g, '<br />');
+  };
+
+  const callHealthAgentAPI = async (userInput: string, uploadedFile: UploadedFile | null): Promise<Message> => {
     try {
       const userIdToUse = principal || 'development_user_fallback';
       console.log('Sending chat message with user principal:', userIdToUse);
@@ -210,10 +257,11 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       else if (data.intent === 'pharmacy') type = 'medicine';
       else if (data.intent === 'symptom_analysis') type = 'text';
       else if (data.intent === 'emergency') type = 'text';
+      else if (data.intent === 'image_analysis') type = 'text';
 
       return {
         id: `agent-${Date.now()}`,
-        content: data.response || 'No response received',
+        content: formatText(data.response || 'No response received'),
         timestamp: new Date(),
         isUser: false,
         type,
@@ -253,6 +301,121 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     }
   };
 
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (10MB limit)
+    if (file.size > 10 * 1024 * 1024) {
+      addErrorMessage('File size exceeds 10MB limit.');
+      return;
+    }
+
+    // Check if it's a valid document type
+    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!validTypes.includes(file.type)) {
+      addErrorMessage('Unsupported document. Please upload a PDF or Word document.');
+      return;
+    }
+
+    setIsTyping(true);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      setUploadedFile({
+        file,
+        dataUrl: '',
+        type: 'document'
+      });
+    } catch (error) {
+      console.error('Error uploading document:', error);
+    } finally {
+      setIsTyping(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleImageFile = (file: File | null) => {
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      addErrorMessage('Image size exceeds 10MB limit.');
+      return;
+    }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/gif', 'image/webp'];
+    if (!file.type || !validTypes.some(t => file.type.startsWith(t))) {
+      addErrorMessage('Unsupported image type. Please upload a JPG, PNG, GIF, or WebP file.');
+      return;
+    }
+
+    setIsTyping(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        setUploadedFile({ file, dataUrl, type: 'image' });
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Error processing image:', error);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageFile(file);
+    }
+    if (e.target) e.target.value = '';
+  };
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    // Handle pasted image files from clipboard
+    const items = e.clipboardData.items;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          e.preventDefault();
+          handleImageFile(file);
+          return;
+        }
+      }
+    }
+
+    // Handle pasted image URLs
+    const pastedText = e.clipboardData.getData('text/plain');
+    const urlRegex = /^(https?:\/\/[^\s]+\.(?:jpg|jpeg|png|gif|webp)(?:\?.*)?)$/i;
+    const match = pastedText.match(urlRegex);
+
+    if (match) {
+      e.preventDefault();
+      const imageUrl = match[0];
+      
+      try {
+        setIsTyping(true);
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error(`Failed to fetch image. Status: ${response.status}`);
+        
+        const blob = await response.blob();
+        const filename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1).split('?')[0] || 'pasted-image';
+        const file = new File([blob], filename, { type: blob.type });
+        handleImageFile(file);
+
+      } catch (error) {
+        console.error('Error fetching image from URL:', error);
+        alert('Could not load image from URL. It might be due to network issues, CORS policy, or an invalid URL.');
+        setInputValue(pastedText);
+      } finally {
+        setIsTyping(false);
+      }
+    }
+  };
+
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'wellness': return 'bg-emerald-100 text-emerald-700 border-emerald-200';
@@ -271,12 +434,6 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       case 'loading': return 'bg-stone-50 border-stone-200';
       default: return 'bg-white border-stone-200';
     }
-  };
-
-  const formatText = (text: string) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
-      .replace(/\*(.*?)\*/g, '<em>$1</em>');
   };
 
   // Handle conditional rendering after all hooks have been called
@@ -354,8 +511,8 @@ Just speak naturally - I'll understand and connect you with the right healthcare
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-stone-400"></div>
                           <span className="text-stone-600 font-light">{message.content}</span>
                         </div>
-                      ) : (
-                        <div className="whitespace-pre-wrap font-light leading-relaxed" dangerouslySetInnerHTML={{ __html: formatText(message.content) }} />
+                      ) : ( // Original text rendering
+                        <div className={`whitespace-pre-wrap font-light leading-relaxed space-y-3 ${message.isUser ? 'text-white' : ''}`} dangerouslySetInnerHTML={{ __html: message.content }} />
                       )}
                     </div>
                     <div className="text-xs text-stone-400 font-light mt-2 px-2">
@@ -401,13 +558,83 @@ Just speak naturally - I'll understand and connect you with the right healthcare
         {/* Input Area */}
         <div className="p-4 bg-transparent">
           <div className="max-w-6xl mx-auto">
+            {uploadedFile && (
+              <div className="mb-2 relative inline-block">
+                <div className="flex items-center space-x-2 p-2 bg-stone-50 rounded-lg border border-stone-200">
+                  {uploadedFile.type === 'image' ? (
+                    <img 
+                      src={uploadedFile.dataUrl} 
+                      alt={uploadedFile.file.name}
+                      className="h-12 w-12 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 flex items-center justify-center bg-stone-100 rounded">
+                      <svg className="w-6 h-6 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                  )}
+                  <span className="text-sm text-stone-600 truncate max-w-xs">
+                    {uploadedFile.file.name}
+                  </span>
+                  <button
+                    onClick={() => setUploadedFile(null)}
+                    className="p-1 hover:bg-stone-200 rounded-full transition-colors duration-200"
+                    title="Remove file"
+                  >
+                    <svg className="w-4 h-4 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="flex items-center w-full border border-stone-300 rounded-2xl p-2 bg-white shadow-sm">
+              {/* Document upload button */}
+              <input
+                type="file"
+                id="document-upload"
+                onChange={handleDocumentUpload}
+                accept=".pdf,.doc,.docx"
+                className="hidden"
+                disabled={isTyping}
+              />
+              <label
+                htmlFor="document-upload"
+                className="px-2 py-2 mr-1 text-stone-600 hover:text-stone-800 cursor-pointer rounded-lg hover:bg-emerald-100 transition-colors duration-200"
+                title="Upload Document (PDF/Word)"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </label>
+
+              {/* Image upload button */}
+              <input
+                type="file"
+                id="image-upload"
+                onChange={handleImageUpload}
+                accept="image/*"
+                className="hidden"
+                disabled={isTyping}
+              />
+              <label
+                htmlFor="image-upload"
+                className="px-2 py-2 mr-2 text-stone-600 hover:text-stone-800 cursor-pointer rounded-lg hover:bg-emerald-100 transition-colors duration-200"
+                title="Upload Image"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </label>
+
               <input
                 ref={inputRef}
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={handleKeyPress}
+                onPaste={handlePaste}
                 placeholder="Tell me about your health..."
                 className="flex-1 px-4 py-2 border-none bg-transparent focus:ring-0 focus:outline-none font-light text-lg placeholder:text-stone-400"
                 disabled={isTyping}

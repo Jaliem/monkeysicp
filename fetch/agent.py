@@ -51,9 +51,16 @@ emergency_status = False
 user_contexts = {}  # Store user conversation states
 
 # REST endpoint models for Flask API integration
+class FileData(Model):
+    content: str  # Base64 encoded file content
+    file_type: str  # "image" or "document"
+    file_name: str
+    mime_type: str
+
 class ChatRequest(Model):
     message: str
     user_id: str
+    file: Optional[FileData] = None
 
 class ChatResponse(Model):
     response: str
@@ -64,6 +71,7 @@ class ChatResponse(Model):
     sender: str
     user_id: str
     communication_status: str
+    file_analysis: Optional[dict] = None
 
 # Protocol definitions for inter-agent communication
 class DoctorBookingRequest(Model):
@@ -233,25 +241,86 @@ async def get_from_icp(endpoint: str, params: dict = None) -> dict:
     except Exception as e:
         return {"error": f"Failed to retrieve data: {str(e)}", "status": "failed"}
 
-async def analyze_with_asi1(symptoms_text: str, analysis_type: str = "current") -> dict:
-    """Use ASI1 LLM for intelligent symptom analysis"""
+async def analyze_with_asi1(symptoms_text: str, analysis_type: str = "current", image_data: Optional[FileData] = None) -> dict:
+    """Use ASI1 LLM for intelligent symptom and image analysis"""
     try:
+        messages = []
+        model = "asi1-mini"
+        
         if analysis_type == "current":
-            system_prompt = """You are a medical AI assistant. Analyze the given symptoms and provide:
+            system_prompt = """You are HealthAgent, a friendly and cheerful AI medical assistant. Your goal is to provide clear, helpful, and reassuring health information. Always use a positive and empathetic tone. Use emojis to make your responses more engaging and break down complex information into bullet points or numbered lists where appropriate.
+
+Analyze the given symptoms and provide:
 1. Most likely conditions (with confidence %)
 2. Recommended medical specialists
 3. Urgency level (emergency/urgent/moderate/mild)
 4. Key symptoms detected
-5. Brief explanation of your reasoning
+5. A detailed, reassuring explanation of your reasoning.
 
 Respond in JSON format with: {"likely_conditions": [{"condition": "", "confidence": 0, "severity": ""}], "recommended_doctors": [], "urgency": "", "detected_symptoms": [], "explanation": ""}
 
 IMPORTANT: This is for informational purposes only. Always recommend consulting healthcare professionals."""
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Patient reports: {symptoms_text}"}
+            ]
 
-            user_prompt = f"Patient reports: {symptoms_text}"
+        elif analysis_type == "image_analysis":
+            model = "asi1-mini"  # Use the standard model for multimodal inputs
+            system_prompt = """You are HealthAgent, a friendly and cheerful AI medical assistant. Your goal is to provide clear, helpful, and reassuring health information from images. Always use a positive and empathetic tone. Use emojis - a lot of them - to make your responses more engaging and break down complex information into bullet points or numbered lists where appropriate.
 
+Analyze the provided image and any accompanying text to give feedback. Your analysis should be tailored to the type of image.
+
+Possible image types and required analysis:
+1.  **Skin Condition (e.g., rash, mole):**
+    *   Describe what you see (color, shape, texture).
+    *   Suggest possible (NOT DEFINITIVE) conditions.
+    *   Recommend a specialist (e.g., Dermatologist).
+    *   Provide a clear disclaimer that this is not a diagnosis.
+    *   Respond in JSON: `{"image_type": "skin_condition", "description": "...", "possible_conditions": ["...", "..."], "recommendation": "..."}`
+
+2.  **Food/Meal:**
+    *   Identify the food items.
+    *   Estimate nutritional information (calories, macronutrients).
+    *   Provide health feedback (e.g., "This looks like a balanced meal...").
+    *   Respond in JSON: `{"image_type": "food", "identified_food": ["...", "..."], "nutritional_estimate": {"calories": "...", "protein": "...", "carbs": "...", "fats": "..."}, "feedback": "..."}`
+
+3.  **Medical Document/Report (e.g., lab results, prescription):**
+    *   **First, perform Optical Character Recognition (OCR) to read all the text in the image.**
+    *   Extract key information from the recognized text (e.g., patient details, test names, values, units, reference ranges).
+    *   Provide a concise summary of the key findings from the results, not a general description of the document itself.
+    *   Based on the findings, provide 2-3 actionable, general wellness recommendations (e.g., dietary suggestions, exercise advice, or stress management tips) that might be relevant. Frame these as general health advice, not as a treatment plan.
+    *   Conclude the recommendation by strongly advising the user to discuss the results with their healthcare provider for an official interpretation and personalized medical advice.
+    *   Respond in JSON: `{"image_type": "medical_document", "extracted_text": "...", "extracted_data": [{"test": "...", "value": "...", "range": "...", "status": "Normal/High/Low"}], "summary": "...", "recommendation": "..."}`
+
+4.  **General/Other:**
+    *   Describe the image and its relevance to health.
+    *   Provide general feedback or answer the user's question about the image.
+    *   Respond in JSON: `{"image_type": "other", "description": "...", "feedback": "..."}`
+
+Analyze the image and the user's prompt, determine the image type, and provide the analysis in the corresponding JSON format.
+IMPORTANT: You MUST respond with ONLY a valid JSON object that adheres to the structure specified for the detected image type. Do not include any other text, explanations, or markdown formatting outside of the JSON object."""
+            
+            user_content = [
+                {"type": "text", "text": symptoms_text or "Please analyze this image."}
+            ]
+            if image_data:
+                user_content.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{image_data.mime_type};base64,{image_data.content}"
+                    }
+                })
+            
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
+            ]
+        
         else:  # historical analysis
-            system_prompt = """You are a medical AI assistant analyzing a patient's symptom history. Based on the pattern of symptoms over time, provide:
+            system_prompt = """You are HealthAgent, a friendly and cheerful AI medical assistant. Your goal is to provide clear, helpful, and reassuring health information. Always use a positive and empathetic tone. Use emojis to make your responses more engaging and break down complex information into bullet points or numbered lists where appropriate.
+
+Analyze a patient's symptom history. Based on the pattern of symptoms over time, provide:
 1. Most likely underlying conditions
 2. Symptom patterns and frequency analysis
 3. Recommended specialists based on overall pattern
@@ -261,17 +330,16 @@ IMPORTANT: This is for informational purposes only. Always recommend consulting 
 Respond in JSON format with: {"pattern_analysis": "", "likely_conditions": [{"condition": "", "confidence": 0, "reasoning": ""}], "recommended_doctors": [], "health_insights": [], "urgency": "", "recommendations": []}
 
 IMPORTANT: This is for informational purposes only. Always recommend consulting healthcare professionals."""
-
-            user_prompt = f"Patient symptom history: {symptoms_text}"
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Patient symptom history: {symptoms_text}"}
+            ]
 
         payload = {
-            "model": "asi1-mini",
-            "messages": [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
+            "model": model,
+            "messages": messages,
             "temperature": 0.7,
-            "max_tokens": 1000,
+            "max_tokens": 4096,
             "response_format": {"type": "json_object"}
         }
 
@@ -286,11 +354,18 @@ IMPORTANT: This is for informational purposes only. Always recommend consulting 
             result = response.json()
             content = result["choices"][0]["message"]["content"]
 
-            try:
-                analysis_result = json.loads(content)
-                return {"success": True, "analysis": analysis_result}
-            except json.JSONDecodeError:
-                return {"success": False, "error": "Invalid JSON response from ASI1"}
+            # Attempt to extract JSON from the response string, which might have markdown
+            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            
+            if json_match:
+                json_string = json_match.group(0)
+                try:
+                    analysis_result = json.loads(json_string)
+                    return {"success": True, "analysis": analysis_result}
+                except json.JSONDecodeError:
+                    return {"success": False, "error": f"Found a JSON-like object, but failed to parse it. Content: {json_string}"}
+            else:
+                return {"success": False, "error": f"No valid JSON object found in the AI's response. Full response: {content}"}
         else:
             return {"success": False, "error": f"ASI1 API error: {response.status_code}"}
 
@@ -334,7 +409,8 @@ async def classify_user_intent_with_llm(message: str, ctx: Context) -> str:
 7. "wellness" - Activity tracking, sleep logging, exercise, steps, water intake, mood logging
 8. "wellness_delete" - Deleting, removing, or clearing wellness/health data from logs
 9. "cancel" - Cancelling appointments, orders, bookings, or other healthcare services
-10. "general" - Greetings, general questions, anything not healthcare-related
+10. "image_analysis" - User has uploaded an image and is asking for analysis, feedback, or information about it.
+11. "general" - Greetings, general questions, anything not healthcare-related
 
 IMPORTANT: Respond with ONLY the intent name, nothing else.
 
@@ -353,6 +429,8 @@ Examples:
 - "Erase my health logs for Monday" → wellness_delete
 - "Cancel my appointment APT-123" → cancel
 - "Cancel order ORD-456" → cancel
+- "Analyze this picture of my rash" → image_analysis
+- "What do you think of this meal?" → image_analysis
 - "Hello, how are you?" → general
 - "How's the weather?" → general"""
 
@@ -381,7 +459,7 @@ Examples:
 
             # Validate the response
             valid_intents = ["emergency", "symptom_logging", "health_analysis",
-                           "book_doctor", "pharmacy", "medication_reminder", "wellness", "wellness_delete", "cancel", "general"]
+                           "book_doctor", "pharmacy", "medication_reminder", "wellness", "wellness_delete", "cancel", "image_analysis", "general"]
 
             if intent in valid_intents:
                 ctx.logger.info(f"LLM classified '{message}' as: {intent}")
@@ -439,6 +517,32 @@ def clear_user_context(sender: str):
 def get_user_context(sender: str) -> dict:
     """Get conversation context for a user"""
     return user_contexts.get(sender, {})
+
+async def handle_image_analysis(message: str, file_data: FileData, ctx: Context, sender: str = "default_user") -> str:
+    """Handle image analysis requests by asking the user for their preferred analysis type."""
+    try:
+        ctx.logger.info(f"Analyzing image '{file_data.file_name}' with ASI1 Vision...")
+        
+        # Call the multimodal analysis function to get the data
+        asi1_result = await analyze_with_asi1(message, "image_analysis", image_data=file_data)
+        
+        if not asi1_result.get("success"):
+            return f"Sorry, I encountered an error analyzing the image: {asi1_result.get('error', 'Unknown error')}"
+
+        analysis = asi1_result.get("analysis", {})
+        
+        # Store the analysis in the user's context and ask for their preference
+        set_user_context(sender, {
+            "awaiting_analysis_confirmation": True,
+            "last_image_analysis": analysis,
+        })
+        
+        return "I have analyzed the image. Would you like a **Full Analysis** (including all extracted data) or a **Regular Analysis** (summary and recommendation only)?"
+
+    except Exception as e:
+        ctx.logger.error(f"Error in image analysis handler: {str(e)}")
+        return "Sorry, I encountered an unexpected error while analyzing the image."
+
 
 async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str = "default_user") -> str:
     """Handle symptom logging and analysis"""
@@ -805,13 +909,19 @@ async def generate_natural_cancel_response(cancellation_info: dict, cancel_resul
     """Use ASI1 LLM to generate natural language cancellation responses"""
     try:
         if cancel_result.get("success"):
-            system_prompt = """You are a healthcare AI assistant providing confirmation of successful cancellations. Create a natural, empathetic response that confirms the cancellation and provides next steps if appropriate.
+            system_prompt = """You are HealthAgent, a friendly and cheerful AI assistant. A user has successfully cancelled something. Create a helpful and reassuring response that confirms the cancellation.
 
-Be friendly, professional, and include relevant details. Use emojis appropriately."""
+- Be friendly, professional, and empathetic.
+- Use emojis to convey a helpful tone.
+- Include the key details of the cancellation.
+- If appropriate, offer next steps, like rescheduling."""
         else:
-            system_prompt = """You are a healthcare AI assistant helping with cancellation issues. Create a helpful, empathetic response that explains why the cancellation failed and offers next steps or alternatives.
+            system_prompt = """You are HealthAgent, a friendly and cheerful AI assistant. A user's attempt to cancel something has failed. Create a helpful and empathetic response that explains the problem clearly and offers a solution.
 
-Be understanding and provide clear guidance. Use emojis appropriately."""
+- Be understanding and reassuring.
+- Clearly state the reason for the failure.
+- Provide clear guidance on what to do next (e.g., try again, contact support).
+- Use emojis to convey a helpful and supportive tone."""
 
         context = {
             "success": cancel_result.get("success", False),
@@ -1717,58 +1827,14 @@ async def generate_wellness_insights_with_llm(wellness_logs: List[Dict], ctx: Co
             "messages": [
                 {
                     "role": "system",
-                    "content": """You are an advanced wellness AI assistant and health analytics expert. Analyze the user's wellness data comprehensively and provide personalized, evidence-based insights and recommendations.
-
-                    ## Your Analysis Framework:
+                    "content": """You are HealthAgent, a friendly and cheerful AI wellness coach. Your goal is to provide clear, helpful, and encouraging insights based on the user's data. Always use a positive and empathetic tone. Use emojis to make your responses more engaging and break down complex information into bullet points.
                     
-                    **Data Assessment Approach:**
-                    - Evaluate completeness and consistency of data entries
-                    - Identify meaningful patterns, trends, and correlations
-                    - Compare metrics against recommended health guidelines (e.g., 7-9hrs sleep, 8-10 glasses water, 10,000+ steps)
-                    - Note data gaps that may affect analysis accuracy
-                    - Consider seasonal, weekly, or contextual patterns
+                    Your response should contain:
+                    • A brief, encouraging assessment (1 sentence).
+                    • 2-3 key insights from the data (1 line each, use emojis).
+                    • 2-3 actionable and specific recommendations (1 line each, use emojis).
                     
-                    **Health Insights to Provide:**
-                    - Sleep quality and duration analysis with circadian rhythm considerations
-                    - Physical activity levels and consistency patterns
-                    - Hydration habits and their relationship to other metrics
-                    - Exercise frequency, types, and potential optimization
-                    - Mood patterns and potential correlations with lifestyle factors
-                    - Overall wellness trajectory (improving, stable, declining)
-                    
-                    **Response Structure:**
-                    
-                    🔍 **Health Status Overview** (2-3 sentences)
-                    Brief overall assessment of wellness status and data quality
-                    
-                    📊 **Key Insights** (4-6 bullet points)
-                    • Specific findings about sleep, activity, hydration, mood patterns
-                    • Correlations between different wellness metrics
-                    • Comparisons to health recommendations
-                    • Notable trends or changes over time
-                    
-                    💡 **Personalized Recommendations** (4-6 actionable items)
-                    • Specific, measurable improvements based on their data
-                    • Priority recommendations (most impactful changes first)
-                    • Realistic goal suggestions with timeframes
-                    • Habit formation strategies tailored to their patterns
-                    • Potential health risks to address or monitor
-                    
-                    ⚠️ **Health Considerations** (if applicable)
-                    • Areas requiring medical consultation
-                    • Warning signs in the data
-                    • Limitations of analysis due to data gaps
-                    
-                    **Guidelines:**
-                    - Use actual data points and specific numbers when available
-                    - Provide context for recommendations (why they matter)
-                    - Be encouraging while honest about areas needing improvement
-                    - Include both short-term and long-term suggestions
-                    - Reference established health guidelines when relevant
-                    - Keep total response under 500 words but be comprehensive
-                    - Use emojis sparingly for visual organization only
-                    
-                    **Tone:** Professional yet approachable, motivational, evidence-based, and personalized to their specific data patterns."""
+                    Keep the total response under 300 words."""
                 },
                 {
                     "role": "user",
@@ -1955,12 +2021,76 @@ async def get_wellness_insights(user_id: str, days: int = 7, ctx: Context = None
         }
 
 
-async def process_health_query(query: str, ctx: Context, sender: str = "default_user") -> str:
+def format_analysis_response(analysis: dict, format_type: str, sender: str) -> str:
+    """Formats the stored image analysis into a user-friendly string."""
+    try:
+        if not analysis:
+            return "Sorry, I seem to have lost the analysis data. Please upload the image again."
+
+        response_parts = []
+        image_type = analysis.get("image_type", "other")
+
+        # Define a generic formatter for different image types
+        if image_type == "medical_document":
+            if format_type == "full" and analysis.get("extracted_data"):
+                response_parts.append("**Extracted Data:**")
+                for item in analysis.get("extracted_data"):
+                    response_parts.append(f"  • **Test:** {item.get('test', 'N/A')} - **Value:** {item.get('value', 'N/A')} ({item.get('status', 'N/A')}) - **Range:** {item.get('range', 'N/A')}")
+                response_parts.append("") # Add a blank line for spacing
+            
+            response_parts.append(f"**Summary:**\n{analysis.get('summary', 'N/A')}")
+            response_parts.append(f"\n**Recommendation:**\n{analysis.get('recommendation', 'Please discuss these results with your doctor.')}")
+
+        elif image_type == "skin_condition":
+            if format_type == "full":
+                response_parts.append(f"**Description:**\n{analysis.get('description', 'N/A')}")
+            
+            if analysis.get("possible_conditions"):
+                response_parts.append(f"\n**Possible Conditions (Not a diagnosis):**\n• {', '.join(analysis.get('possible_conditions'))}")
+            
+            response_parts.append(f"\n**Recommendation:**\n{analysis.get('recommendation', 'Consult a healthcare professional.')}")
+            response_parts.append(f"\n**Disclaimer:** {analysis.get('disclaimer', 'This is an AI analysis and not a medical diagnosis.')}")
+
+        elif image_type == "food":
+            if format_type == "full" and analysis.get("identified_food"):
+                response_parts.append(f"**Identified Food:**\n• {', '.join(analysis.get('identified_food'))}")
+
+            if analysis.get("nutritional_estimate"):
+                nutrition = analysis.get("nutritional_estimate")
+                response_parts.append("\n**Nutritional Estimate:**")
+                for key, value in nutrition.items():
+                    response_parts.append(f"  • {key.capitalize()}: {value}")
+            
+            response_parts.append(f"\n**Feedback:**\n{analysis.get('feedback', 'N/A')}")
+
+        else: # General/Other
+            response_parts.append(f"**Description:**\n{analysis.get('description', 'N/A')}")
+            response_parts.append(f"\n**Feedback:**\n{analysis.get('feedback', 'N/A')}")
+
+        return "\n".join(response_parts)
+    finally:
+        # Always clear the context after providing the response
+        clear_user_context(sender)
+
+async def process_health_query(query: str, ctx: Context, sender: str = "default_user", file: Optional[FileData] = None) -> str:
     """Process health-related queries and route appropriately"""
     try:
-        # Check for context-based responses first (immediate responses)
+        # Check for context-based responses first
         if sender and sender in user_contexts:
-            context = user_contexts[sender]
+            context = get_user_context(sender)
+
+            # Handle image analysis confirmation
+            if context.get("awaiting_analysis_confirmation"):
+                message_lower = query.lower()
+                analysis_data = context.get("last_image_analysis")
+
+                if "full" in message_lower:
+                    return format_analysis_response(analysis_data, "full", sender)
+                elif "regular" in message_lower or "summary" in message_lower:
+                    return format_analysis_response(analysis_data, "regular", sender)
+                else:
+                    # If the response is ambiguous, ask again and preserve context
+                    return "Sorry, I didn't understand. Please choose either **Full Analysis** or **Regular Analysis**."
 
             # Handle doctor booking confirmations
             if context.get("awaiting_doctor_confirmation"):
@@ -1974,8 +2104,17 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
         ctx.logger.info(f"🗣️ User query: '{query}' - Classifying with ASI1 LLM...")
         intent = await classify_user_intent_with_llm(query, ctx)
 
-        if intent == "emergency":
-            return await handle_emergency(ctx, sender)
+        # If a file is attached, it's always an image_analysis intent
+        if file is not None:
+            ctx.logger.info(f"File detected, overriding intent to image_analysis.")
+            intent = "image_analysis"
+
+        if intent == "image_analysis":
+            if file is None:
+                return "It looks like you want to analyze an image, but you haven't attached one. Please upload an image with your message."
+            return await handle_image_analysis(query, file, ctx, sender)
+        elif intent == "emergency":
+            return await handle_emergency(ctx)
         elif intent == "confirm_doctor_booking":
             return await handle_doctor_booking_confirmation(sender, ctx)
         elif intent == "cancel_doctor_booking":
@@ -2046,18 +2185,100 @@ agent = Agent(
     mailbox=True,
 )
 
+# Add file analysis function
+async def analyze_file_with_asi1(file_data: FileData, ctx: Context) -> dict:
+    """Analyze uploaded files using ASI1's vision and document analysis capabilities"""
+    try:
+        if file_data.file_type == "image":
+            # Use ASI1's vision API for image analysis
+            payload = {
+                "model": "asi1-vision",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Analyze this medical image and describe what you see. If you see any potential health concerns, mention them professionally and suggest relevant follow-up actions."
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{file_data.mime_type};base64,{file_data.content}"
+                                }
+                            }
+                        ]
+                    }
+                ],
+                "max_tokens": 500
+            }
+        else:
+            # Use ASI1's document analysis for PDFs and other documents
+            payload = {
+                "model": "asi1-mini",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a medical document analyzer. Review the provided document and extract key medical information."
+                    },
+                    {
+                        "role": "user",
+                        "content": file_data.content
+                    }
+                ],
+                "max_tokens": 500
+            }
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json=payload,
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            analysis = result["choices"][0]["message"]["content"]
+            return {
+                "success": True,
+                "analysis": analysis,
+                "file_type": file_data.file_type,
+                "file_name": file_data.file_name
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"ASI1 API error: {response.status_code}",
+                "file_type": file_data.file_type,
+                "file_name": file_data.file_name
+            }
+
+    except Exception as e:
+        ctx.logger.error(f"Error analyzing file: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e),
+            "file_type": file_data.file_type,
+            "file_name": file_data.file_name
+        }
+
 # Add REST endpoint for Flask API integration
 @agent.on_rest_post("/api/chat", ChatRequest, ChatResponse)
 async def handle_rest_chat(ctx: Context, req: ChatRequest) -> ChatResponse:
     """Handle chat messages from Flask API via REST endpoint"""
     try:
+        ctx.logger.info(f"Received REST request: {req}")
         ctx.logger.info(f" REST API request from user {req.user_id}: {req.message}")
+        if req.file:
+            ctx.logger.info(f" File attached: {req.file.file_name} ({req.file.file_type})")
 
         # Process the health-related query using existing logic
-        response_text = await process_health_query(req.message, ctx, req.user_id)
+        response_text = await process_health_query(req.message, ctx, req.user_id, req.file)
 
         # Classify intent for response metadata
         intent = await classify_user_intent_with_llm(req.message, ctx)
+        if req.file:
+            intent = "image_analysis"
 
         # Create structured response
         response = ChatResponse(

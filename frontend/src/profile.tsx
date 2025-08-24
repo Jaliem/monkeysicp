@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AuthClient } from '@dfinity/auth-client';
 import Navbar from './nav';
 import { storeUserProfile, fetchUserProfile } from './services/flaskService';
 import { useAuth } from './contexts/AuthContext';
@@ -692,7 +691,7 @@ const Profile = () => {
           <div className="bg-white/90 backdrop-blur-md rounded-2xl max-w-md w-full p-8 shadow-xl">
             <div className="text-center mb-6">
               <h2 className="text-2xl font-light text-stone-800 font-serif mb-2">
-                Welcome to MonkeysICP!
+                Welcome to Cura!
               </h2>
               <p className="text-stone-600 font-light">
                 To get started, please tell us your name.
