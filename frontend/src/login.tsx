@@ -9,7 +9,7 @@ const Login = () => {
 
   const adminPrincipals = [
     "oe63i-xkqdd-nolac-hdyjg-evw3c-4si3e-ijboe-5vwgg-x55dj-env47-jqe",
-    "4xj4e-uiqn7-r25zb-2yvuk-kc3ld-p732s-fhml4-ednpn-oubqa-755cu-nae",
+    "wp7j5-ejwvb-7jpfm-eukk7-utyas-rdffi-wvlzd-pbdnv-7sdkr-u5phb-dqe"
   ];
   const [authClient, setAuthClient] = useState<AuthClient | null>(null);
   const [isLoading, setIsLoading] = useState(false);
