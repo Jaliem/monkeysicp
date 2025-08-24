@@ -66,14 +66,17 @@ const Navbar = () => {
       {/* Logo Section */}
       <div className="p-8 border-b border-stone-100">
         <div className="flex items-center justify-between">
-            <div className='flex flex-row items-center'>
+            <button 
+              onClick={() => navigate('/')}
+              className='flex flex-row items-center hover:opacity-80 transition-opacity duration-200 cursor-pointer'
+            >
             <img src={logo} alt="Logo" className='h-10 w-10 mr-2'/>
             <div>
               <div className="text-2xl font-light text-emerald-700 tracking-wide">
               Cura.
             </div>
             </div>
-          </div>
+          </button>
           
           {/* Notification Bell */}
           <button
