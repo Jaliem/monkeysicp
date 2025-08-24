@@ -8,7 +8,7 @@ interface AuthContextType {
   principal: string | null;
   identity: Identity | null;
   authClient: AuthClient | null;
-  login: () => Promise<void>;
+  login: (onSuccess?: (principal: string) => void) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
 }
@@ -69,7 +69,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async () => {
+  const login = async (onSuccess?: (principal: string) => void) => {
     if (!authClient) return;
     
     setIsLoading(true);
@@ -85,6 +85,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setPrincipal(userPrincipal);
           
           console.log('Login successful. Principal:', userPrincipal);
+          
+          // Call custom onSuccess callback with the principal
+          if (onSuccess) {
+            onSuccess(userPrincipal);
+          }
         },
         onError: (error) => {
           console.error('Login failed:', error);

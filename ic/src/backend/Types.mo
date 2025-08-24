@@ -184,6 +184,15 @@ module {
     water_intake : ?Float;
   };
 
+  // User streak data
+  public type UserStreak = {
+    user_id : Text;
+    current_streak : Nat;
+    longest_streak : Nat;
+    last_log_date : Text; // Last date user logged wellness data
+    updated_at : Text; // When streak was last calculated
+  };
+
   // The response after successfully storing a log.
   public type StoreResponse = {
     success : Bool;
@@ -198,6 +207,7 @@ module {
     total_count : Nat;
     success : Bool;
     message : Text;
+    streak : ?UserStreak;
   };
 
   public type StreamingCallbackToken = {

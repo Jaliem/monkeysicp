@@ -115,8 +115,13 @@ const Reminder = () => {
         const todayLog = parsedLogs.find((log: any) => log.date === todayDate);
         setHasLoggedWellnessToday(!!todayLog);
         
-        // Calculate streak
-        calculateStreak(parsedLogs);
+        // Use persistent streak from backend if available, otherwise calculate
+        if (wellnessData.streak) {
+          setCurrentStreak(wellnessData.streak.current_streak || 0);
+        } else {
+          // Fallback to calculation if no backend streak data
+          calculateStreak(parsedLogs);
+        }
       }
     } catch (error) {
       console.error('Error checking wellness status:', error);

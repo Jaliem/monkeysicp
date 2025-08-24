@@ -1,82 +1,53 @@
 import { useState, useEffect } from "react";
-import { AuthClient } from "@dfinity/auth-client";
 import { useNavigate } from "react-router-dom";
-
-const identityProvider = "https://identity.ic0.app";
+import { useAuth } from './contexts/AuthContext';
 
 const Login = () => {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const { login: authLogin, isAuthenticated, principal } = useAuth();
 
   const adminPrincipals = [
     "oe63i-xkqdd-nolac-hdyjg-evw3c-4si3e-ijboe-5vwgg-x55dj-env47-jqe",
     "wp7j5-ejwvb-7jpfm-eukk7-utyas-rdffi-wvlzd-pbdnv-7sdkr-u5phb-dqe"
   ];
-  const [authClient, setAuthClient] = useState<AuthClient | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
 
   useEffect(() => {
-    initAuth();
-  }, []);
-
-  const initAuth = async () => {
-    const client = await AuthClient.create();
-    setAuthClient(client);
-
-    const isAuthenticated = await client.isAuthenticated();
-    if (isAuthenticated) {
-      // Check if already logged in user is admin
-      const identity = client.getIdentity();
-      const principal = identity.getPrincipal().toText();
-      
+    // If already authenticated, redirect appropriately
+    if (isAuthenticated && principal) {
       if (adminPrincipals.includes(principal)) {
         navigate("/admin2");
       } else {
         navigate("/chat");
       }
     }
-  };
+  }, [isAuthenticated, principal, navigate, adminPrincipals]);
 
   const login = async () => {
-    if (!authClient) return;
-    
     setIsLoading(true);
     try {
-      await authClient.login({
-        identityProvider,
-        onSuccess: async () => {
-          // Get principal after login
-          const identity = authClient.getIdentity();
-          const principal = identity.getPrincipal().toText();
-          
-          console.log("Login successful. Principal:", principal);
-          
-          // Check if user is admin and admin mode is selected
-          const isUserAdmin = adminPrincipals.includes(principal);
-          
-          if (isAdmin && isUserAdmin) {
-            console.log("Navigating to admin dashboard");
-            navigate("/admin");
-          } else if (isAdmin && !isUserAdmin) {
-            // User tried to login as admin but doesn't have admin privileges
-            console.warn("User attempted admin login without privileges");
-            alert("Access denied: You don't have admin privileges");
-            setIsLoading(false);
-            return;
-          } else {
-            console.log("Navigating to regular chat");
-            navigate("/chat");
-          }
-        },
-        onError: (error) => {
-          console.error("Login failed:", error);
-          alert("Login failed. Please try again.");
-          setIsLoading(false);
-        },
+      await authLogin((userPrincipal: string) => {
+        // This callback runs after authentication is successful with the principal
+        const isUserAdmin = adminPrincipals.includes(userPrincipal);
+        
+        if (isAdmin && isUserAdmin) {
+          console.log("Navigating to admin dashboard");
+          navigate("/admin");
+        } else if (isAdmin && !isUserAdmin) {
+          // User tried to login as admin but doesn't have admin privileges
+          console.warn("User attempted admin login without privileges");
+          alert("Access denied: You don't have admin privileges");
+        } else {
+          console.log("Navigating to regular chat");
+          navigate("/chat");
+        }
       });
+      
     } catch (error) {
       console.error("Login error:", error);
       alert("An error occurred during login. Please try again.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -132,9 +103,9 @@ const Login = () => {
         {/* Login button */}
         <button
           onClick={login}
-          disabled={isLoading || !authClient}
+          disabled={isLoading}
           className={`w-full py-4 px-8 rounded-full font-medium text-lg transition-all duration-300 transform ${
-            isLoading || !authClient
+            isLoading
               ? "bg-stone-300 text-stone-500 cursor-not-allowed"
               : "bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-xl hover:-translate-y-1 shadow-lg"
           }`}

@@ -9,6 +9,9 @@ import Int "mo:base/Int";
 import Char "mo:base/Char";
 import Float "mo:base/Float";
 import Time "mo:base/Time";
+import Array "mo:base/Array";
+import Order "mo:base/Order";
+import Iter "mo:base/Iter";
 import { JSON } "mo:serde";
 import Types "./Types";
 
@@ -26,7 +29,8 @@ persistent actor {
   // Wellness Record Keys
   transient let _WellnessLogKeys = ["user_id", "date", "sleep", "steps", "exercise", "mood", "water_intake"];
   transient let WellnessStoreResponseKeys = ["success", "message", "id", "logged_data"];
-  transient let WellnessSummaryResponseKeys = ["logs", "total_count", "success", "message"];
+  transient let WellnessSummaryResponseKeys = ["logs", "total_count", "success", "message", "streak"];
+  transient let _UserStreakKeys = ["user_id", "current_streak", "longest_streak", "last_log_date", "updated_at"];
 
   // Doctor & Appointment JSON keys
   transient let _DoctorKeys = ["doctor_id", "name", "specialty", "qualifications", "experience_years", "rating", "available_days", "available_slots", "image_url"];
@@ -53,6 +57,7 @@ persistent actor {
   private var doctor_entries : [(Text, Types.Doctor)] = [];
   private var appointment_entries : [(Text, Types.Appointment)] = [];
   private var wellness_log_entries : [(Text, Types.WellnessLog)] = [];
+  private var streak_entries : [(Text, Types.UserStreak)] = [];
   private var medicine_entries : [(Text, Types.Medicine)] = [];
   private var medicine_order_entries : [(Text, Types.MedicineOrder)] = [];
   private var next_id : Nat = 1;
@@ -63,6 +68,7 @@ persistent actor {
   private transient var doctors = Buffer.Buffer<(Text, Types.Doctor)>(0);
   private transient var appointments = Buffer.Buffer<(Text, Types.Appointment)>(0);
   private transient var wellness_logs = Buffer.Buffer<(Text, Types.WellnessLog)>(0);
+  private transient var user_streaks = Buffer.Buffer<(Text, Types.UserStreak)>(0);
   private transient var medicines = Buffer.Buffer<(Text, Types.Medicine)>(0);
   private transient var medicine_orders = Buffer.Buffer<(Text, Types.MedicineOrder)>(0);
   private transient var user_profiles = Buffer.Buffer<(Text, Types.UserProfile)>(0);
@@ -75,6 +81,7 @@ persistent actor {
     doctor_entries := Buffer.toArray(doctors);
     appointment_entries := Buffer.toArray(appointments);
     wellness_log_entries := Buffer.toArray(wellness_logs);
+    streak_entries := Buffer.toArray(user_streaks);
     medicine_entries := Buffer.toArray(medicines);
     medicine_order_entries := Buffer.toArray(medicine_orders);
     user_profile_entries := Buffer.toArray(user_profiles);
@@ -87,12 +94,14 @@ persistent actor {
     doctors := Buffer.fromArray(doctor_entries);
     appointments := Buffer.fromArray(appointment_entries);
     wellness_logs := Buffer.fromArray(wellness_log_entries);
+    user_streaks := Buffer.fromArray(streak_entries);
     medicines := Buffer.fromArray(medicine_entries);
     medicine_orders := Buffer.fromArray(medicine_order_entries);
     user_profiles := Buffer.fromArray(user_profile_entries);
     symptom_entries := [];
     medication_reminders := [];
     emergency_alerts := [];
+    streak_entries := [];
 
     // Initialize doctors if empty
     if (doctors.size() == 0) {
@@ -1112,6 +1121,9 @@ persistent actor {
     next_id := next_id + 1;
     Debug.print("[INFO]: Created new wellness log for user " # log.user_id # " on date " # log.date);
 
+    // Update user streak after adding log
+    ignore calculateAndUpdateStreak(log.user_id);
+
     return {
       success = true;
       message = "Wellness log stored successfully";
@@ -1132,11 +1144,22 @@ persistent actor {
 
     Debug.print("[INFO]: Found " # Nat.toText(user_logs.size()) # " logs for user " # user_id);
 
+    // Get user streak data
+    let user_streak = do ? {
+      for ((_, streak) in user_streaks.vals()) {
+        if (streak.user_id == user_id) {
+          return ?streak;
+        };
+      };
+      null
+    };
+
     return {
       logs = Buffer.toArray(user_logs);
       total_count = user_logs.size();
       success = true;
       message = "Successfully retrieved wellness logs";
+      streak = user_streak;
     };
   };
 
@@ -1168,6 +1191,10 @@ persistent actor {
     if (found) {
       // Replace the buffer with filtered logs
       wellness_logs := logs_temp;
+      
+      // Update user streak after deleting log
+      ignore calculateAndUpdateStreak(user_id);
+      
       return {
         success = true;
         message = "Wellness log deleted successfully";
@@ -1182,6 +1209,242 @@ persistent actor {
         logged_data = null;
       };
     };
+  };
+
+  // Calculate and update user streak
+  private func calculateAndUpdateStreak(user_id: Text): async () {
+    // Get all user's wellness logs sorted by date (newest first)
+    let user_logs = Buffer.Buffer<Types.WellnessLog>(0);
+    for ((_, log) in wellness_logs.vals()) {
+      if (log.user_id == user_id) {
+        user_logs.add(log);
+      };
+    };
+
+    // Convert to array and sort by date (newest first)
+    let logs_array = Buffer.toArray(user_logs);
+    let sorted_logs = Array.sort(logs_array, func(a: Types.WellnessLog, b: Types.WellnessLog): Order.Order {
+      Text.compare(b.date, a.date)
+    });
+
+    if (sorted_logs.size() == 0) {
+      // No logs, set streak to 0
+      await updateUserStreak(user_id, 0, 0, "", getCurrentTimestamp());
+      return;
+    };
+
+    // Calculate current streak
+    var current_streak: Nat = 0;
+    var longest_streak: Nat = 0;
+    var temp_streak: Nat = 0;
+    let today = getCurrentDate();
+    var check_date = today;
+    
+    // Check if logged today
+    let has_logged_today = Array.find<Types.WellnessLog>(sorted_logs, func(log) { log.date == today });
+    
+    // If not logged today, start from yesterday
+    if (has_logged_today == null) {
+      check_date := getPreviousDate(today);
+    };
+
+    // Count consecutive days backwards
+    var date_to_check = check_date;
+    label streak_loop for (i in Iter.range(0, 364)) { // Max 365 days
+      let found_log = Array.find<Types.WellnessLog>(sorted_logs, func(log) { log.date == date_to_check });
+      if (found_log != null) {
+        current_streak += 1;
+        temp_streak += 1;
+        if (temp_streak > longest_streak) {
+          longest_streak := temp_streak;
+        };
+      } else {
+        break streak_loop;
+      };
+      date_to_check := getPreviousDate(date_to_check);
+    };
+
+    // Calculate longest streak from all logs
+    let dates_only = Array.map<Types.WellnessLog, Text>(sorted_logs, func(log) { log.date });
+    let sorted_dates = Array.sort(dates_only, Text.compare);
+    
+    temp_streak := 0;
+    var i = 0;
+    while (i < sorted_dates.size()) {
+      var current_temp_streak = 1;
+      var check_date_for_longest = sorted_dates[i];
+      var j = i + 1;
+      
+      // Count consecutive dates forward
+      while (j < sorted_dates.size()) {
+        let next_expected = getNextDate(check_date_for_longest);
+        if (j < sorted_dates.size() and sorted_dates[j] == next_expected) {
+          current_temp_streak += 1;
+          check_date_for_longest := next_expected;
+          j += 1;
+        } else {
+          j := sorted_dates.size(); // Break the loop
+        };
+      };
+      
+      if (current_temp_streak > longest_streak) {
+        longest_streak := current_temp_streak;
+      };
+      
+      i += 1;
+    };
+
+    let last_log_date = if (sorted_logs.size() > 0) { sorted_logs[0].date } else { "" };
+    await updateUserStreak(user_id, current_streak, longest_streak, last_log_date, getCurrentTimestamp());
+  };
+
+  // Update or create user streak record
+  private func updateUserStreak(user_id: Text, current: Nat, longest: Nat, last_date: Text, updated: Text): async () {
+    // Remove existing streak record for user
+    let streaks_temp = Buffer.Buffer<(Text, Types.UserStreak)>(user_streaks.size());
+    for ((id, streak) in user_streaks.vals()) {
+      if (streak.user_id != user_id) {
+        streaks_temp.add((id, streak));
+      };
+    };
+    user_streaks := streaks_temp;
+
+    // Add new streak record
+    let new_streak: Types.UserStreak = {
+      user_id = user_id;
+      current_streak = current;
+      longest_streak = longest;
+      last_log_date = last_date;
+      updated_at = updated;
+    };
+    let streak_id = "streak_" # user_id;
+    user_streaks.add((streak_id, new_streak));
+  };
+
+  // Get user streak data
+  public query func get_user_streak(user_id: Text): async ?Types.UserStreak {
+    for ((_, streak) in user_streaks.vals()) {
+      if (streak.user_id == user_id) {
+        return ?streak;
+      };
+    };
+    null
+  };
+
+  // Helper function to get current date in YYYY-MM-DD format
+  private func getCurrentDate(): Text {
+    // For now, we'll use a simplified approach
+    // In production, you would want proper date handling
+    let now = Time.now();
+    let seconds = now / 1_000_000_000;
+    // Convert to days since epoch and format as date
+    let days_since_epoch = seconds / 86400; // 86400 seconds in a day
+    let days_since_2024 = days_since_epoch - 19723; // Days from epoch to 2024-01-01
+    let year = 2024 + (days_since_2024 / 365);
+    let day_of_year = days_since_2024 % 365;
+    let month = (day_of_year / 30) + 1; // Simplified month calculation
+    let day = (day_of_year % 30) + 1;
+    Nat.toText(year) # "-" # 
+    (if (month < 10) { "0" } else { "" }) # Nat.toText(month) # "-" #
+    (if (day < 10) { "0" } else { "" }) # Nat.toText(day)
+  };
+
+  // Helper function to get previous date (simplified but functional)
+  private func getPreviousDate(date: Text): Text {
+    // Simple date parsing and manipulation
+    // Input format: "YYYY-MM-DD"
+    let parts = Text.split(date, #char '-');
+    let partsArray = Iter.toArray(parts);
+    
+    if (partsArray.size() != 3) return date; // Return original if invalid format
+    
+    let yearText = partsArray[0];
+    let monthText = partsArray[1];
+    let dayText = partsArray[2];
+    
+    // Convert to numbers
+    let year = switch (Nat.fromText(yearText)) { case (?n) n; case null return date; };
+    let month = switch (Nat.fromText(monthText)) { case (?n) n; case null return date; };
+    let day = switch (Nat.fromText(dayText)) { case (?n) n; case null return date; };
+    
+    // Simple previous day logic
+    var newYear = year;
+    var newMonth = month;
+    var newDay = day;
+    
+    if (day > 1) {
+      newDay := day - 1;
+    } else {
+      // Go to previous month
+      if (month > 1) {
+        newMonth := month - 1;
+        newDay := 30; // Simplified - assume 30 days per month
+      } else {
+        // Go to previous year
+        newYear := year - 1;
+        newMonth := 12;
+        newDay := 31;
+      };
+    };
+    
+    // Format back to string
+    Nat.toText(newYear) # "-" # 
+    (if (newMonth < 10) { "0" } else { "" }) # Nat.toText(newMonth) # "-" #
+    (if (newDay < 10) { "0" } else { "" }) # Nat.toText(newDay)
+  };
+
+  // Helper function to get next date (for longest streak calculation)
+  private func getNextDate(date: Text): Text {
+    // Simple date parsing and manipulation
+    // Input format: "YYYY-MM-DD"
+    let parts = Text.split(date, #char '-');
+    let partsArray = Iter.toArray(parts);
+    
+    if (partsArray.size() != 3) return date; // Return original if invalid format
+    
+    let yearText = partsArray[0];
+    let monthText = partsArray[1];
+    let dayText = partsArray[2];
+    
+    // Convert to numbers
+    let year = switch (Nat.fromText(yearText)) { case (?n) n; case null return date; };
+    let month = switch (Nat.fromText(monthText)) { case (?n) n; case null return date; };
+    let day = switch (Nat.fromText(dayText)) { case (?n) n; case null return date; };
+    
+    // Simple next day logic
+    var newYear = year;
+    var newMonth = month;
+    var newDay = day;
+    
+    if (day < 28) { // Safe for all months
+      newDay := day + 1;
+    } else if (day < 30) {
+      newDay := day + 1;
+    } else if (day == 30 and month != 2) {
+      newDay := day + 1;
+    } else {
+      // Go to next month
+      if (month < 12) {
+        newMonth := month + 1;
+        newDay := 1;
+      } else {
+        // Go to next year
+        newYear := year + 1;
+        newMonth := 1;
+        newDay := 1;
+      };
+    };
+    
+    // Format back to string
+    Nat.toText(newYear) # "-" # 
+    (if (newMonth < 10) { "0" } else { "" }) # Nat.toText(newMonth) # "-" #
+    (if (newDay < 10) { "0" } else { "" }) # Nat.toText(newDay)
+  };
+
+  // Helper function to get current timestamp
+  private func getCurrentTimestamp(): Text {
+    let now = Time.now();
+    Int.toText(now)
   };
 
   // ----- Cancel Functions -----
@@ -1290,8 +1553,10 @@ persistent actor {
         } else {
           return {
             success = false;
+            order_id = null;
             message = "Order cannot be cancelled (status: " # order.status # ")";
-            cancelled_id = null;
+            order = null;
+            suggested_alternatives = null;
           };
         };
       } else {

@@ -321,8 +321,14 @@ const Wellness = () => {
         
         setWellnessHistory(aggregatedLogs);
         
-        // Calculate streak after setting wellness history
-        calculateStreak(aggregatedLogs);
+        // Use persistent streak from backend if available, otherwise calculate
+        if (data.streak) {
+          setCurrentStreak(data.streak.current_streak);
+          setLongestStreak(data.streak.longest_streak);
+        } else {
+          // Fallback to calculation if no backend streak data
+          calculateStreak(aggregatedLogs);
+        }
         
         // Keep original individual logs for Recent Activity Overview
         const individualLogs = parsedLogs.sort((a: WellnessData, b: WellnessData) => a.date.localeCompare(b.date));
