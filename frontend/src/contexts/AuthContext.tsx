@@ -11,6 +11,8 @@ interface AuthContextType {
   login: (onSuccess?: (principal: string) => void) => Promise<void>;
   logout: () => Promise<void>;
   isLoading: boolean;
+  isAdmin: boolean;
+  checkAdminStatus: (userPrincipal: string) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,12 +29,15 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+import { isAdminPrincipal } from '../config/adminConfig';
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [authClient, setAuthClient] = useState<AuthClient | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [principal, setPrincipal] = useState<string | null>(null);
   const [identity, setIdentity] = useState<Identity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const identityProvider = "https://identity.ic0.app";
 
@@ -55,15 +60,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         setIdentity(userIdentity);
         setPrincipal(userPrincipal);
+        setIsAdmin(checkAdminStatus(userPrincipal));
         
         console.log('User authenticated with principal:', userPrincipal);
+        console.log('User admin status:', checkAdminStatus(userPrincipal));
       }
     } catch (error) {
       console.error('Auth initialization failed:', error);
       // Set authenticated to true for development if no ICP connection
       console.log('Setting development fallback authentication');
+      const devPrincipal = 'development-user-principal';
       setIsAuthenticated(true);
-      setPrincipal('development-user-principal');
+      setPrincipal(devPrincipal);
+      setIsAdmin(checkAdminStatus(devPrincipal));
     } finally {
       setIsLoading(false);
     }
@@ -83,8 +92,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setIsAuthenticated(true);
           setIdentity(userIdentity);
           setPrincipal(userPrincipal);
+          setIsAdmin(checkAdminStatus(userPrincipal));
           
           console.log('Login successful. Principal:', userPrincipal);
+          console.log('User admin status:', checkAdminStatus(userPrincipal));
           
           // Call custom onSuccess callback with the principal
           if (onSuccess) {
@@ -113,6 +124,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsAuthenticated(false);
       setIdentity(null);
       setPrincipal(null);
+      setIsAdmin(false);
       
       console.log('Logout successful');
     } catch (error) {
@@ -123,6 +135,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const checkAdminStatus = (userPrincipal: string): boolean => {
+    return isAdminPrincipal(userPrincipal);
+  };
+
   const value: AuthContextType = {
     isAuthenticated,
     principal,
@@ -131,6 +147,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     logout,
     isLoading,
+    isAdmin,
+    checkAdminStatus,
   };
 
   return (

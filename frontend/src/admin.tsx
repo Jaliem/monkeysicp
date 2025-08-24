@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AuthClient } from "@dfinity/auth-client";
 import { Plus, X } from "lucide-react";
 import NavbarAdmin from "./navAdmin";
+import AdminTestComponent from "./components/admin/AdminTestComponent";
 
 interface Doctor {
   id: string;
@@ -485,6 +486,12 @@ const Admin = () => {
                 <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
                   Add Records
                 </h1>
+                {/* Development: Admin Access Test */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="mt-4">
+                    <AdminTestComponent />
+                  </div>
+                )}
                 {saveStatus.type && (
                   <div
                     className={`mt-2 px-3 py-1 rounded-lg text-sm font-light ${

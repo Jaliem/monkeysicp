@@ -1,11 +1,13 @@
 import { AuthClient } from '@dfinity/auth-client';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAdmin } from './hooks/useAdmin';
 import logo from './assets/logo.png';
 
 // Side Navigation Component
 const Navbar = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { isAdmin } = useAdmin();
 
     const logout = async () => {
         const client = await AuthClient.create();
@@ -61,6 +63,40 @@ const Navbar = () => {
     }
   ];
 
+  // Admin navigation items (only visible to admins)
+  const adminNavItems = [
+    {
+      name: 'Admin Panel',
+      path: '/admin',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+        </svg>
+      )
+    },
+    {
+      name: 'Manage Records',
+      path: '/admin2',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 7h14M5 12h14M5 17h14" />
+        </svg>
+      )
+    },
+    {
+      name: 'User Activity',
+      path: '/admin3',
+      icon: (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      )
+    }
+  ];
+
+  // Combine regular nav items with admin items if user is admin
+  const allNavItems = isAdmin ? [...navItems, ...adminNavItems] : navItems;
+
   return (
     <nav className="w-64 h-screen bg-white shadow-xl border-r border-stone-200 flex flex-col font-serif">
       {/* Logo Section */}
@@ -108,6 +144,7 @@ const Navbar = () => {
       {/* Navigation Items */}
       <div className="flex-1 py-8">
         <div className="space-y-2 px-4">
+          {/* Regular Navigation Items */}
           {navItems.map((item) => (
             <a
               key={item.name}
@@ -130,6 +167,42 @@ const Navbar = () => {
               </span>
             </a>
           ))}
+          
+          {/* Admin Section Separator */}
+          {isAdmin && (
+            <>
+              <div className="mx-6 my-6 border-t border-stone-200"></div>
+              <div className="px-6 pb-2">
+                <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">
+                  Admin Panel
+                </span>
+              </div>
+              
+              {/* Admin Navigation Items */}
+              {adminNavItems.map((item) => (
+                <a
+                  key={item.name}
+                  href={item.path}
+                  className={`group flex items-center px-6 py-4 rounded-xl transition-all duration-300 font-light text-lg ${
+                    location.pathname === item.path
+                      ? 'text-red-600 bg-red-50' 
+                      : 'text-stone-600 hover:text-red-600 hover:bg-red-50'
+                  }`}
+                >
+                  <div className={`transition-colors duration-300 mr-4 ${
+                    location.pathname === item.path
+                      ? 'text-red-600' 
+                      : 'text-stone-400 group-hover:text-red-600'
+                  }`}>
+                    {item.icon}
+                  </div>
+                  <span className="group-hover:translate-x-1 transition-transform duration-300">
+                    {item.name}
+                  </span>
+                </a>
+              ))}
+            </>
+          )}
         </div>
       </div>
 

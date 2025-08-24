@@ -1,5 +1,7 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import AdminRoute from './components/guards/AdminRoute';
+import PrincipalDisplay from './components/debug/PrincipalDisplay';
 import LandingPage from './landing';
 import Login from './login';
 import NameInput from './NameInput';
@@ -19,6 +21,7 @@ function App() {
     <AuthProvider>
       <div className="h-screen w-screen">
         <Router>
+          {/* <PrincipalDisplay /> */}
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
@@ -29,9 +32,21 @@ function App() {
             <Route path="/wellness" element={<Wellness />} />
             <Route path="/reminders" element={<Reminder />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin2" element={<Admin2 />} />
-            <Route path="/admin3" element={<Admin3 />} />
+            <Route path="/admin" element={
+              <AdminRoute>
+                <Admin />
+              </AdminRoute>
+            } />
+            <Route path="/admin2" element={
+              <AdminRoute>
+                <Admin2 />
+              </AdminRoute>
+            } />
+            <Route path="/admin3" element={
+              <AdminRoute>
+                <Admin3 />
+              </AdminRoute>
+            } />
           </Routes>
         </Router>
       </div>
