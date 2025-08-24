@@ -6,6 +6,12 @@ const AGENT_BASE_URL = 'http://localhost:8000';
 const CANISTER_ID = import.meta.env.VITE_CANISTER_ID || 'uxrrr-q7777-77774-qaaaq-cai';
 const ICP_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://127.0.0.1:4943';
 
+interface UploadedFile {
+  file: File;
+  dataUrl: string;
+  type: 'image' | 'document';
+}
+
 // API Response types
 interface ApiResponse {
   response?: string;
@@ -17,17 +23,28 @@ interface ApiResponse {
 }
 
 // Chat directly with HealthAgent via REST API
-export const sendChatMessage = async (message: string, userId: string): Promise<ApiResponse> => {
+export const sendChatMessage = async (message: string, userId: string = 'frontend_user', uploadedFile: UploadedFile | null = null): Promise<ApiResponse> => {
   try {
+    const requestBody: any = {
+      message,
+      user_id: userId,
+    };
+
+    if (uploadedFile) {
+      requestBody.file = {
+        content: uploadedFile.dataUrl ? uploadedFile.dataUrl.split(',')[1] : '',
+        file_type: uploadedFile.type,
+        file_name: uploadedFile.file.name,
+        mime_type: uploadedFile.file.type,
+      };
+    }
+
     const response = await fetch(`${AGENT_BASE_URL}/api/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        message,
-        user_id: userId
-      })
+      body: JSON.stringify(requestBody)
     });
 
     if (!response.ok) {
