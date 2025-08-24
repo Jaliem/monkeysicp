@@ -68,7 +68,16 @@ const Pharmacy = () => {
   
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    try {
+      const stored = localStorage.getItem('pharmacy_cart');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+      }
+    } catch {}
+    return [];
+  });
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCart, setShowCart] = useState(false);
@@ -210,14 +219,20 @@ const Pharmacy = () => {
   const addToCart = (medicine: Medicine, quantity: number = 1) => {
     setCart(prev => {
       const existingItem = prev.find(item => item.medicine.id === medicine.id);
+      let updated;
       if (existingItem) {
-        return prev.map(item =>
+        updated = prev.map(item =>
           item.medicine.id === medicine.id
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
+      } else {
+        updated = [...prev, { medicine, quantity }];
       }
-      return [...prev, { medicine, quantity }];
+      try {
+        localStorage.setItem('pharmacy_cart', JSON.stringify(updated));
+      } catch {}
+      return updated;
     });
   };
 
@@ -242,15 +257,25 @@ const Pharmacy = () => {
 
   const updateCartQuantity = (medicineId: string, quantity: number) => {
     if (quantity <= 0) {
-      setCart(prev => prev.filter(item => item.medicine.id !== medicineId));
+      setCart(prev => {
+        const updated = prev.filter(item => item.medicine.id !== medicineId);
+        try {
+          localStorage.setItem('pharmacy_cart', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
     } else {
-      setCart(prev =>
-        prev.map(item =>
+      setCart(prev => {
+        const updated = prev.map(item =>
           item.medicine.id === medicineId
             ? { ...item, quantity }
             : item
-        )
-      );
+        );
+        try {
+          localStorage.setItem('pharmacy_cart', JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
     }
   };
 
@@ -292,7 +317,10 @@ const Pharmacy = () => {
         setOrders(prev => [...prev, ...newOrders]);
         setCart([]);
         setShowCart(false);
-        
+        // Clear cart from localStorage
+        try {
+          localStorage.removeItem('pharmacy_cart');
+        } catch {}
         // Show success message
         alert(`Successfully placed ${successfulOrders.length} order(s) on the blockchain!`);
       } else {
@@ -362,7 +390,7 @@ const Pharmacy = () => {
             <div className="flex space-x-3">
               <button
                 onClick={() => setShowOrders(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                className="flex items-center space-x-2 px-4 py-2 bg-white text-emerald-700 rounded-lg hover:bg-emerald-100 transition-colors duration-200"
               >
                 <span>My Orders ({orders.length})</span>
               </button>
