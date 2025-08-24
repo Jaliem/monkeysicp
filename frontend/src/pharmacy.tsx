@@ -140,6 +140,10 @@ const Pharmacy = () => {
           };
         });
         
+        console.log('Raw medicines data from backend:', medicinesData);
+        console.log('Parsed medicines count:', parsedMedicines.length);
+        console.log('Parsed medicines:', parsedMedicines);
+        
         setMedicines(parsedMedicines.length > 0 ? parsedMedicines : getDefaultMedicines());
         setOrders(parsedOrders);
         
