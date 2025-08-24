@@ -230,6 +230,7 @@ module {
     requires_prescription : Bool;
     active_ingredient : ?Text;
     dosage : ?Text;
+    image_url: Text;
   };
 
   public type MedicineOrder = {

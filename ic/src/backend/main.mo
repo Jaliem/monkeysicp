@@ -110,599 +110,260 @@ persistent actor {
   private func initializeDoctors() {
     Debug.print("[INIT]: Initializing doctor database");
 
-    // CARDIOLOGY DOCTORS
-  let card1 : Types.Doctor = {
-      doctor_id = "card_001";
-      name = "Dr. Amir Hassan";
-      specialty = "Cardiology";
-      qualifications = "MD, FACC";
-      experience_years = 15;
-      rating = 4.8;
-      available_days = ["Monday", "Wednesday", "Friday"];
-      available_slots = ["09:00", "11:00", "14:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("card_001", card1));
+   // CARDIOLOGY DOCTORS
+    let card1 : Types.Doctor = {
+        doctor_id = "card_001";
+        name = "Dr. Amir Hassan";
+        specialty = "Cardiology";
+        qualifications = "MD, FACC";
+        experience_years = 15;
+        rating = 4.8;
+        available_days = ["Monday", "Wednesday", "Friday"];
+        available_slots = ["09:00", "11:00", "14:00", "16:00"];
+        image_url = "https://media.istockphoto.com/id/177373093/photo/indian-male-doctor.jpg?s=612x612&w=0&k=20&c=5FkfKdCYERkAg65cQtdqeO_D0JMv6vrEdPw3mX1Lkfg=";
+    };
+    doctors.add(("card_001", card1));
 
-  let card2 : Types.Doctor = {
-      doctor_id = "card_002";
-      name = "Dr. Sarah Chen";
-      specialty = "Cardiology";
-      qualifications = "MD, FACC, FHRS";
-      experience_years = 12;
-      rating = 4.7;
-      available_days = ["Tuesday", "Thursday"];
-      available_slots = ["10:00", "13:00", "15:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("card_002", card2));
+    let card2 : Types.Doctor = {
+        doctor_id = "card_002";
+        name = "Dr. Sarah Chen";
+        specialty = "Cardiology";
+        qualifications = "MD, FACC, FHRS";
+        experience_years = 12;
+        rating = 4.7;
+        available_days = ["Tuesday", "Thursday"];
+        available_slots = ["10:00", "13:00", "15:00"];
+        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-KjqUO12bNZqGpsdh6gU0DUmz3f3-Pj5ikJYYqb5w8A789NqtMnEmVf6Fo0AqoXJOfcY&usqp=CAU";
+    };
+    doctors.add(("card_002", card2));
 
-  let card3 : Types.Doctor = {
-      doctor_id = "card_003";
-      name = "Dr. Priya Sharma";
-      specialty = "Cardiology";
-      qualifications = "MD, FACC, FSCAI";
-      experience_years = 18;
-      rating = 4.9;
-      available_days = ["Monday", "Thursday", "Saturday"];
-      available_slots = ["08:00", "12:00", "15:00", "17:00"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("card_003", card3));
+    // DERMATOLOGY DOCTORS
+    let derm1 : Types.Doctor = {
+        doctor_id = "derm_001";
+        name = "Dr. Isabella Rodriguez";
+        specialty = "Dermatology";
+        qualifications = "MD, FAAD";
+        experience_years = 11;
+        rating = 4.6;
+        available_days = ["Monday", "Tuesday", "Thursday"];
+        available_slots = ["08:00", "10:00", "14:00", "16:00"];
+        image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("derm_001", derm1));
 
-  let card4 : Types.Doctor = {
-      doctor_id = "card_004";
-      name = "Dr. James Mitchell";
-      specialty = "Cardiology";
-      qualifications = "MD, FACC, FACS";
-      experience_years = 20;
-      rating = 4.6;
-      available_days = ["Tuesday", "Friday"];
-      available_slots = ["09:30", "11:30", "14:30", "16:30"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("card_004", card4));
+    let derm2 : Types.Doctor = {
+        doctor_id = "derm_002";
+        name = "Dr. Sofia Petrov";
+        specialty = "Dermatology";
+        qualifications = "MD, FAAD, FACMS";
+        experience_years = 17;
+        rating = 4.9;
+        available_days = ["Wednesday", "Friday"];
+        available_slots = ["09:00", "11:00", "13:00", "15:00"];
+        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYgoNUGdTXgbbapdy3wq9WPJYj9UxpkcVwnwxD9M_fvkR-nwQIY57c8TguRer6Cshtcnw&usqp=CAU";
+    };
+    doctors.add(("derm_002", derm2));
 
-  let card5 : Types.Doctor = {
-      doctor_id = "card_005";
-      name = "Dr. Fatima Al-Zahra";
-      specialty = "Cardiology";
-      qualifications = "MD, FACC";
-      experience_years = 14;
-      rating = 4.8;
-      available_days = ["Wednesday", "Friday", "Saturday"];
-      available_slots = ["08:30", "10:30", "13:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("card_005", card5));
+    // NEUROLOGY DOCTORS
+    let neuro1 : Types.Doctor = {
+        doctor_id = "neuro_001";
+        name = "Dr. Chen Wang";
+        specialty = "Neurology";
+        qualifications = "MD, FAAN";
+        experience_years = 18;
+        rating = 4.9;
+        available_days = ["Wednesday", "Friday"];
+        available_slots = ["09:00", "13:00", "15:00", "17:00"];
+        image_url = "https://media.istockphoto.com/id/469603848/photo/mature-medical-doctor.jpg?s=612x612&w=0&k=20&c=tvCH8hG-O3GQrwo-Zd0YdQgjSWgW_Mn9DJPLODKKUrE=";
+    };
+    doctors.add(("neuro_001", neuro1));
 
-  let card6 : Types.Doctor = {
-      doctor_id = "card_006";
-      name = "Dr. Robert Kim";
-      specialty = "Cardiology";
-      qualifications = "MD, FACC, FHRS";
-      experience_years = 16;
-      rating = 4.7;
-      available_days = ["Monday", "Tuesday"];
-      available_slots = ["09:00", "11:00", "14:00"];
-      image_url = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("card_006", card6));
+    let neuro2 : Types.Doctor = {
+        doctor_id = "neuro_002";
+        name = "Dr. Isabella Romano";
+        specialty = "Neurology";
+        qualifications = "MD, FAAN, FAES";
+        experience_years = 22;
+        rating = 4.9;
+        available_days = ["Monday", "Tuesday"];
+        available_slots = ["10:00", "14:00", "16:00"];
+        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTwoLR-bBo8Y92cKLK7QQ61MPdYffu7sJCxdQBhMy5zk5RedIVAsV8ON8LgBKqgwFyLQEE&usqp=CAU";
+    };
+    doctors.add(("neuro_002", neuro2));
 
-  // DERMATOLOGY DOCTORS
-  let derm1 : Types.Doctor = {
-      doctor_id = "derm_001";
-      name = "Dr. Bella Rodriguez";
-      specialty = "Dermatology";
-      qualifications = "MD, FAAD";
-      experience_years = 10;
-      rating = 4.6;
-      available_days = ["Monday", "Tuesday", "Thursday"];
-      available_slots = ["08:00", "10:00", "14:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("derm_001", derm1));
+    // ORTHOPEDICS DOCTORS
+    let ortho1 : Types.Doctor = {
+        doctor_id = "ortho_001";
+        name = "Dr. Miguel Diaz";
+        specialty = "Orthopedics";
+        qualifications = "MD, FAAOS";
+        experience_years = 14;
+        rating = 4.5;
+        available_days = ["Monday", "Wednesday"];
+        available_slots = ["09:30", "16:00", "18:00"];
+        image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("ortho_001", ortho1));
 
-  let derm2 : Types.Doctor = {
-      doctor_id = "derm_002";
-      name = "Dr. Sofia Petrov";
-      specialty = "Dermatology";
-      qualifications = "MD, FAAD, FACMS";
-      experience_years = 17;
-      rating = 4.9;
-      available_days = ["Wednesday", "Friday"];
-      available_slots = ["09:00", "11:00", "13:00", "15:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("derm_002", derm2));
+    let ortho2 : Types.Doctor = {
+        doctor_id = "ortho_002";
+        name = "Dr. Lisa Thompson";
+        specialty = "Orthopedics";
+        qualifications = "MD, FAAOS";
+        experience_years = 17;
+        rating = 4.8;
+        available_days = ["Tuesday", "Thursday"];
+        available_slots = ["08:00", "10:00", "14:00", "16:00"];
+        image_url = "https://i.pinimg.com/474x/c5/a3/90/c5a3904b38eb241dd03dd30889599dc4.jpg";
+    };
+    doctors.add(("ortho_002", ortho2));
 
-  let derm3 : Types.Doctor = {
-      doctor_id = "derm_003";
-      name = "Dr. Ahmed Al-Rashid";
-      specialty = "Dermatology";
-      qualifications = "MD, FAAD";
-      experience_years = 9;
-      rating = 4.5;
-      available_days = ["Tuesday", "Thursday", "Saturday"];
-      available_slots = ["08:30", "10:30", "14:30"];
-      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("derm_003", derm3));
+    // PEDIATRICS DOCTORS
+    let pedia1 : Types.Doctor = {
+        doctor_id = "pedia_001";
+        name = "Dr. Emily Johnson";
+        specialty = "Pediatrics";
+        qualifications = "MD, FAAP";
+        experience_years = 8;
+        rating = 4.8;
+        available_days = ["Tuesday", "Thursday", "Saturday"];
+        available_slots = ["08:00", "12:00", "14:00"];
+        image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("pedia_001", pedia1));
 
-  let derm4 : Types.Doctor = {
-      doctor_id = "derm_004";
-      name = "Dr. Emma Thompson";
-      specialty = "Dermatology";
-      qualifications = "MD, FAAD, FACMS";
-      experience_years = 13;
-      rating = 4.8;
-      available_days = ["Monday", "Wednesday"];
-      available_slots = ["09:30", "11:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("derm_004", derm4));
+    let pedia2 : Types.Doctor = {
+        doctor_id = "pedia_002";
+        name = "Dr. Rachel Green";
+        specialty = "Pediatrics";
+        qualifications = "MD, FAAP";
+        experience_years = 12;
+        rating = 4.7;
+        available_days = ["Monday", "Wednesday", "Friday"];
+        available_slots = ["08:30", "10:30", "13:30", "15:30"];
+        image_url = "https://images.unsplash.com/photo-1594824804732-ca8db0daf43e?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("pedia_002", pedia2));
 
-  let derm5 : Types.Doctor = {
-      doctor_id = "derm_005";
-      name = "Dr. Marcus Johnson";
-      specialty = "Dermatology";
-      qualifications = "MD, FAAD";
-      experience_years = 15;
-      rating = 4.7;
-      available_days = ["Tuesday", "Friday"];
-      available_slots = ["08:00", "12:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("derm_005", derm5));
+    let pedia3 : Types.Doctor = {
+        doctor_id = "pedia_003";
+        name = "Dr. Yuki Yamamoto";
+        specialty = "Pediatrics";
+        qualifications = "MD, FAAP, FPIDS";
+        experience_years = 15;
+        rating = 4.9;
+        available_days = ["Tuesday", "Thursday"];
+        available_slots = ["09:00", "12:00", "14:00"];
+        image_url = "https://st2.depositphotos.com/1930953/5700/i/450/depositphotos_57007925-Asian-doctor.jpg";
+    };
+    doctors.add(("pedia_003", pedia3));
 
-  // NEUROLOGY DOCTORS
-  let neuro1 : Types.Doctor = {
-      doctor_id = "neuro_001";
-      name = "Dr. Chen Wang";
-      specialty = "Neurology";
-      qualifications = "MD, FAAN";
-      experience_years = 18;
-      rating = 4.9;
-      available_days = ["Wednesday", "Friday"];
-      available_slots = ["09:00", "13:00", "15:00", "17:00"];
-      image_url = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("neuro_001", neuro1));
+    // PSYCHIATRY DOCTORS
+    let psych1 : Types.Doctor = {
+        doctor_id = "psych_001";
+        name = "Dr. Vellyn Angeline";
+        specialty = "Psychiatry";
+        qualifications = "MD, FAPA";
+        experience_years = 11;
+        rating = 4.6;
+        available_days = ["Tuesday", "Thursday"];
+        available_slots = ["09:15", "11:15", "13:15"];
+        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBPtP4JyvRQ3P8KvuY4AOcxF97MTZ3Tph9sw&s";
+    };
+    doctors.add(("psych_001", psych1));
 
-  let neuro2 : Types.Doctor = {
-      doctor_id = "neuro_002";
-      name = "Dr. Isabella Romano";
-      specialty = "Neurology";
-      qualifications = "MD, FAAN, FAES";
-      experience_years = 22;
-      rating = 4.9;
-      available_days = ["Monday", "Tuesday"];
-      available_slots = ["10:00", "14:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("neuro_002", neuro2));
+    let psych2 : Types.Doctor = {
+        doctor_id = "psych_002";
+        name = "Dr. Michael Foster";
+        specialty = "Psychiatry";
+        qualifications = "MD, FAPA";
+        experience_years = 16;
+        rating = 4.8;
+        available_days = ["Monday", "Wednesday"];
+        available_slots = ["10:00", "12:00", "14:00", "16:00"];
+        image_url = "https://www.shutterstock.com/image-photo/profile-picture-smiling-old-male-600nw-1769847965.jpg";
+    };
+    doctors.add(("psych_002", psych2));
 
-  let neuro3 : Types.Doctor = {
-      doctor_id = "neuro_003";
-      name = "Dr. David Kim";
-      specialty = "Neurology";
-      qualifications = "MD, FAAN";
-      experience_years = 11;
-      rating = 4.7;
-      available_days = ["Thursday", "Friday", "Saturday"];
-      available_slots = ["09:00", "11:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("neuro_003", neuro3));
+    // ONCOLOGY DOCTORS
+    let onco1 : Types.Doctor = {
+        doctor_id = "onco_001";
+        name = "Dr. Faisal Ahmad";
+        specialty = "Oncology";
+        qualifications = "MD, FACP";
+        experience_years = 20;
+        rating = 4.7;
+        available_days = ["Monday", "Wednesday", "Friday"];
+        available_slots = ["10:30", "13:30", "15:30"];
+        image_url = "https://t4.ftcdn.net/jpg/07/07/89/33/360_F_707893394_5DEhlBjWOmse1nyu0rC9T7ZRvsAFDkYC.jpg";
+    };
+    doctors.add(("onco_001", onco1));
 
-  let neuro4 : Types.Doctor = {
-      doctor_id = "neuro_004";
-      name = "Dr. Maria Gonzalez";
-      specialty = "Neurology";
-      qualifications = "MD, FAAN, FAES";
-      experience_years = 19;
-      rating = 4.8;
-      available_days = ["Monday", "Wednesday"];
-      available_slots = ["08:30", "12:30", "16:30"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("neuro_004", neuro4));
+    let onco2 : Types.Doctor = {
+        doctor_id = "onco_002";
+        name = "Dr. Gisella Jayata";
+        specialty = "Oncology";
+        qualifications = "MD, FACP, FASCO";
+        experience_years = 17;
+        rating = 4.8;
+        available_days = ["Tuesday", "Thursday"];
+        available_slots = ["09:00", "12:00", "15:00"];
+        image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("onco_002", onco2));
 
-  let neuro5 : Types.Doctor = {
-      doctor_id = "neuro_005";
-      name = "Dr. Andrew Foster";
-      specialty = "Neurology";
-      qualifications = "MD, FAAN";
-      experience_years = 14;
-      rating = 4.6;
-      available_days = ["Tuesday", "Thursday"];
-      available_slots = ["10:30", "13:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("neuro_005", neuro5));
+    // GENERAL PRACTITIONER DOCTORS
+    let gp1 : Types.Doctor = {
+        doctor_id = "gp_001";
+        name = "Dr. Dylan Lorrenzo";
+        specialty = "General Practitioner";
+        qualifications = "MD, AAFP";
+        experience_years = 7;
+        rating = 4.4;
+        available_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+        available_slots = ["08:30", "10:30", "12:30", "14:30"];
+        image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("gp_001", gp1));
 
-  // ORTHOPEDICS DOCTORS
-  let ortho1 : Types.Doctor = {
-      doctor_id = "ortho_001";
-      name = "Dr. Miguel Diaz";
-      specialty = "Orthopedics";
-      qualifications = "MD, FAAOS";
-      experience_years = 14;
-      rating = 4.5;
-      available_days = ["Monday", "Wednesday"];
-      available_slots = ["09:30", "16:00", "18:00"];
-      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("ortho_001", ortho1));
+    let gp2 : Types.Doctor = {
+        doctor_id = "gp_002";
+        name = "Dr. Sarah Williams";
+        specialty = "General Practitioner";
+        qualifications = "MD, AAFP";
+        experience_years = 10;
+        rating = 4.6;
+        available_days = ["Monday", "Tuesday", "Thursday"];
+        available_slots = ["08:00", "11:00", "13:00", "16:00"];
+        image_url = "https://images.unsplash.com/photo-1594824804732-ca8db0daf43e?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("gp_002", gp2));
 
-  let ortho2 : Types.Doctor = {
-      doctor_id = "ortho_002";
-      name = "Dr. Lisa Thompson";
-      specialty = "Orthopedics";
-      qualifications = "MD, FAAOS";
-      experience_years = 17;
-      rating = 4.8;
-      available_days = ["Tuesday", "Thursday"];
-      available_slots = ["08:00", "10:00", "14:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("ortho_002", ortho2));
+    let gp3 : Types.Doctor = {
+        doctor_id = "gp_003";
+        name = "Dr. Robert Clarke";
+        specialty = "General Practitioner";
+        qualifications = "MD, AAFP, ABFM";
+        experience_years = 14;
+        rating = 4.7;
+        available_days = ["Wednesday", "Friday"];
+        available_slots = ["09:00", "11:30", "14:30"];
+        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQBIr4N0-Wyj91VvwOvhiZ5-uJgjkbiPA5xOA&s";
+    };
+    doctors.add(("gp_003", gp3));
 
-  let ortho3 : Types.Doctor = {
-      doctor_id = "ortho_003";
-      name = "Dr. Carlos Mendez";
-      specialty = "Orthopedics";
-      qualifications = "MD, FAAOS, FACS";
-      experience_years = 19;
-      rating = 4.6;
-      available_days = ["Monday", "Wednesday", "Friday"];
-      available_slots = ["09:00", "13:00", "15:00"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("ortho_003", ortho3));
-
-  let ortho4 : Types.Doctor = {
-      doctor_id = "ortho_004";
-      name = "Dr. Jennifer Park";
-      specialty = "Orthopedics";
-      qualifications = "MD, FAAOS";
-      experience_years = 12;
-      rating = 4.7;
-      available_days = ["Tuesday", "Friday"];
-      available_slots = ["08:30", "11:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("ortho_004", ortho4));
-
-  let ortho5 : Types.Doctor = {
-      doctor_id = "ortho_005";
-      name = "Dr. Viktor Petrov";
-      specialty = "Orthopedics";
-      qualifications = "MD, FAAOS, FACS";
-      experience_years = 21;
-      rating = 4.9;
-      available_days = ["Wednesday", "Thursday", "Saturday"];
-      available_slots = ["09:00", "12:00", "14:00"];
-      image_url = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("ortho_005", ortho5));
-
-  // PEDIATRICS DOCTORS
-  let pedia1 : Types.Doctor = {
-      doctor_id = "pedia_001";
-      name = "Dr. Emily Johnson";
-      specialty = "Pediatrics";
-      qualifications = "MD, FAAP";
-      experience_years = 8;
-      rating = 4.8;
-      available_days = ["Tuesday", "Thursday", "Saturday"];
-      available_slots = ["08:00", "12:00", "14:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("pedia_001", pedia1));
-
-  let pedia2 : Types.Doctor = {
-      doctor_id = "pedia_002";
-      name = "Dr. Rachel Green";
-      specialty = "Pediatrics";
-      qualifications = "MD, FAAP";
-      experience_years = 12;
-      rating = 4.7;
-      available_days = ["Monday", "Wednesday", "Friday"];
-      available_slots = ["08:30", "10:30", "13:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("pedia_002", pedia2));
-
-  let pedia3 : Types.Doctor = {
-      doctor_id = "pedia_003";
-      name = "Dr. Yuki Yamamoto";
-      specialty = "Pediatrics";
-      qualifications = "MD, FAAP, FPIDS";
-      experience_years = 15;
-      rating = 4.9;
-      available_days = ["Tuesday", "Thursday"];
-      available_slots = ["09:00", "12:00", "14:00"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("pedia_003", pedia3));
-
-  let pedia4 : Types.Doctor = {
-      doctor_id = "pedia_004";
-      name = "Dr. Hannah Miller";
-      specialty = "Pediatrics";
-      qualifications = "MD, FAAP";
-      experience_years = 10;
-      rating = 4.6;
-      available_days = ["Monday", "Friday"];
-      available_slots = ["08:00", "11:00", "15:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("pedia_004", pedia4));
-
-  let pedia5 : Types.Doctor = {
-      doctor_id = "pedia_005";
-      name = "Dr. Omar Hassan";
-      specialty = "Pediatrics";
-      qualifications = "MD, FAAP, FPEM";
-      experience_years = 18;
-      rating = 4.8;
-      available_days = ["Wednesday", "Saturday"];
-      available_slots = ["09:30", "11:30", "13:30"];
-      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("pedia_005", pedia5));
-
-  let pedia6 : Types.Doctor = {
-      doctor_id = "pedia_006";
-      name = "Dr. Sophie Laurent";
-      specialty = "Pediatrics";
-      qualifications = "MD, FAAP";
-      experience_years = 7;
-      rating = 4.5;
-      available_days = ["Tuesday", "Thursday", "Friday"];
-      available_slots = ["08:30", "12:30", "16:30"];
-      image_url = "https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("pedia_006", pedia6));
-
-  // PSYCHIATRY DOCTORS
-  let psych1 : Types.Doctor = {
-      doctor_id = "psych_001";
-      name = "Dr. Grace Liu";
-      specialty = "Psychiatry";
-      qualifications = "MD, FAPA";
-      experience_years = 11;
-      rating = 4.6;
-      available_days = ["Tuesday", "Thursday"];
-      available_slots = ["09:15", "11:15", "13:15"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("psych_001", psych1));
-
-  let psych2 : Types.Doctor = {
-      doctor_id = "psych_002";
-      name = "Dr. Michael Foster";
-      specialty = "Psychiatry";
-      qualifications = "MD, FAPA";
-      experience_years = 16;
-      rating = 4.8;
-      available_days = ["Monday", "Wednesday"];
-      available_slots = ["10:00", "12:00", "14:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("psych_002", psych2));
-
-  let psych3 : Types.Doctor = {
-      doctor_id = "psych_003";
-      name = "Dr. Nina Volkov";
-      specialty = "Psychiatry";
-      qualifications = "MD, FAPA, FACEP";
-      experience_years = 13;
-      rating = 4.5;
-      available_days = ["Tuesday", "Friday"];
-      available_slots = ["09:30", "11:30", "13:30"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("psych_003", psych3));
-
-  let psych4 : Types.Doctor = {
-      doctor_id = "psych_004";
-      name = "Dr. Samuel Wright";
-      specialty = "Psychiatry";
-      qualifications = "MD, FAPA";
-      experience_years = 19;
-      rating = 4.9;
-      available_days = ["Monday", "Thursday"];
-      available_slots = ["08:00", "10:00", "15:00"];
-      image_url = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("psych_004", psych4));
-
-  let psych5 : Types.Doctor = {
-      doctor_id = "psych_005";
-      name = "Dr. Amara Patel";
-      specialty = "Psychiatry";
-      qualifications = "MD, FAPA, FAACAP";
-      experience_years = 14;
-      rating = 4.7;
-      available_days = ["Wednesday", "Friday", "Saturday"];
-      available_slots = ["09:00", "13:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("psych_005", psych5));
-
-  // ONCOLOGY DOCTORS
-  let onco1 : Types.Doctor = {
-      doctor_id = "onco_001";
-      name = "Dr. Faisal Ahmad";
-      specialty = "Oncology";
-      qualifications = "MD, FACP";
-      experience_years = 20;
-      rating = 4.7;
-      available_days = ["Monday", "Wednesday", "Friday"];
-      available_slots = ["10:30", "13:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("onco_001", onco1));
-
-  let onco2 : Types.Doctor = {
-      doctor_id = "onco_002";
-      name = "Dr. Catherine Brooks";
-      specialty = "Oncology";
-      qualifications = "MD, FACP, FASCO";
-      experience_years = 17;
-      rating = 4.8;
-      available_days = ["Tuesday", "Thursday"];
-      available_slots = ["09:00", "12:00", "15:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("onco_002", onco2));
-
-  let onco3 : Types.Doctor = {
-      doctor_id = "onco_003";
-      name = "Dr. Rajesh Kumar";
-      specialty = "Oncology";
-      qualifications = "MD, FACP";
-      experience_years = 22;
-      rating = 4.9;
-      available_days = ["Monday", "Thursday"];
-      available_slots = ["08:30", "11:30", "14:30"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("onco_003", onco3));
-
-  let onco4 : Types.Doctor = {
-      doctor_id = "onco_004";
-      name = "Dr. Elena Rossi";
-      specialty = "Oncology";
-      qualifications = "MD, FACP, FASCO";
-      experience_years = 15;
-      rating = 4.6;
-      available_days = ["Wednesday", "Friday"];
-      available_slots = ["10:00", "13:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("onco_004", onco4));
-
-  let onco5 : Types.Doctor = {
-      doctor_id = "onco_005";
-      name = "Dr. Jonathan Davis";
-      specialty = "Oncology";
-      qualifications = "MD, FACP";
-      experience_years = 18;
-      rating = 4.8;
-      available_days = ["Tuesday", "Saturday"];
-      available_slots = ["09:30", "12:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("onco_005", onco5));
-
-  // GENERAL PRACTITIONER DOCTORS
-  let gp1 : Types.Doctor = {
-      doctor_id = "gp_001";
-      name = "Dr. Hiro Tanaka";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP";
-      experience_years = 7;
-      rating = 4.4;
-      available_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-      available_slots = ["08:30", "10:30", "12:30", "14:30"];
-      image_url = "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("gp_001", gp1));
-
-  let gp2 : Types.Doctor = {
-      doctor_id = "gp_002";
-      name = "Dr. Sarah Williams";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP";
-      experience_years = 10;
-      rating = 4.6;
-      available_days = ["Monday", "Tuesday", "Thursday"];
-      available_slots = ["08:00", "11:00", "13:00", "16:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("gp_002", gp2));
-
-  let gp3 : Types.Doctor = {
-      doctor_id = "gp_003";
-      name = "Dr. Robert Clarke";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP, ABFM";
-      experience_years = 14;
-      rating = 4.7;
-      available_days = ["Wednesday", "Friday"];
-      available_slots = ["09:00", "11:30", "14:30"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("gp_003", gp3));
-
-  let gp4 : Types.Doctor = {
-      doctor_id = "gp_004";
-      name = "Dr. Angela Martinez";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP";
-      experience_years = 12;
-      rating = 4.5;
-      available_days = ["Monday", "Wednesday", "Friday"];
-      available_slots = ["08:00", "10:00", "15:00", "17:00"];
-      image_url = "https://images.unsplash.com/photo-1607990281513-2c110a25bd8c?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("gp_004", gp4));
-
-  let gp5 : Types.Doctor = {
-      doctor_id = "gp_005";
-      name = "Dr. Thomas Anderson";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP, ABFM";
-      experience_years = 16;
-      rating = 4.8;
-      available_days = ["Tuesday", "Thursday", "Saturday"];
-      available_slots = ["09:30", "12:00", "14:00"];
-      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("gp_005", gp5));
-
-  let gp6 : Types.Doctor = {
-      doctor_id = "gp_006";
-      name = "Dr. Priyanka Singh";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP";
-      experience_years = 9;
-      rating = 4.6;
-      available_days = ["Monday", "Tuesday", "Friday"];
-      available_slots = ["08:30", "11:30", "13:30", "16:30"];
-      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("gp_006", gp6));
-
-  let gp7 : Types.Doctor = {
-      doctor_id = "gp_007";
-      name = "Dr. Kevin O'Brien";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP";
-      experience_years = 11;
-      rating = 4.4;
-      available_days = ["Wednesday", "Thursday", "Saturday"];
-      available_slots = ["09:00", "12:30", "15:30"];
-      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
-  };
-  doctors.add(("gp_007", gp7));
-
-  let gp8 : Types.Doctor = {
-      doctor_id = "gp_008";
-      name = "Dr. Fatima Nasser";
-      specialty = "General Practitioner";
-      qualifications = "MD, AAFP, ABFM";
-      experience_years = 13;
-      rating = 4.7;
-      available_days = ["Monday", "Thursday"];
-      available_slots = ["08:00", "10:30", "13:00", "15:00"];
-      image_url = "https://images.unsplash.com/photo-1594824848637-114aa33c54d7?w=400&h=400&fit=crop&crop=face";
-  };
-doctors.add(("gp_008", gp8));
-
+    let gp4 : Types.Doctor = {
+        doctor_id = "gp_004";
+        name = "Dr. Angela Martinez";
+        specialty = "General Practitioner";
+        qualifications = "MD, AAFP";
+        experience_years = 12;
+        rating = 4.5;
+        available_days = ["Monday", "Wednesday", "Friday"];
+        available_slots = ["08:00", "10:00", "15:00", "17:00"];
+        image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
+    };
+    doctors.add(("gp_004", gp4));
     Debug.print("[INIT]: Added " # Nat.toText(doctors.size()) # " doctors to database");
   };
 
@@ -711,7 +372,7 @@ doctors.add(("gp_008", gp8));
   private func initializeMedicines() {
     Debug.print("[INIT]: Initializing medicine database");
 
-    // Pain Relief medicines
+  // Pain Relief medicines
     let paracetamol : Types.Medicine = {
       medicine_id = "med_001";
       name = "Paracetamol";
@@ -724,6 +385,7 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Acetaminophen 500mg";
       dosage = ?"1-2 tablets every 4-6 hours";
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-U37LqNIOtq4U_YL3av1GAe82pnGScVAvpw&s";
     };
     medicines.add(("med_001", paracetamol));
 
@@ -739,38 +401,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Ibuprofen 400mg";
       dosage = ?"1 tablet every 6-8 hours";
+      image_url = "https://www.medicinedirect.co.uk/media/catalog/product/cache/8bf3693ed458c257f5171ffffa4e8921/2/2/220-4956.jpg";
     };
     medicines.add(("med_002", ibuprofen));
-
-    let aspirin : Types.Medicine = {
-      medicine_id = "med_003";
-      name = "Aspirin";
-      generic_name = ?"Acetylsalicylic acid";
-      category = "Pain relief";
-      stock = 80;
-      price = 4.25;
-      manufacturer = ?"MediCare";
-      description = ?"Pain relief and blood thinner";
-      requires_prescription = false;
-      active_ingredient = ?"Acetylsalicylic acid 325mg";
-      dosage = ?"1-2 tablets every 4 hours";
-    };
-    medicines.add(("med_003", aspirin));
-
-    let naproxen : Types.Medicine = {
-      medicine_id = "med_004";
-      name = "Naproxen";
-      generic_name = ?"Naproxen Sodium";
-      category = "Pain relief";
-      stock = 95;
-      price = 8.75;
-      manufacturer = ?"HealthPlus";
-      description = ?"Long-lasting pain and inflammation relief";
-      requires_prescription = false;
-      active_ingredient = ?"Naproxen Sodium 220mg";
-      dosage = ?"1 tablet every 8-12 hours";
-    };
-    medicines.add(("med_004", naproxen));
 
     // Antibiotics
     let amoxicillin : Types.Medicine = {
@@ -785,6 +418,7 @@ doctors.add(("gp_008", gp8));
       requires_prescription = true;
       active_ingredient = ?"Amoxicillin 500mg";
       dosage = ?"1 capsule every 8 hours";
+      image_url = "https://wellonapharma.com/admincms/product_img/product_resize_img/amoxicillin-tablets_1732540129.jpg";
     };
     medicines.add(("med_005", amoxicillin));
 
@@ -800,38 +434,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = true;
       active_ingredient = ?"Azithromycin 250mg";
       dosage = ?"1 tablet daily for 5 days";
+      image_url = "https://www.krishlarpharma.com/wp-content/uploads/2019/12/KRITHRO-250-tablet.jpg";
     };
     medicines.add(("med_006", azithromycin));
-
-    let ciprofloxacin : Types.Medicine = {
-      medicine_id = "med_007";
-      name = "Ciprofloxacin";
-      generic_name = ?"Ciprofloxacin HCl";
-      category = "Antibiotic";
-      stock = 35;
-      price = 31.75;
-      manufacturer = ?"PharmaLab";
-      description = ?"Fluoroquinolone antibiotic";
-      requires_prescription = true;
-      active_ingredient = ?"Ciprofloxacin HCl 500mg";
-      dosage = ?"1 tablet every 12 hours";
-    };
-    medicines.add(("med_007", ciprofloxacin));
-
-    let doxycycline : Types.Medicine = {
-      medicine_id = "med_008";
-      name = "Doxycycline";
-      generic_name = ?"Doxycycline Hyclate";
-      category = "Antibiotic";
-      stock = 45;
-      price = 22.50;
-      manufacturer = ?"PharmaLab";
-      description = ?"Tetracycline antibiotic";
-      requires_prescription = true;
-      active_ingredient = ?"Doxycycline Hyclate 100mg";
-      dosage = ?"1 tablet every 12 hours";
-    };
-    medicines.add(("med_008", doxycycline));
 
     // Vitamins
     let vitamin_c : Types.Medicine = {
@@ -846,6 +451,7 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Ascorbic Acid 1000mg";
       dosage = ?"1 tablet daily";
+      image_url = "https://res-3.cloudinary.com/dk0z4ums3/image/upload/c_scale,h_500,w_500/v1/production/pharmacy/products/1725758008_vitamin_c_50_mg_10_tablet_afi";
     };
     medicines.add(("med_009", vitamin_c));
 
@@ -861,38 +467,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Cholecalciferol 2000 IU";
       dosage = ?"1 tablet daily";
+      image_url = "https://images-na.ssl-images-amazon.com/images/I/41+gy0zbsoL._UL500_.jpg";
     };
     medicines.add(("med_010", vitamin_d));
-
-    let vitamin_b12 : Types.Medicine = {
-      medicine_id = "med_011";
-      name = "Vitamin B12";
-      generic_name = ?"Cyanocobalamin";
-      category = "Vitamin";
-      stock = 160;
-      price = 14.99;
-      manufacturer = ?"VitaHealth";
-      description = ?"Energy and nerve function support";
-      requires_prescription = false;
-      active_ingredient = ?"Cyanocobalamin 1000mcg";
-      dosage = ?"1 tablet daily";
-    };
-    medicines.add(("med_011", vitamin_b12));
-
-    let calcium : Types.Medicine = {
-      medicine_id = "med_012";
-      name = "Calcium Carbonate";
-      generic_name = ?"Calcium Carbonate";
-      category = "Vitamin";
-      stock = 140;
-      price = 11.50;
-      manufacturer = ?"VitaHealth";
-      description = ?"Bone health supplement";
-      requires_prescription = false;
-      active_ingredient = ?"Calcium Carbonate 600mg";
-      dosage = ?"1-2 tablets daily with food";
-    };
-    medicines.add(("med_012", calcium));
 
     let multivitamin : Types.Medicine = {
       medicine_id = "med_013";
@@ -906,6 +483,7 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Multiple vitamins and minerals";
       dosage = ?"1 tablet daily with food";
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ_ichWgyH_Bgza9APX_I_MpCfqx6YJeShrKA&s";
     };
     medicines.add(("med_013", multivitamin));
 
@@ -922,6 +500,7 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Cetirizine HCl 10mg";
       dosage = ?"1 tablet daily";
+      image_url = "https://cdn.foxpharma.co.uk/wp-content/uploads/2024/09/Cetirizine-10mg.jpg";
     };
     medicines.add(("med_014", cetirizine));
 
@@ -937,38 +516,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Loratadine 10mg";
       dosage = ?"1 tablet daily";
+      image_url = "https://img-cdn.medkomtek.com/5h5Njal6c6LwZEADBmd0MOY9U90=/fit-in/690x387/smart/filters:quality(100):strip_icc():format(webp)/drugs/hHOd529y8FfZPTV1F6DqQ/original/OBT0008473.jpg";
     };
     medicines.add(("med_015", loratadine));
-
-    let diphenhydramine : Types.Medicine = {
-      medicine_id = "med_016";
-      name = "Diphenhydramine";
-      generic_name = ?"Diphenhydramine HCl";
-      category = "Allergy";
-      stock = 75;
-      price = 5.99;
-      manufacturer = ?"AllerCare";
-      description = ?"Antihistamine for allergies and sleep";
-      requires_prescription = false;
-      active_ingredient = ?"Diphenhydramine HCl 25mg";
-      dosage = ?"1-2 tablets every 4-6 hours";
-    };
-    medicines.add(("med_016", diphenhydramine));
-
-    let fexofenadine : Types.Medicine = {
-      medicine_id = "med_017";
-      name = "Fexofenadine";
-      generic_name = ?"Fexofenadine HCl";
-      category = "Allergy";
-      stock = 70;
-      price = 9.50;
-      manufacturer = ?"AllerCare";
-      description = ?"Non-drowsy 24-hour allergy relief";
-      requires_prescription = false;
-      active_ingredient = ?"Fexofenadine HCl 180mg";
-      dosage = ?"1 tablet daily";
-    };
-    medicines.add(("med_017", fexofenadine));
 
     // Diabetes medication
     let insulin : Types.Medicine = {
@@ -983,23 +533,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = true;
       active_ingredient = ?"Insulin Glargine 100 units/mL";
       dosage = ?"As prescribed by physician";
+      image_url = "https://www.shielddrugstore.com/web/image/product.template/27768/image_1024?unique=97ba552";
     };
     medicines.add(("med_018", insulin));
-
-    let regular_insulin : Types.Medicine = {
-      medicine_id = "med_019";
-      name = "Insulin";
-      generic_name = ?"Human Insulin";
-      category = "Diabetes";
-      stock = 40;
-      price = 75.50;
-      manufacturer = ?"DiabetesCare";
-      description = ?"Regular human insulin";
-      requires_prescription = true;
-      active_ingredient = ?"Human Insulin 100 units/mL";
-      dosage = ?"As prescribed by physician";
-    };
-    medicines.add(("med_019", regular_insulin));
 
     let metformin : Types.Medicine = {
       medicine_id = "med_020";
@@ -1013,23 +549,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = true;
       active_ingredient = ?"Metformin HCl 500mg";
       dosage = ?"1-2 tablets twice daily with meals";
+      image_url = "https://www.medsforless.co.uk/wp-content/uploads/2025/04/metformin_sr.jpg";
     };
     medicines.add(("med_020", metformin));
-
-    let glipizide : Types.Medicine = {
-      medicine_id = "med_021";
-      name = "Glipizide";
-      generic_name = ?"Glipizide";
-      category = "Diabetes";
-      stock = 55;
-      price = 24.99;
-      manufacturer = ?"DiabetesCare";
-      description = ?"Sulfonylurea diabetes medication";
-      requires_prescription = true;
-      active_ingredient = ?"Glipizide 5mg";
-      dosage = ?"1 tablet daily before breakfast";
-    };
-    medicines.add(("med_021", glipizide));
 
     // Heart medicines
     let lisinopril : Types.Medicine = {
@@ -1044,53 +566,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = true;
       active_ingredient = ?"Lisinopril 10mg";
       dosage = ?"1 tablet daily";
+      image_url = "https://www.simplymedsonline.co.uk/storage/products/5746/images/lisinopril-tablets-es-31654603359.webp";
     };
     medicines.add(("med_022", lisinopril));
-
-    let amlodipine : Types.Medicine = {
-      medicine_id = "med_023";
-      name = "Amlodipine";
-      generic_name = ?"Amlodipine Besylate";
-      category = "Heart";
-      stock = 85;
-      price = 19.75;
-      manufacturer = ?"CardioMed";
-      description = ?"Calcium channel blocker";
-      requires_prescription = true;
-      active_ingredient = ?"Amlodipine Besylate 5mg";
-      dosage = ?"1 tablet daily";
-    };
-    medicines.add(("med_023", amlodipine));
-
-    let atorvastatin : Types.Medicine = {
-      medicine_id = "med_024";
-      name = "Atorvastatin";
-      generic_name = ?"Atorvastatin Calcium";
-      category = "Heart";
-      stock = 65;
-      price = 34.50;
-      manufacturer = ?"CardioMed";
-      description = ?"Statin for cholesterol management";
-      requires_prescription = true;
-      active_ingredient = ?"Atorvastatin Calcium 20mg";
-      dosage = ?"1 tablet daily in the evening";
-    };
-    medicines.add(("med_024", atorvastatin));
-
-    let metoprolol : Types.Medicine = {
-      medicine_id = "med_025";
-      name = "Metoprolol";
-      generic_name = ?"Metoprolol Tartrate";
-      category = "Heart";
-      stock = 70;
-      price = 21.25;
-      manufacturer = ?"CardioMed";
-      description = ?"Beta-blocker for heart conditions";
-      requires_prescription = true;
-      active_ingredient = ?"Metoprolol Tartrate 50mg";
-      dosage = ?"1 tablet twice daily";
-    };
-    medicines.add(("med_025", metoprolol));
 
     // Mental Health medicines
     let sertraline : Types.Medicine = {
@@ -1105,38 +583,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = true;
       active_ingredient = ?"Sertraline HCl 50mg";
       dosage = ?"1 tablet daily";
+      image_url = "https://medias.watsons.com.ph/publishing/WTCPH-10059639-front-zoom.jpg?version=1721929924";
     };
     medicines.add(("med_026", sertraline));
-
-    let lorazepam : Types.Medicine = {
-      medicine_id = "med_027";
-      name = "Lorazepam";
-      generic_name = ?"Lorazepam";
-      category = "Mental Health";
-      stock = 30;
-      price = 38.50;
-      manufacturer = ?"MindCare";
-      description = ?"Benzodiazepine for anxiety";
-      requires_prescription = true;
-      active_ingredient = ?"Lorazepam 1mg";
-      dosage = ?"As prescribed by physician";
-    };
-    medicines.add(("med_027", lorazepam));
-
-    let fluoxetine : Types.Medicine = {
-      medicine_id = "med_028";
-      name = "Fluoxetine";
-      generic_name = ?"Fluoxetine HCl";
-      category = "Mental Health";
-      stock = 45;
-      price = 42.75;
-      manufacturer = ?"MindCare";
-      description = ?"SSRI antidepressant";
-      requires_prescription = true;
-      active_ingredient = ?"Fluoxetine HCl 20mg";
-      dosage = ?"1 tablet daily in morning";
-    };
-    medicines.add(("med_028", fluoxetine));
 
     // Digestive Health medicines
     let omeprazole : Types.Medicine = {
@@ -1151,24 +600,9 @@ doctors.add(("gp_008", gp8));
       requires_prescription = false;
       active_ingredient = ?"Omeprazole 20mg";
       dosage = ?"1 capsule daily before breakfast";
+      image_url = "https://5.imimg.com/data5/SELLER/Default/2024/2/386108659/PC/IV/YU/195334035/omeprazole-capsules-ip.jpg";
     };
     medicines.add(("med_029", omeprazole));
-
-    let loperamide : Types.Medicine = {
-      medicine_id = "med_030";
-      name = "Loperamide";
-      generic_name = ?"Loperamide HCl";
-      category = "Digestive health";
-      stock = 65;
-      price = 9.75;
-      manufacturer = ?"DigestCare";
-      description = ?"Anti-diarrheal medication";
-      requires_prescription = false;
-      active_ingredient = ?"Loperamide HCl 2mg";
-      dosage = ?"2 tablets initially, then 1 after each loose stool";
-    };
-    medicines.add(("med_030", loperamide));
-
     Debug.print("[INIT]: Added " # Nat.toText(medicines.size()) # " medicines to database");
   };
 
@@ -1586,6 +1020,7 @@ doctors.add(("gp_008", gp8));
           requires_prescription = medicine.requires_prescription;
           active_ingredient = medicine.active_ingredient;
           dosage = medicine.dosage;
+          image_url = medicine.image_url;
         };
 
         // Update medicine stock in the buffer by finding and replacing the entry
@@ -1840,6 +1275,7 @@ doctors.add(("gp_008", gp8));
                 requires_prescription = medicine.requires_prescription;
                 active_ingredient = medicine.active_ingredient;
                 dosage = medicine.dosage;
+                image_url = medicine.image_url;
               };
               medicines_temp.add((med_id, updated_medicine));
             } else {

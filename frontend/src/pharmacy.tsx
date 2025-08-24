@@ -1,8 +1,7 @@
-import { useState, useEffect, type ReactNode } from 'react';
+import { useState, useEffect } from 'react';
 import Navbar from './nav';
 import { fetchMedicines, fetchOrders, placeMedicineOrder, cancelMedicineOrder } from './services/flaskService';
 import { useAuth } from './contexts/AuthContext';
-import { Apple, Brain, Flower, Heart, Pill, Syringe } from 'lucide-react';
 
 interface Medicine {
   id: string;
@@ -17,7 +16,7 @@ interface Medicine {
   description: string;
   sideEffects: string[];
   activeIngredients: string[];
-  image: ReactNode;
+  image_url: string;
 }
 
 interface Order {
@@ -38,47 +37,6 @@ interface CartItem {
 
 const Pharmacy = () => {
   const { principal, isAuthenticated, isLoading: authLoading } = useAuth();
-
-  // Define getCategoryIcon before using it in state initialization
-  const getCategoryIcon = (category: string): ReactNode => {
-    const iconMap: Record<string, ReactNode> = {
-      "pain relief": <Pill className="w-8 h-8 text-emerald-600" />,
-      "pain-relief": <Pill className="w-8 h-8 text-emerald-600" />,
-      "antibiotic": <Syringe className="w-8 h-8 text-blue-600" />,
-      "antibiotics": <Syringe className="w-8 h-8 text-blue-600" />,
-      "vitamin": <Apple className="w-8 h-8 text-orange-500" />,
-      "vitamins": <Apple className="w-8 h-8 text-orange-500" />,
-      "allergy": <Flower className="w-8 h-8 text-pink-500" />,
-      "diabetes": <Syringe className="w-8 h-8 text-red-500" />,
-      "heart": <Heart className="w-8 h-8 text-red-600" />,
-      "mental-health": <Brain className="w-8 h-8 text-purple-600" />,
-      "digestive health": <Apple className="w-8 h-8 text-gray-500" />,
-      "digestive": <Apple className="w-8 h-8 text-gray-500" />,
-    };
-
-    return iconMap[category.toLowerCase()] ?? (
-      <Pill className="w-4 h-4 text-gray-500" />
-    );
-  };
-
-  const getCategoryProfile = (category: string) => {
-    const colors: Record<string, string> = {
-      "pain relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
-      "pain-relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
-      "antibiotic": "bg-blue-100 text-blue-700 border-blue-200",
-      "antibiotics": "bg-blue-100 text-blue-700 border-blue-200",
-      "vitamin": "bg-orange-100 text-orange-700 border-orange-200",
-      "vitamins": "bg-orange-100 text-orange-700 border-orange-200",
-      "allergy": "bg-pink-100 text-pink-700 border-pink-200",
-      "diabetes": "bg-red-100 text-red-700 border-red-200",
-      "heart": "bg-red-100 text-red-700 border-red-200",
-      "mental-health": "bg-purple-100 text-purple-700 border-purple-200",
-      "digestive health": "bg-green-100 text-green-700 border-green-200",
-      "digestive": "bg-green-100 text-green-700 border-green-200",
-    };
-
-    return colors[category.toLowerCase()] || "bg-stone-100 text-stone-700 border-stone-200";
-  };
 
   // Show loading or redirect if not authenticated
   if (authLoading) {
@@ -107,30 +65,10 @@ const Pharmacy = () => {
       </div>
     );
   }
-
+  
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      const stored = localStorage.getItem('pharmacy_cart');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          // Restore image property for each medicine
-          return parsed.map((item: CartItem) => ({
-            ...item,
-            medicine: {
-              ...item.medicine,
-              image: getCategoryIcon(item.medicine.category)
-            }
-          }));
-        }
-      }
-    } catch (error) {
-      console.error('Error loading cart from localStorage:', error);
-    }
-    return [];
-  });
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCart, setShowCart] = useState(false);
@@ -152,6 +90,8 @@ const Pharmacy = () => {
         const medicinesData = await fetchMedicines();
         const ordersData = await fetchOrders(principal!);
         
+        console.log('Raw medicines data from backend:', medicinesData);
+        
         // Parse ICP medicine data format using numeric keys
         const parsedMedicines = medicinesData.map((medicine: any) => ({
           id: medicine["1_098_344_064"] || medicine.medicine_id || `med_${Date.now()}_${Math.random()}`,
@@ -166,8 +106,11 @@ const Pharmacy = () => {
           description: medicine["1_595_738_364"] || medicine.description || 'Medicine description not available.',
           sideEffects: ['Consult doctor for side effects'], // Default since not in response
           activeIngredients: medicine["819_652_970"] ? [medicine["819_652_970"]] : (medicine.active_ingredient ? [medicine.active_ingredient] : ['N/A']),
-          image: getCategoryIcon((medicine["2_909_547_262"] || medicine.category || 'general').toLowerCase())
+          image_url: medicine["914_348_363"] || medicine.image_url || 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center'
         }));
+        
+        console.log('Parsed medicines count:', parsedMedicines.length);
+        console.log('Parsed medicines:', parsedMedicines);
         
         // Parse ICP orders data format
         const parsedOrders = ordersData.map((order: any) => {
@@ -227,7 +170,7 @@ const Pharmacy = () => {
       description: 'Effective pain reliever and fever reducer for mild to moderate pain.',
       sideEffects: ['Nausea', 'Stomach upset', 'Allergic reactions (rare)'],
       activeIngredients: ['Acetaminophen 500mg'],
-      image: <Pill className="w-8 h-8 text-emerald-600" />
+      image_url: 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center'
     },
     {
       id: '2',
@@ -242,7 +185,7 @@ const Pharmacy = () => {
       description: 'Penicillin-based antibiotic for bacterial infections.',
       sideEffects: ['Diarrhea', 'Nausea', 'Skin rash', 'Vomiting'],
       activeIngredients: ['Amoxicillin Trihydrate 250mg'],
-      image: <Syringe className="w-8 h-8 text-blue-600" />
+      image_url: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=400&fit=crop&crop=center'
     }
   ];
 
@@ -251,78 +194,58 @@ const Pharmacy = () => {
     const matchesSearch = medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          medicine.genericName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          medicine.category.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch && medicine.stock > 0;
+    return matchesCategory && matchesSearch;
   });
+
+  console.log('Total medicines:', medicines.length);
+  console.log('Filtered medicines:', filteredMedicines.length);
+  console.log('Selected category:', selectedCategory);
+  console.log('Search query:', searchQuery);
 
   const addToCart = (medicine: Medicine, quantity: number = 1) => {
     setCart(prev => {
       const existingItem = prev.find(item => item.medicine.id === medicine.id);
-      let updated;
       if (existingItem) {
-        updated = prev.map(item =>
+        return prev.map(item =>
           item.medicine.id === medicine.id
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
-      } else {
-        updated = [...prev, { medicine, quantity }];
       }
-      // Save to localStorage (exclude image property to avoid circular reference)
-      try {
-        const cartForStorage = updated.map(item => ({
-          ...item,
-          medicine: {
-            ...item.medicine,
-            image: undefined // Remove image property before saving
-          }
-        }));
-        localStorage.setItem('pharmacy_cart', JSON.stringify(cartForStorage));
-      } catch (error) {
-        console.error('Error saving cart to localStorage:', error);
-      }
-      return updated;
+      return [...prev, { medicine, quantity }];
     });
+  };
+
+  const getCategoryProfile = (category: string) => {
+    const colors: Record<string, string> = {
+      "pain relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "pain-relief": "bg-emerald-100 text-emerald-700 border-emerald-200",
+      "antibiotic": "bg-blue-100 text-blue-700 border-blue-200",
+      "antibiotics": "bg-blue-100 text-blue-700 border-blue-200",
+      "vitamin": "bg-orange-100 text-orange-700 border-orange-200",
+      "vitamins": "bg-orange-100 text-orange-700 border-orange-200",
+      "allergy": "bg-pink-100 text-pink-700 border-pink-200",
+      "diabetes": "bg-red-100 text-red-700 border-red-200",
+      "heart": "bg-red-100 text-red-700 border-red-200",
+      "mental-health": "bg-purple-100 text-purple-700 border-purple-200",
+      "digestive health": "bg-green-100 text-green-700 border-green-200",
+      "digestive": "bg-green-100 text-green-700 border-green-200",
+    };
+
+    return colors[category.toLowerCase()] || "bg-stone-100 text-stone-700 border-stone-200";
   };
 
   const updateCartQuantity = (medicineId: string, quantity: number) => {
     if (quantity <= 0) {
-      setCart(prev => {
-        const updated = prev.filter(item => item.medicine.id !== medicineId);
-        try {
-          const cartForStorage = updated.map(item => ({
-            ...item,
-            medicine: {
-              ...item.medicine,
-              image: undefined // Remove image property before saving
-            }
-          }));
-          localStorage.setItem('pharmacy_cart', JSON.stringify(cartForStorage));
-        } catch (error) {
-          console.error('Error saving cart to localStorage:', error);
-        }
-        return updated;
-      });
+      setCart(prev => prev.filter(item => item.medicine.id !== medicineId));
     } else {
-      setCart(prev => {
-        const updated = prev.map(item =>
+      setCart(prev =>
+        prev.map(item =>
           item.medicine.id === medicineId
             ? { ...item, quantity }
             : item
-        );
-        try {
-          const cartForStorage = updated.map(item => ({
-            ...item,
-            medicine: {
-              ...item.medicine,
-              image: undefined // Remove image property before saving
-            }
-          }));
-          localStorage.setItem('pharmacy_cart', JSON.stringify(cartForStorage));
-        } catch (error) {
-          console.error('Error saving cart to localStorage:', error);
-        }
-        return updated;
-      });
+        )
+      );
     }
   };
 
@@ -364,12 +287,7 @@ const Pharmacy = () => {
         setOrders(prev => [...prev, ...newOrders]);
         setCart([]);
         setShowCart(false);
-        // Clear cart from localStorage
-        try {
-          localStorage.removeItem('pharmacy_cart');
-        } catch (error) {
-          console.error('Error clearing cart from localStorage:', error);
-        }
+        
         // Show success message
         alert(`Successfully placed ${successfulOrders.length} order(s) on the blockchain!`);
       } else {
@@ -446,6 +364,75 @@ const Pharmacy = () => {
         </div>
 
         <div className="p-8 max-w-7xl mx-auto">
+          {/* My Orders Section */}
+          {orders.filter(order => order.status !== 'cancelled').length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-light text-stone-800 font-serif mb-4">
+                Recent Orders
+              </h2>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+                {orders.filter(order => order.status !== 'cancelled').slice(0, 2).map((order) => {
+                  const medicine = medicines.find(m => m.id === order.medicineId);
+                  return (
+                  <div key={order.id} className="bg-white rounded-2xl p-6 shadow-sm border border-stone-100 hover:shadow-md transition-shadow duration-300">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center border ${medicine ? getCategoryProfile(medicine.category) : 'bg-emerald-100'} overflow-hidden`}>
+                          {medicine ? (
+                            <img 
+                              src={medicine.image_url} 
+                              alt={medicine.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center';
+                              }}
+                            />
+                          ) : (
+                            <span className="text-2xl">💊</span>
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-medium text-stone-800">{order.medicineName}</h3>
+                          <p className="text-sm text-stone-500 font-light">{order.pharmacyName}</p>
+                          <div className="text-xs text-stone-500 font-mono bg-stone-50 px-2 py-1 rounded border mt-1">
+                            ID: {order.id}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-3 py-1 rounded-lg text-xs font-medium ${
+                          order.status === 'ready' ? 'bg-green-100 text-green-700' :
+                          order.status === 'processing' ? 'bg-blue-100 text-blue-700' :
+                          order.status === 'delivered' ? 'bg-emerald-100 text-emerald-700' :
+                          'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {order.status}
+                        </span>
+                        {(order.status === 'pending' || order.status === 'confirmed' || order.status === 'processing') && (
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            disabled={cancellingOrders.has(order.id)}
+                            className="px-3 py-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                          >
+                            {cancellingOrders.has(order.id) ? 'Cancelling...' : 'Cancel'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between text-stone-600">
+                      <span>Qty: {order.quantity}</span>
+                      <span className="font-medium">${order.totalPrice.toFixed(2)}</span>
+                      <span className="text-sm">{new Date(order.orderDate).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Search and Filters */}
           <div className="mb-8">
             <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -455,15 +442,14 @@ const Pharmacy = () => {
                   placeholder="Search medicines by name, generic name, or category..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-200 font-light text-lg placeholder:opacity-30"
+                  className="w-full px-6 py-4 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-500 font-light text-lg placeholder:opacity-30"
                 />
               </div>
-              {/* Custom dropdown wrapper */}
               <div className="relative">
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="appearance-none w-full md:w-auto bg-white px-6 py-4 pr-12 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-200 focus:border-emerald-200 font-light text-lg"
+                  className="appearance-none w-full md:w-auto bg-white px-6 py-4 pr-12 border border-stone-200 rounded-2xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light text-lg"
                 >
                   <option value="all">All Categories</option>
                   {categories.slice(1).map(category => (
@@ -472,7 +458,6 @@ const Pharmacy = () => {
                     </option>
                   ))}
                 </select>
-                {/* Custom Arrow Icon */}
                 <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center px-4 text-gray-700">
                   <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
                     <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
@@ -499,8 +484,16 @@ const Pharmacy = () => {
                 <div className="p-6 flex-1" onClick={() => handleMedicineClick(medicine)}>
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl border ${getCategoryProfile(medicine.category)}`}> 
-                        {medicine.image}
+                      <div className={`w-25 h-25 rounded-full flex items-center justify-center border ${getCategoryProfile(medicine.category)} overflow-hidden`}> 
+                        <img 
+                          src={medicine.image_url} 
+                          alt={medicine.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center';
+                          }}
+                        />
                       </div>
                       <div>
                         <h3 className="font-medium text-stone-800 mb-1">{medicine.name}</h3>
@@ -594,8 +587,16 @@ const Pharmacy = () => {
                   <div className="space-y-4 mb-6">
                     {cart.map((item) => (
                       <div key={item.medicine.id} className="flex items-center space-x-4 p-4 border border-stone-200 rounded-lg">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl border ${getCategoryProfile(item.medicine.category)}`}>
-                          {item.medicine.image}
+                        <div className={`w-25 h-25 rounded-full flex items-center justify-center border ${getCategoryProfile(item.medicine.category)} overflow-hidden`}>
+                          <img 
+                            src={item.medicine.image_url} 
+                            alt={item.medicine.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center';
+                            }}
+                          />
                         </div>
                         
                         <div className="flex-1">
@@ -670,8 +671,16 @@ const Pharmacy = () => {
             <div className="p-6 border-b border-stone-200/60">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl border-2 ${getCategoryProfile(selectedMedicine.category)} shadow-sm`}>
-                    {selectedMedicine.image}
+                  <div className={`w-30 h-30 rounded-2xl flex items-center justify-center border-2 ${getCategoryProfile(selectedMedicine.category)} shadow-sm overflow-hidden`}>
+                    <img 
+                      src={selectedMedicine.image_url} 
+                      alt={selectedMedicine.name}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center';
+                      }}
+                    />
                   </div>
                   <div>
                     <h2 className="text-2xl font-light text-stone-800 font-serif">

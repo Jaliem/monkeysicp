@@ -3,7 +3,9 @@
     "allow": [
       "Bash(dfx canister call:*)",
       "Bash(curl:*)",
-      "Bash(dfx canister logs:*)"
+      "Bash(dfx canister logs:*)",
+      "Bash(grep:*)",
+      "Bash(dfx deploy:*)"
     ],
     "deny": [],
     "ask": []
