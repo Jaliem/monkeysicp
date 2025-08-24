@@ -4,10 +4,39 @@ import Nat "mo:base/Nat";
 import Nat16 "mo:base/Nat16";
 
 module {
+  // ----- Admin Doctor Form Type -----
+  public type DoctorForm = {
+    name : Text;
+    specialty : Text;
+    qualifications : Text;
+    experience_years : Nat;
+    rating : Float;
+    available_days : [Text];
+    available_slots : [Text];
+    image_url : Text;
+    phone_number : Text;
+    email : Text;
+    address : Text;
+    created_at : Text;
+    updated_at : Text;
+  };
+
+  // ----- Admin Pharmacy Form Type -----
+  public type PharmacyForm = {
+    pharmacy_id : Text;
+    name : Text;
+    address : Text;
+    phone_number : Text;
+    email : Text;
+    manager_name : Text;
+    license_number : Text;
+    opening_hours : Text;
+    created_at : Text;
+    updated_at : Text;
+  };
 
   // ----- HTTP types -----
   public type HeaderField = (Text, Text);
-
 
   public type UserProfile = {
     user_id : Text;
@@ -146,46 +175,46 @@ module {
 
   // Represents a single day's wellness log for a user.
   public type WellnessLog = {
-    user_id: Text;
-    date: Text; // Stored in "YYYY-MM-DD" format
-    sleep: ?Float;
-    steps: ?Nat;
-    exercise: ?Text;
-    mood: ?Text;
-    water_intake: ?Float;
+    user_id : Text;
+    date : Text; // Stored in "YYYY-MM-DD" format
+    sleep : ?Float;
+    steps : ?Nat;
+    exercise : ?Text;
+    mood : ?Text;
+    water_intake : ?Float;
   };
 
   // The response after successfully storing a log.
   public type StoreResponse = {
-    success: Bool;
-    message: Text;
-    id: ?Text;
-    logged_data: ?WellnessLog;
+    success : Bool;
+    message : Text;
+    id : ?Text;
+    logged_data : ?WellnessLog;
   };
 
   // The response when the agent requests a summary.
   public type SummaryResponse = {
-    logs: [WellnessLog];
-    total_count: Nat;
-    success: Bool;
-    message: Text;
+    logs : [WellnessLog];
+    total_count : Nat;
+    success : Bool;
+    message : Text;
   };
-  
+
   public type StreamingCallbackToken = {
-    key: Text;
-    index: Nat;
+    key : Text;
+    index : Nat;
   };
 
   public type StreamingStrategy = {
-    #Callback: {
-      token: StreamingCallbackToken;
-      callback: shared query (StreamingCallbackToken) -> async StreamingCallbackHttpResponse;
+    #Callback : {
+      token : StreamingCallbackToken;
+      callback : shared query (StreamingCallbackToken) -> async StreamingCallbackHttpResponse;
     };
   };
 
   public type StreamingCallbackHttpResponse = {
-    body: Blob;
-    token: ?StreamingCallbackToken;
+    body : Blob;
+    token : ?StreamingCallbackToken;
   };
 
   // ----- Medicine & Pharmacy API types -----

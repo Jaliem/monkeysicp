@@ -1112,3 +1112,85 @@ export const getWellnessInsights = async (userId: string = 'user123', days: numb
     };
   }
 };
+
+// Add doctor to canister
+export const storeDoctor = async (doctorData: any): Promise<any> => {
+  // Build payload matching Motoko DoctorForm
+  const buildDoctorFormPayload = (data: any) => ({
+    name: data.name || "",
+    specialty: data.specialty || "",
+    qualifications: data.qualifications || "",
+    experience_years: Number(data.experience_years ?? data.experience ?? 0),
+    rating: Number(data.rating ?? 0),
+    available_days: Array.isArray(data.available_days) ? data.available_days : [],
+    available_slots: Array.isArray(data.available_slots) ? data.available_slots : [],
+    image_url: data.image_url || data.image || "",
+    phone_number: data.phone_number || "",
+    email: data.email || "",
+    address: data.address || "",
+    created_at: data.created_at || new Date().toISOString(),
+    updated_at: data.updated_at || new Date().toISOString()
+  });
+
+  try {
+    const payload = buildDoctorFormPayload(doctorData);
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/store_doctor`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (icpResponse.ok) {
+      return await icpResponse.json();
+    }
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/store_doctor`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    if (httpResponse.ok) {
+      return await httpResponse.json();
+    }
+    return { success: false, message: 'Failed to store doctor' };
+  } catch (error) {
+    console.error('Error storing doctor:', error);
+    return { success: false, message: 'Error storing doctor' };
+  }
+};
+
+// Add medicine to canister
+export const storeMedicine = async (medicineData: any): Promise<any> => {
+  try {
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/store_medicine`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(medicineData)
+    });
+    if (icpResponse.ok) {
+      return await icpResponse.json();
+    }
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/store_medicine`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(medicineData)
+    });
+    if (httpResponse.ok) {
+      return await httpResponse.json();
+    }
+    return { success: false, message: 'Failed to store medicine' };
+  } catch (error) {
+    console.error('Error storing medicine:', error);
+    return { success: false, message: 'Error storing medicine' };
+  }
+};

@@ -8,6 +8,8 @@ import Doctor from './doctor';
 import Pharmacy from './pharmacy';
 import Wellness from './wellness';
 import Profile from './profile';
+import Admin from './admin';
+import Admin2 from './admin2';
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
           <Route path="/pharmacy" element={<Pharmacy />} />
           <Route path="/wellness" element={<Wellness />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin2" element={<Admin2 />} />
         </Routes>
       </Router>
     </div>

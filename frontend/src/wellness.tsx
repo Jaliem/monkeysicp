@@ -3,7 +3,7 @@ import Navbar from './nav';
 import ReactMarkdown from 'react-markdown';
 // If you want to use markdown rendering for AI insights, ensure you use ReactMarkdown in your JSX:
 // <ReactMarkdown>{aiInsights}</ReactMarkdown>
-import { logWellnessData, fetchWellnessData, getWellnessInsights, deleteWellnessData } from './services/flaskService';
+import { logWellnessData, fetchWellnessData, getWellnessInsights } from './services/flaskService';
 
 interface WellnessData {
   sleep: number;
