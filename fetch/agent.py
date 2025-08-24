@@ -344,31 +344,71 @@ IMPORTANT: This is for informational purposes only. Always recommend consulting 
             "response_format": {"type": "json_object"}
         }
 
+        # Use longer timeout for image analysis
+        timeout = 60 if analysis_type == "image_analysis" else 30
+        
         response = requests.post(
             f"{ASI1_BASE_URL}/chat/completions",
             headers=ASI1_HEADERS,
             json=payload,
-            timeout=30
+            timeout=timeout
         )
 
         if response.status_code == 200:
             result = response.json()
-            content = result["choices"][0]["message"]["content"]
-
-            # Attempt to extract JSON from the response string, which might have markdown
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
             
-            if json_match:
-                json_string = json_match.group(0)
-                try:
-                    analysis_result = json.loads(json_string)
-                    return {"success": True, "analysis": analysis_result}
-                except json.JSONDecodeError:
-                    return {"success": False, "error": f"Found a JSON-like object, but failed to parse it. Content: {json_string}"}
+            # Defensive programming for different ASI1 response formats
+            if "choices" not in result or not result["choices"]:
+                return {"success": False, "error": "ASI1 API returned unexpected response format - no choices found"}
+            
+            choice = result["choices"][0]
+            if "message" not in choice or "content" not in choice["message"]:
+                return {"success": False, "error": "ASI1 API returned unexpected response format - no message content found"}
+                
+            content = choice["message"]["content"]
+            
+            # Enhanced JSON parsing with multiple strategies
+            analysis_result = None
+            
+            # Strategy 1: Try direct JSON parsing first
+            try:
+                analysis_result = json.loads(content)
+            except json.JSONDecodeError:
+                # Strategy 2: Try to find JSON within markdown code blocks
+                json_code_block = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+                if json_code_block:
+                    try:
+                        analysis_result = json.loads(json_code_block.group(1))
+                    except json.JSONDecodeError:
+                        pass
+                
+                # Strategy 3: Find the outermost JSON object using balanced braces
+                if not analysis_result:
+                    brace_count = 0
+                    start_idx = -1
+                    for i, char in enumerate(content):
+                        if char == '{':
+                            if start_idx == -1:
+                                start_idx = i
+                            brace_count += 1
+                        elif char == '}':
+                            brace_count -= 1
+                            if brace_count == 0 and start_idx != -1:
+                                try:
+                                    analysis_result = json.loads(content[start_idx:i+1])
+                                    break
+                                except json.JSONDecodeError:
+                                    continue
+            
+            if analysis_result:
+                return {"success": True, "analysis": analysis_result}
             else:
-                return {"success": False, "error": f"No valid JSON object found in the AI's response. Full response: {content}"}
+                return {"success": False, "error": f"Failed to parse JSON from ASI1 response. Full response: {content[:500]}..."}
         else:
-            return {"success": False, "error": f"ASI1 API error: {response.status_code}"}
+            error_msg = f"ASI1 API error: {response.status_code}"
+            if response.text:
+                error_msg += f" - {response.text[:200]}"
+            return {"success": False, "error": error_msg}
 
     except Exception as e:
         return {"success": False, "error": f"ASI1 analysis failed: {str(e)}"}
@@ -593,7 +633,7 @@ async def classify_user_intent_with_llm(message: str, ctx: Context) -> str:
 7. "wellness" - Activity tracking, sleep logging, exercise, steps, water intake, mood logging
 8. "wellness_delete" - Deleting, removing, or clearing wellness/health data from logs
 9. "cancel" - Cancelling appointments, orders, bookings, or other healthcare services
-10. "image_analysis" - User has uploaded an image and is asking for analysis, feedback, or information about it.
+10. "image_analysis" - ONLY when user explicitly mentions having an image/photo/picture they want analyzed (e.g., "analyze this image", "look at this photo"). Do NOT use this for general questions about images.
 11. "general" - Greetings, general questions, anything not healthcare-related
 
 IMPORTANT: Respond with ONLY the intent name, nothing else.
@@ -614,7 +654,9 @@ Examples:
 - "Cancel my appointment APT-123" → cancel
 - "Cancel order ORD-456" → cancel
 - "Analyze this picture of my rash" → image_analysis
-- "What do you think of this meal?" → image_analysis
+- "Look at this photo of my meal" → image_analysis
+- "What should I eat?" → general
+- "Tell me about rashes" → general
 - "Hello, how are you?" → general
 - "How's the weather?" → general"""
 
@@ -679,15 +721,45 @@ def get_user_context(sender: str) -> dict:
 async def handle_image_analysis(message: str, file_data: FileData, ctx: Context, sender: str = "default_user") -> str:
     """Handle image analysis requests by asking the user for their preferred analysis type."""
     try:
-        ctx.logger.info(f"Analyzing image '{file_data.file_name}' with ASI1 Vision...")
+        ctx.logger.info(f"🖼️ Starting image analysis for '{file_data.file_name}' (type: {file_data.mime_type}, size: {len(file_data.content)} chars)")
+        
+        # Validate file data
+        if not file_data.content or not file_data.mime_type:
+            ctx.logger.error("Invalid file data: missing content or mime_type")
+            return "Sorry, the uploaded image appears to be corrupted or empty. Please try uploading again."
+        
+        # Validate image format
+        supported_formats = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if file_data.mime_type not in supported_formats:
+            ctx.logger.error(f"Unsupported image format: {file_data.mime_type}")
+            return f"Sorry, I can only analyze images in these formats: {', '.join(supported_formats)}. Your file is in {file_data.mime_type} format."
         
         # Call the multimodal analysis function to get the data
+        ctx.logger.info("📡 Sending image to ASI1 Vision API...")
         asi1_result = await analyze_with_asi1(message, "image_analysis", image_data=file_data)
         
         if not asi1_result.get("success"):
-            return f"Sorry, I encountered an error analyzing the image: {asi1_result.get('error', 'Unknown error')}"
+            error_msg = asi1_result.get('error', 'Unknown error')
+            ctx.logger.error(f"ASI1 Vision analysis failed: {error_msg}")
+            
+            # Provide more user-friendly error messages
+            if "timeout" in error_msg.lower():
+                return "The image analysis is taking longer than expected. Please try with a smaller image or try again later."
+            elif "404" in error_msg or "endpoint" in error_msg.lower():
+                return "The image analysis service is temporarily unavailable. Please try again later."
+            elif "parse" in error_msg.lower() or "json" in error_msg.lower():
+                return "The image analysis completed but I had trouble understanding the results. Please try again."
+            else:
+                return f"Sorry, I encountered an error analyzing the image: {error_msg}"
 
         analysis = asi1_result.get("analysis", {})
+        
+        # Validate analysis result
+        if not analysis or not isinstance(analysis, dict):
+            ctx.logger.error(f"Invalid analysis result: {analysis}")
+            return "The image analysis completed but returned invalid results. Please try uploading the image again."
+        
+        ctx.logger.info(f"✅ Image analysis completed successfully. Type detected: {analysis.get('image_type', 'unknown')}")
         
         # Store the analysis in the user's context and ask for their preference
         set_user_context(sender, {
@@ -695,11 +767,15 @@ async def handle_image_analysis(message: str, file_data: FileData, ctx: Context,
             "last_image_analysis": analysis,
         })
         
-        return "I have analyzed the image. Would you like a **Full Analysis** (including all extracted data) or a **Regular Analysis** (summary and recommendation only)?"
+        # Provide a preview of what was detected
+        image_type = analysis.get("image_type", "general image")
+        preview_msg = f"I have analyzed your {image_type.replace('_', ' ')}. "
+        
+        return f"{preview_msg}Would you like a **Full Analysis** (including all extracted data) or a **Regular Analysis** (summary and recommendation only)?"
 
     except Exception as e:
-        ctx.logger.error(f"Error in image analysis handler: {str(e)}")
-        return "Sorry, I encountered an unexpected error while analyzing the image."
+        ctx.logger.error(f"Unexpected error in image analysis handler: {str(e)}", exc_info=True)
+        return "Sorry, I encountered an unexpected error while analyzing the image. Please try again or contact support if the issue persists."
 
 
 async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str = "default_user") -> str:
@@ -2168,10 +2244,10 @@ async def get_wellness_insights(user_id: str, days: int = 7, ctx: Context = None
 def format_analysis_response(analysis: dict, format_type: str, sender: str) -> str:
     """Formats the stored image analysis into a user-friendly string."""
     try:
-        if not analysis:
+        if not analysis or not isinstance(analysis, dict):
             return "Sorry, I seem to have lost the analysis data. Please upload the image again."
 
-        response_parts = []
+        response_parts = ["🔍 **Image Analysis Results:**\n"]
         image_type = analysis.get("image_type", "other")
 
         # Define a generic formatter for different image types
@@ -2211,7 +2287,13 @@ def format_analysis_response(analysis: dict, format_type: str, sender: str) -> s
             response_parts.append(f"**Description:**\n{analysis.get('description', 'N/A')}")
             response_parts.append(f"\n**Feedback:**\n{analysis.get('feedback', 'N/A')}")
 
+        # Add a final message with emojis
+        response_parts.append("\n💡 **Note:** This analysis is provided for informational purposes and should not replace professional medical advice.")
+        
         return "\n".join(response_parts)
+    except Exception as e:
+        # Log the error but don't expose internal details to user
+        return f"I encountered an error while formatting the analysis results. The analysis was successful, but I'm having trouble displaying it properly. Please try uploading the image again."
     finally:
         # Always clear the context after providing the response
         clear_user_context(sender)
@@ -2219,6 +2301,16 @@ def format_analysis_response(analysis: dict, format_type: str, sender: str) -> s
 async def process_health_query(query: str, ctx: Context, sender: str = "default_user", file: Optional[FileData] = None) -> str:
     """Process health-related queries and route appropriately"""
     try:
+        # Debug logging for file detection
+        ctx.logger.info(f"🔍 Processing query from {sender}: '{query}'")
+        if file is not None:
+            ctx.logger.info(f"🖼️ File parameter received:")
+            ctx.logger.info(f"   - File name: {file.file_name}")
+            ctx.logger.info(f"   - File type: {file.file_type}")  
+            ctx.logger.info(f"   - MIME type: {file.mime_type}")
+            ctx.logger.info(f"   - Content present: {bool(file.content)}")
+        else:
+            ctx.logger.info(f"❌ No file parameter received")
         # Check for context-based responses first
         if sender and sender in user_contexts:
             context = get_user_context(sender)
@@ -2245,18 +2337,21 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
                 elif confirmation_intent == "no":
                     return await handle_doctor_booking_cancellation(sender, ctx)
 
-        # Use ASI1 LLM for intent classification (more accurate)
-        ctx.logger.info(f"🗣️ User query: '{query}' - Classifying with ASI1 LLM...")
-        intent = await classify_user_intent_with_llm(query, ctx)
-
         # If a file is attached, it's always an image_analysis intent
         if file is not None:
-            ctx.logger.info(f"File detected, overriding intent to image_analysis.")
+            ctx.logger.info(f"File detected, setting intent to image_analysis.")
             intent = "image_analysis"
+        else:
+            # Use ASI1 LLM for intent classification (more accurate)
+            ctx.logger.info(f"🗣️ User query: '{query}' - Classifying with ASI1 LLM...")
+            intent = await classify_user_intent_with_llm(query, ctx)
+            
+            # Override image_analysis intent if no file is attached - this prevents false positives
+            if intent == "image_analysis":
+                ctx.logger.info(f"LLM classified as image_analysis but no file attached, reclassifying as general")
+                intent = "general"
 
         if intent == "image_analysis":
-            if file is None:
-                return "It looks like you want to analyze an image, but you haven't attached one. Please upload an image with your message."
             return await handle_image_analysis(query, file, ctx, sender)
         elif intent == "emergency":
             return await handle_emergency(ctx)
@@ -2412,10 +2507,17 @@ async def analyze_file_with_asi1(file_data: FileData, ctx: Context) -> dict:
 async def handle_rest_chat(ctx: Context, req: ChatRequest) -> ChatResponse:
     """Handle chat messages from Flask API via REST endpoint"""
     try:
-        ctx.logger.info(f"Received REST request: {req}")
-        ctx.logger.info(f" REST API request from user {req.user_id}: {req.message}")
+        ctx.logger.info(f"📨 REST API request from user {req.user_id}: '{req.message}'")
+        
+        # Enhanced file detection logging
         if req.file:
-            ctx.logger.info(f" File attached: {req.file.file_name} ({req.file.file_type})")
+            ctx.logger.info(f"📎 File detected in request:")
+            ctx.logger.info(f"   - Name: {req.file.file_name}")
+            ctx.logger.info(f"   - Type: {req.file.file_type}")
+            ctx.logger.info(f"   - MIME: {req.file.mime_type}")
+            ctx.logger.info(f"   - Content length: {len(req.file.content) if req.file.content else 0}")
+        else:
+            ctx.logger.info(f"❌ No file detected in request")
 
         # Process the health-related query using existing logic
         response_text = await process_health_query(req.message, ctx, req.user_id, req.file)

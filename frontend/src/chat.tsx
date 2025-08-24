@@ -249,7 +249,7 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     try {
       const userIdToUse = principal || 'development_user_fallback';
       console.log('Sending chat message with user principal:', userIdToUse);
-      const data = await sendChatMessage(userInput, userIdToUse);
+      const data = await sendChatMessage(userInput, userIdToUse, uploadedFile);
       
       let type: Message['type'] = 'text';
       if (data.intent === 'wellness') type = 'wellness';
