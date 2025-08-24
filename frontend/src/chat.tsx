@@ -26,7 +26,7 @@ interface QuickAction {
 interface UploadedFile {
   file: File;
   dataUrl: string;
-  type: 'image' | 'document';
+  type: 'image';
 }
 
 const Chat = () => {
@@ -173,16 +173,9 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     
     // Combine file and text content into a single message
     if (uploadedFile) {
-      if (uploadedFile.type === 'image') {
-        messageContent = `<img src="${uploadedFile.dataUrl}" alt="${uploadedFile.file.name}" class="max-w-full rounded-lg" style="max-height: 300px; object-fit: contain;" />`;
-        if (content.trim()) {
-          messageContent += `<div class="mt-3 font-light">${content.trim()}</div>`;
-        }
-      } else {
-        messageContent = `📄 ${uploadedFile.file.name}`;
-        if (content.trim()) {
-          messageContent += `\n${content.trim()}`;
-        }
+      messageContent = `<img src="${uploadedFile.dataUrl}" alt="${uploadedFile.file.name}" class="max-w-full rounded-lg" style="max-height: 300px; object-fit: contain;" />`;
+      if (content.trim()) {
+        messageContent += `<div class="mt-3 font-light">${content.trim()}</div>`;
       }
     } else if (content.trim()) {
       messageContent = content.trim();
@@ -193,7 +186,7 @@ Just speak naturally - I'll understand and connect you with the right healthcare
       content: messageContent,
       timestamp: timestamp,
       isUser: true,
-      type: uploadedFile?.type === 'image' ? 'image' : 'text'
+      type: uploadedFile ? 'image' : 'text'
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -301,40 +294,6 @@ Just speak naturally - I'll understand and connect you with the right healthcare
     }
   };
 
-  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Check file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      addErrorMessage('File size exceeds 10MB limit.');
-      return;
-    }
-
-    // Check if it's a valid document type
-    const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!validTypes.includes(file.type)) {
-      addErrorMessage('Unsupported document. Please upload a PDF or Word document.');
-      return;
-    }
-
-    setIsTyping(true);
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-      setUploadedFile({
-        file,
-        dataUrl: '',
-        type: 'document'
-      });
-    } catch (error) {
-      console.error('Error uploading document:', error);
-    } finally {
-      setIsTyping(false);
-      if (e.target) e.target.value = '';
-    }
-  };
 
   const handleImageFile = (file: File | null) => {
     if (!file) return;
@@ -561,19 +520,11 @@ Just speak naturally - I'll understand and connect you with the right healthcare
             {uploadedFile && (
               <div className="mb-2 relative inline-block">
                 <div className="flex items-center space-x-2 p-2 bg-stone-50 rounded-lg border border-stone-200">
-                  {uploadedFile.type === 'image' ? (
-                    <img 
-                      src={uploadedFile.dataUrl} 
-                      alt={uploadedFile.file.name}
-                      className="h-12 w-12 object-cover rounded"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 flex items-center justify-center bg-stone-100 rounded">
-                      <svg className="w-6 h-6 text-stone-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                    </div>
-                  )}
+                  <img 
+                    src={uploadedFile.dataUrl} 
+                    alt={uploadedFile.file.name}
+                    className="h-12 w-12 object-cover rounded"
+                  />
                   <span className="text-sm text-stone-600 truncate max-w-xs">
                     {uploadedFile.file.name}
                   </span>
@@ -590,25 +541,6 @@ Just speak naturally - I'll understand and connect you with the right healthcare
               </div>
             )}
             <div className="flex items-center w-full border border-stone-300 rounded-2xl p-2 bg-white shadow-sm">
-              {/* Document upload button */}
-              <input
-                type="file"
-                id="document-upload"
-                onChange={handleDocumentUpload}
-                accept=".pdf,.doc,.docx"
-                className="hidden"
-                disabled={isTyping}
-              />
-              <label
-                htmlFor="document-upload"
-                className="px-2 py-2 mr-1 text-stone-600 hover:text-stone-800 cursor-pointer rounded-lg hover:bg-emerald-100 transition-colors duration-200"
-                title="Upload Document (PDF/Word)"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </label>
-
               {/* Image upload button */}
               <input
                 type="file"

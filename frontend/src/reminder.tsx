@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Navbar from './nav';
 import { useAuth } from './contexts/AuthContext';
-import { fetchWellnessData, fetchMedicationReminders, fetchAppointments } from './services/flaskService';
+import { fetchWellnessData, fetchMedicationReminders, fetchAppointments, createMedicationReminder } from './services/flaskService';
 
 interface MedicationReminder {
   id: string;
@@ -29,6 +29,13 @@ const Reminder = () => {
   const [hasLoggedWellnessToday, setHasLoggedWellnessToday] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Form state for adding new reminders
+  const [showReminderForm, setShowReminderForm] = useState(false);
+  const [newReminder, setNewReminder] = useState({
+    medication: '',
+    time: ''
+  });
 
   // useEffect must come right after state hooks  
   useEffect(() => {
@@ -267,6 +274,50 @@ const Reminder = () => {
     );
   };
 
+  // Handle form submission for new medication reminder
+  const handleAddReminder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!newReminder.medication || !newReminder.time) {
+      alert('Please fill in all fields');
+      return;
+    }
+
+    if (!principal) {
+      alert('Please authenticate first');
+      return;
+    }
+
+    try {
+      const result = await createMedicationReminder(principal, newReminder.medication, newReminder.time);
+      
+      if (result.success) {
+        // Add the new reminder to the list
+        const newReminderItem: MedicationReminder = {
+          id: Date.now().toString(),
+          medication: newReminder.medication,
+          dosage: 'As prescribed',
+          time: newReminder.time,
+          frequency: 'Daily',
+          status: 'pending'
+        };
+        
+        setMedicationReminders([...medicationReminders, newReminderItem]);
+        
+        // Reset form
+        setNewReminder({ medication: '', time: '' });
+        setShowReminderForm(false);
+        
+        alert('Medication reminder added successfully!');
+      } else {
+        alert('Failed to add medication reminder: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error adding reminder:', error);
+      alert('Error adding medication reminder');
+    }
+  };
+
   // Show loading or redirect if not authenticated - moved after all hooks
   if (authLoading) {
     return (
@@ -420,6 +471,78 @@ const Reminder = () => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* Add New Reminder Button */}
+              {!showReminderForm && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={() => setShowReminderForm(true)}
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium inline-flex items-center"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Add Medication Reminder
+                  </button>
+                </div>
+              )}
+
+              {/* Add Reminder Form */}
+              {showReminderForm && (
+                <div className="mt-6 bg-gray-50 rounded-xl p-6 border-2 border-dashed border-gray-300">
+                  <h3 className="text-lg font-medium text-stone-800 mb-4">Add New Medication Reminder</h3>
+                  <form onSubmit={handleAddReminder} className="space-y-4">
+                    <div>
+                      <label htmlFor="medication" className="block text-sm font-medium text-stone-700 mb-2">
+                        Medication Name
+                      </label>
+                      <input
+                        id="medication"
+                        type="text"
+                        value={newReminder.medication}
+                        onChange={(e) => setNewReminder({ ...newReminder, medication: e.target.value })}
+                        placeholder="e.g., Aspirin, Vitamin D, Blood pressure pills"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label htmlFor="time" className="block text-sm font-medium text-stone-700 mb-2">
+                        Reminder Time / Schedule
+                      </label>
+                      <input
+                        id="time"
+                        type="text"
+                        value={newReminder.time}
+                        onChange={(e) => setNewReminder({ ...newReminder, time: e.target.value })}
+                        placeholder="e.g., 8:00 AM, After eating, Before bed, Every 6 hours"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="flex space-x-4 pt-2">
+                      <button
+                        type="submit"
+                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        Add Reminder
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowReminderForm(false);
+                          setNewReminder({ medication: '', time: '' });
+                        }}
+                        className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors font-medium"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
                 </div>
               )}
             </div>

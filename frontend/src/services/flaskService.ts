@@ -9,7 +9,7 @@ const ICP_BASE_URL = import.meta.env.VITE_BASE_URL || 'http://127.0.0.1:4943';
 interface UploadedFile {
   file: File;
   dataUrl: string;
-  type: 'image' | 'document';
+  type: 'image';
 }
 
 // API Response types
@@ -1012,6 +1012,55 @@ export const deleteWellnessData = async (date: string, userId: string): Promise<
   
   console.log('Delete wellness failed, returning error');
   return { success: false, message: 'Failed to delete wellness data' };
+};
+
+// Create medication reminder
+export const createMedicationReminder = async (userId: string, medication: string, time: string) => {
+  try {
+    console.log('Creating medication reminder:', { userId, medication, time });
+
+    // Try ICP canister first
+    const canisterUrls = [
+      `${ICP_BASE_URL}/api/v2/canister/${CANISTER_ID}/call`,
+      `${ICP_BASE_URL}/?canisterId=${CANISTER_ID}`,
+      `http://${CANISTER_ID}.localhost:4943/store-reminder`
+    ];
+
+    for (const url of canisterUrls) {
+      try {
+        const reminderData = {
+          user_id: userId,
+          medicine: medication,
+          time: time,
+          created_at: new Date().toISOString(),
+          active: true
+        };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Host': `${CANISTER_ID}.localhost`
+          },
+          body: JSON.stringify(reminderData)
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('Reminder created successfully:', result);
+          return { success: true, message: 'Medication reminder created successfully', data: result };
+        }
+      } catch (error) {
+        console.log(`Failed to create reminder via ${url}:`, error);
+      }
+    }
+
+    throw new Error('All canister endpoints failed');
+
+  } catch (error) {
+    console.error('Error creating medication reminder:', error);
+    return { success: false, message: 'Failed to create medication reminder' };
+  }
 };
 
 // Wellness insights service - using chat agent for AI insights
