@@ -1,5 +1,6 @@
 import { AuthClient } from '@dfinity/auth-client';
 import { useNavigate, useLocation } from 'react-router-dom';
+import logo from './assets/logo.png';
 
 // Side Navigation Component
 const Navbar = () => {
@@ -65,11 +66,13 @@ const Navbar = () => {
       {/* Logo Section */}
       <div className="p-8 border-b border-stone-100">
         <div className="flex items-center justify-between">
-          <div>
-            <div className="text-3xl font-light text-emerald-700 tracking-wide">
+            <div className='flex flex-row items-center'>
+            <img src={logo} alt="Logo" className='h-10 w-10 mr-2'/>
+            <div>
+              <div className="text-2xl font-light text-emerald-700 tracking-wide">
               Cura.
             </div>
-            <div className="w-12 h-1 bg-emerald-400 mt-2 rounded-full"></div>
+            </div>
           </div>
           
           {/* Notification Bell */}
