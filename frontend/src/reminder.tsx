@@ -364,7 +364,17 @@ const Reminder = () => {
   }
 
   return (
-    <div className="flex h-screen bg-stone-50">
+    <div className="h-screen w-screen flex bg-gradient-to-tr from-stone-50 via-white to-emerald-50">
+      <style>{`
+        @keyframes glow {
+          0% { text-shadow: 0 0 8px #ffb347, 0 0 16px #ffb347, 0 0 32px #ffb347; }
+          50% { text-shadow: 0 0 24px #ffb347, 0 0 48px #ffb347, 0 0 96px #ffb347; }
+          100% { text-shadow: 0 0 8px #ffb347, 0 0 16px #ffb347, 0 0 32px #ffb347; }
+        }
+        .animate-glow {
+          animation: glow 2s infinite alternate;
+        }
+      `}</style>
       <Navbar />
       
       <div className="flex-1 overflow-y-auto">
@@ -373,19 +383,22 @@ const Reminder = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-4xl font-light text-stone-800 mb-2">Reminders</h1>
+                <h1 className="text-4xl font-serif font-light text-stone-800 mb-2">Reminders</h1>
                 <p className="text-stone-600 font-light">Stay on top of your health routine</p>
               </div>
-              
-              {/* Streak Display */}
-              <div className="flex items-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-full shadow-lg">
-                <svg className="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                </svg>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{currentStreak}</div>
-                  <div className="text-xs opacity-90">
-                    day{currentStreak !== 1 ? 's' : ''} streak
+              <div className="flex items-center gap-4">
+                {/* Streak Display */}
+                <div className="flex items-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-full shadow-lg">
+                  <svg className="w-6 h-6 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                  </svg>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold animate-glow">
+                      {currentStreak}
+                    </div>
+                    <div className="text-xs opacity-90 animate-glow">
+                      day{currentStreak !== 1 ? 's' : ''} streak
+                    </div>
                   </div>
                 </div>
               </div>
@@ -428,10 +441,22 @@ const Reminder = () => {
             {/* Medication Reminders */}
             <div className="bg-white rounded-2xl p-6 shadow-lg">
               <h2 className="text-2xl font-light text-stone-800 mb-6 flex items-center">
-                <svg className="w-6 h-6 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-emerald-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
-                Medication Reminders
+                <span>Medication Reminders</span>
+                {/* Add Medication Reminder Button (beside title) */}
+                {!showReminderForm && (
+                  <button
+                    onClick={() => setShowReminderForm(true)}
+                    className="ml-3 bg-emerald-600 text-white p-2 rounded-full hover:bg-emerald-700 transition-colors shadow-lg"
+                    title="Add Medication Reminder"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                )}
               </h2>
               
               {medicationReminders.length === 0 ? (
@@ -443,10 +468,10 @@ const Reminder = () => {
                       key={reminder.id}
                       className={`border rounded-xl p-4 transition-all ${
                         reminder.status === 'taken' 
-                          ? 'bg-green-50 border-green-200' 
+                          ? 'bg-emerald-50 border-emerald-200' 
                           : reminder.status === 'missed'
-                          ? 'bg-red-50 border-red-200'
-                          : 'bg-blue-50 border-blue-200'
+                          ? 'bg-emerald-50 border-emerald-200'
+                          : 'bg-emerald-50 border-emerald-200'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -457,17 +482,17 @@ const Reminder = () => {
                         </div>
                         <div className="flex items-center">
                           {reminder.status === 'taken' ? (
-                            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                            <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
                               ✓ Taken
                             </span>
                           ) : reminder.status === 'missed' ? (
-                            <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">
+                            <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-sm font-medium">
                               Missed
                             </span>
                           ) : (
                             <button
                               onClick={() => markMedicationTaken(reminder.id)}
-                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                              className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors text-sm"
                             >
                               Mark as Taken
                             </button>
@@ -480,19 +505,7 @@ const Reminder = () => {
               )}
 
               {/* Add New Reminder Button */}
-              {!showReminderForm && (
-                <div className="mt-6 text-center">
-                  <button
-                    onClick={() => setShowReminderForm(true)}
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium inline-flex items-center"
-                  >
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Medication Reminder
-                  </button>
-                </div>
-              )}
+              {/* Add New Reminder Button removed from here, now in header */}
 
               {/* Add Reminder Form */}
               {showReminderForm && (
@@ -509,7 +522,7 @@ const Reminder = () => {
                         value={newReminder.medication}
                         onChange={(e) => setNewReminder({ ...newReminder, medication: e.target.value })}
                         placeholder="e.g., Aspirin, Vitamin D, Blood pressure pills"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         required
                       />
                     </div>
@@ -524,7 +537,7 @@ const Reminder = () => {
                         value={newReminder.time}
                         onChange={(e) => setNewReminder({ ...newReminder, time: e.target.value })}
                         placeholder="e.g., 8:00 AM, After eating, Before bed, Every 6 hours"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                         required
                       />
                     </div>
@@ -532,7 +545,7 @@ const Reminder = () => {
                     <div className="flex space-x-4 pt-2">
                       <button
                         type="submit"
-                        className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                        className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
                       >
                         Add Reminder
                       </button>
@@ -555,7 +568,7 @@ const Reminder = () => {
             {/* Upcoming Appointments */}
             <div className="bg-white rounded-2xl p-6 shadow-lg">
               <h2 className="text-2xl font-light text-stone-800 mb-6 flex items-center">
-                <svg className="w-6 h-6 text-purple-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-6 h-6 text-emerald-700 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 Upcoming Appointments
@@ -611,7 +624,7 @@ const Reminder = () => {
               <div className="mt-6 pt-4 border-t border-stone-200">
                 <a
                   href="/doctor"
-                  className="text-purple-600 hover:text-purple-700 font-medium text-sm flex items-center"
+                  className="text-emerald-700 hover:text-purple-700 font-medium text-sm flex items-center"
                 >
                   Book New Appointment
                   <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
