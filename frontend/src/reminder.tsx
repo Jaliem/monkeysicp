@@ -87,6 +87,13 @@ const Reminder = () => {
 
   // Check if user has logged wellness data today
   const checkWellnessStatus = async () => {
+    if (!principal) {
+      console.log('No principal available for wellness status check');
+      setHasLoggedWellnessToday(false);
+      setCurrentStreak(0);
+      return;
+    }
+
     try {
       const todayDate = getTodayDateString();
       const wellnessData = await fetchWellnessData(principal);
@@ -113,6 +120,12 @@ const Reminder = () => {
 
   // Fetch all reminder data
   const fetchReminderData = async () => {
+    if (!principal) {
+      console.log('No principal available for fetching reminder data');
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       await checkWellnessStatus();
@@ -120,19 +133,65 @@ const Reminder = () => {
       // Fetch real medication reminders from backend
       try {
         console.log('Attempting to fetch medication reminders...');
-        const medicationData = await fetchMedicationReminders(principal!);
+        const medicationData = await fetchMedicationReminders(principal);
         console.log('Fetched medication reminders:', medicationData);
         
+        // Handle backend response format - log the actual structure for debugging
+        console.log('Raw medication data structure:', JSON.stringify(medicationData, null, 2));
+        
+        let remindersList = [];
+        
         if (Array.isArray(medicationData)) {
-          // Map backend data to frontend format
-          const mappedReminders = medicationData.map((reminder: any) => ({
-            id: reminder.id || reminder.reminder_id || Math.random().toString(),
-            medication: reminder.medication || reminder.medicine_name || 'Unknown Medication',
-            dosage: reminder.dosage || reminder.dose || 'N/A',
-            time: reminder.time || reminder.reminder_time || '00:00',
-            frequency: reminder.frequency || reminder.repeat_frequency || 'Daily',
-            status: reminder.status || 'pending'
-          }));
+          remindersList = medicationData;
+        } else if (medicationData && medicationData.reminders && Array.isArray(medicationData.reminders)) {
+          remindersList = medicationData.reminders;
+        } else {
+          console.log('Unexpected medication data format:', medicationData);
+        }
+        
+        console.log('Extracted reminders list:', remindersList);
+        
+        if (remindersList.length > 0) {
+          // Map backend data to frontend format - handle Candid numeric keys
+          const mappedReminders = remindersList.map((reminder: any, index: number) => {
+            console.log(`Processing reminder ${index}:`, reminder);
+            
+            // Candid key mapping for MedicationReminder
+            const REMINDER_KEY_MAPPING = {
+              '373_703_110': 'active',        // active: Bool
+              '1_291_635_725': 'time',        // time: Text
+              '1_779_848_746': 'created_at',  // created_at: Text  
+              '1_869_947_023': 'user_id',     // user_id: Text
+              '1_962_253_242': 'medicine'     // medicine: Text
+            };
+            
+            // Convert numeric keys to readable format
+            const convertedReminder: any = {};
+            Object.keys(reminder).forEach(key => {
+              const mappedKey = REMINDER_KEY_MAPPING[key as keyof typeof REMINDER_KEY_MAPPING];
+              if (mappedKey) {
+                convertedReminder[mappedKey] = reminder[key];
+              } else {
+                convertedReminder[key] = reminder[key]; // Keep unmapped keys as-is
+              }
+            });
+            
+            console.log(`Converted reminder ${index}:`, convertedReminder);
+            
+            const mapped = {
+              id: convertedReminder.id || convertedReminder.reminder_id || `reminder_${index}`,
+              medication: convertedReminder.medicine || convertedReminder.medication || convertedReminder.medicine_name || 'Unknown Medication',
+              dosage: convertedReminder.dosage || convertedReminder.dose || 'As prescribed',
+              time: convertedReminder.time || convertedReminder.reminder_time || 'As needed',
+              frequency: convertedReminder.frequency || convertedReminder.repeat_frequency || 'Daily',
+              status: convertedReminder.active === false ? 'missed' : 'pending'
+            };
+            
+            console.log(`Mapped reminder ${index}:`, mapped);
+            return mapped;
+          });
+          
+          console.log('Final mapped reminders:', mappedReminders);
           setMedicationReminders(mappedReminders);
         } else {
           console.log('No medication reminders found, using empty array');
@@ -147,7 +206,7 @@ const Reminder = () => {
       // Fetch real appointments from backend
       try {
         console.log('Attempting to fetch appointments...');
-        const appointmentData = await fetchAppointments(principal!);
+        const appointmentData = await fetchAppointments(principal);
         console.log('Fetched appointments:', appointmentData);
         
         if (Array.isArray(appointmentData)) {

@@ -177,29 +177,6 @@ const Doctor = () => {
     }
   ];
 
-  const getDefaultAppointments = (): Appointment[] => [
-    {
-      id: 'APT-20250823-CD28BC',
-      doctorId: '1',
-      doctorName: 'Dr. Amir Hassan',
-      specialty: 'cardiology',
-      date: '2024-08-24',
-      time: '09:00',
-      type: 'consultation',
-      status: 'scheduled'
-    },
-    {
-      id: 'APT-20250825-DR45XY',
-      doctorId: '2',
-      doctorName: 'Dr. Sarah Chen',
-      specialty: 'dermatology',
-      date: '2024-08-25',
-      time: '14:30',
-      type: 'follow-up',
-      status: 'scheduled'
-    }
-  ];
-
   // useEffect moved above - removed duplicate
 
   const getSpecialtyIcon = (specialty: string) => {

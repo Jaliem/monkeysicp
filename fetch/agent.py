@@ -39,7 +39,8 @@ if not ASI1_API_KEY:
 
 ASI1_HEADERS = {
     "Authorization": f"Bearer {ASI1_API_KEY}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
+    "Accept": "application/json"
 }
 
 # Healthcare data storage (local backup, primary storage is ICP canister)
@@ -299,26 +300,209 @@ IMPORTANT: This is for informational purposes only. Always recommend consulting 
 
 # Removed old hard-coded analyze_symptoms function - now using ASI1 LLM exclusively
 
-def extract_reminder_info(text: str) -> dict:
-    """Extract medication reminder information from natural language"""
+async def extract_reminder_info_with_llm(text: str, ctx: Context) -> dict:
+    """Extract medication reminder information using ASI1 LLM for better natural language understanding"""
+    ctx.logger.info(f"🔍 Extracting reminder info from: '{text}'")
+    try:
+        prompt = f"""Extract medication reminder information from this text: "{text}"
+
+Please respond with a JSON object containing:
+- "medicine": The medication name (e.g., "aspirin", "blood pressure pills", "vitamins")
+- "time": The time/schedule in natural language (e.g., "8PM", "after eating", "with breakfast", "before bed", "every 6 hours", "as needed")
+
+Examples:
+- "Remind me to take aspirin at 8PM" → {{"medicine": "aspirin", "time": "8PM"}}
+- "Take vitamins with breakfast" → {{"medicine": "vitamins", "time": "with breakfast"}}
+- "Blood pressure pills after eating" → {{"medicine": "blood pressure pills", "time": "after eating"}}
+- "Insulin before bed" → {{"medicine": "insulin", "time": "before bed"}}
+- "Take paracetamol as needed" → {{"medicine": "paracetamol", "time": "as needed"}}
+
+Respond only with valid JSON, no additional text."""
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json={
+                "model": "asi1-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "max_tokens": 200
+            },
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            llm_response = result["choices"][0]["message"]["content"].strip()
+            ctx.logger.info(f"🤖 LLM raw response: {llm_response}")
+            
+            try:
+                # Parse the JSON response from LLM
+                reminder_data = json.loads(llm_response)
+                ctx.logger.info(f"📋 Parsed reminder data: {reminder_data}")
+                
+                # Validate the response has required fields
+                if "medicine" in reminder_data and "time" in reminder_data:
+                    ctx.logger.info(f"✅ Successfully extracted reminder: {reminder_data}")
+                    return {
+                        "medicine": reminder_data["medicine"],
+                        "time": reminder_data["time"],
+                        "original_text": text
+                    }
+                else:
+                    ctx.logger.warning(f"❌ LLM response missing required fields. Expected: medicine, time. Got: {list(reminder_data.keys())}")
+                    
+            except json.JSONDecodeError as e:
+                ctx.logger.warning(f"❌ LLM response not valid JSON: {llm_response}. Error: {e}")
+                
+        else:
+            ctx.logger.warning(f"ASI1 API error: {response.status_code}")
+            
+    except Exception as e:
+        ctx.logger.error(f"❌ Error in LLM reminder extraction: {str(e)}")
+    
+    # Fallback to simple regex extraction if LLM fails
+    ctx.logger.warning(f"🔄 LLM extraction failed, using regex fallback for: '{text}'")
+    
+    # Simple regex patterns for common medication reminders
     text_lower = text.lower()
-
-    # Extract medication name
-    medicine_match = re.search(r'take\s+([\w\s]+?)\s+at', text_lower)
-    if not medicine_match:
-        medicine_match = re.search(r'remind.*?([\w\s]+?)\s+at', text_lower)
-
-    medicine = medicine_match.group(1).strip() if medicine_match else "medication"
-
+    
+    # Extract medicine name
+    medicine = "medication"
+    medicine_patterns = [
+        r"take\s+([a-zA-Z][a-zA-Z\s]+?)(?:\s+(?:at|after|before|with|during))",
+        r"remind.*?(?:take|about)\s+([a-zA-Z][a-zA-Z\s]+?)(?:\s+(?:at|after|before|with|during))",
+        r"([a-zA-Z][a-zA-Z\s]+?)(?:\s+(?:reminder|after|before|at))"
+    ]
+    
+    for pattern in medicine_patterns:
+        match = re.search(pattern, text_lower)
+        if match:
+            medicine = match.group(1).strip()
+            break
+    
     # Extract time
-    time_match = re.search(r'at\s+(\d{1,2}(?::\d{2})?\s*(?:am|pm|AM|PM)?)', text)
-    time_str = time_match.group(1) if time_match else "unspecified time"
-
+    time_str = "as needed"
+    if "after eating" in text_lower or "after food" in text_lower:
+        time_str = "after eating"
+    elif "before eating" in text_lower or "before food" in text_lower:
+        time_str = "before eating"
+    elif "with breakfast" in text_lower:
+        time_str = "with breakfast"
+    elif "with lunch" in text_lower:
+        time_str = "with lunch"
+    elif "with dinner" in text_lower:
+        time_str = "with dinner"
+    elif "before bed" in text_lower or "bedtime" in text_lower:
+        time_str = "before bed"
+    elif "morning" in text_lower:
+        time_str = "in the morning"
+    elif "evening" in text_lower:
+        time_str = "in the evening"
+    elif re.search(r'\d{1,2}(?::\d{2})?\s*(?:am|pm)', text_lower):
+        time_match = re.search(r'(\d{1,2}(?::\d{2})?\s*(?:am|pm))', text_lower, re.IGNORECASE)
+        if time_match:
+            time_str = time_match.group(1)
+    
+    ctx.logger.info(f"📋 Regex extracted - medicine: '{medicine}', time: '{time_str}'")
     return {
         "medicine": medicine,
         "time": time_str,
         "original_text": text
     }
+
+
+async def classify_confirmation_with_llm(message: str, ctx: Context) -> str:
+    """Use LLM to classify user confirmation responses"""
+    try:
+        prompt = f"""Analyze this user response and determine if it's a confirmation (yes/no): "{message}"
+
+Respond with exactly one of these:
+- "yes" - User is confirming, agreeing, or saying yes (examples: "yes", "yeah", "sure", "ok", "book it", "go ahead", "sounds good")
+- "no" - User is declining, disagreeing, or saying no (examples: "no", "nope", "cancel", "not now", "maybe later", "I changed my mind")
+- "unclear" - Response is ambiguous or unclear
+
+Respond with only the classification word, nothing else."""
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json={
+                "model": "asi1-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "max_tokens": 50
+            },
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            llm_response = result["choices"][0]["message"]["content"].strip().lower()
+            
+            if llm_response in ["yes", "no", "unclear"]:
+                ctx.logger.info(f"LLM classified confirmation '{message}' as: {llm_response}")
+                return llm_response
+            
+        else:
+            ctx.logger.warning(f"ASI1 API error for confirmation: {response.status_code}")
+            
+    except Exception as e:
+        ctx.logger.error(f"Error in LLM confirmation classification: {str(e)}")
+    
+    # Fallback to unclear if LLM fails
+    return "unclear"
+
+async def extract_appointment_timing_with_llm(message: str, ctx: Context) -> dict:
+    """Use LLM to extract appointment timing and urgency information"""
+    try:
+        prompt = f"""Analyze this appointment request and extract timing information: "{message}"
+
+Respond with a JSON object containing:
+- "preferred_time": The preferred appointment time (e.g., "today", "tomorrow", "next week", "next available", "morning", "afternoon")
+- "urgency": The urgency level - either "urgent", "normal", or "low"
+
+Examples:
+- "I need to see a doctor ASAP" → {{"preferred_time": "today", "urgency": "urgent"}}
+- "Book me an appointment for tomorrow morning" → {{"preferred_time": "tomorrow morning", "urgency": "normal"}}
+- "I'd like to schedule something for next week" → {{"preferred_time": "next week", "urgency": "normal"}}
+- "Emergency appointment needed right now" → {{"preferred_time": "today", "urgency": "urgent"}}
+- "When is the next available slot?" → {{"preferred_time": "next available", "urgency": "normal"}}
+
+Respond only with valid JSON, no additional text."""
+
+        response = requests.post(
+            f"{ASI1_BASE_URL}/chat/completions",
+            headers=ASI1_HEADERS,
+            json={
+                "model": "asi1-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "max_tokens": 150
+            },
+            timeout=10
+        )
+
+        if response.status_code == 200:
+            result = response.json()
+            llm_response = result["choices"][0]["message"]["content"].strip()
+            
+            try:
+                timing_data = json.loads(llm_response)
+                if "preferred_time" in timing_data and "urgency" in timing_data:
+                    ctx.logger.info(f"LLM extracted timing: {timing_data}")
+                    return timing_data
+            except json.JSONDecodeError:
+                ctx.logger.warning(f"LLM timing response not valid JSON: {llm_response}")
+                
+        else:
+            ctx.logger.warning(f"ASI1 API error for timing: {response.status_code}")
+            
+    except Exception as e:
+        ctx.logger.error(f"Error in LLM timing extraction: {str(e)}")
+    
+    # Fallback to defaults if LLM fails
+    return {"preferred_time": "next available", "urgency": "normal"}
 
 async def classify_user_intent_with_llm(message: str, ctx: Context) -> str:
     """Classify user intent using ASI1 LLM for more accurate natural language understanding"""
@@ -387,43 +571,17 @@ Examples:
                 ctx.logger.info(f"LLM classified '{message}' as: {intent}")
                 return intent
             else:
-                ctx.logger.warning(f"LLM returned invalid intent: {intent}, using fallback")
-                return classify_user_intent_fallback(message)
+                ctx.logger.warning(f"LLM returned invalid intent: {intent}, returning general")
+                return "general"
         else:
-            ctx.logger.warning(f"ASI1 API error: {response.status_code}, using fallback")
-            return classify_user_intent_fallback(message)
+            ctx.logger.warning(f"ASI1 API error: {response.status_code}, returning general")
+            return "general"
 
     except Exception as e:
-        ctx.logger.error(f"LLM intent classification failed: {str(e)}, using fallback")
-        return classify_user_intent_fallback(message)
-
-def classify_user_intent_fallback(message: str) -> str:
-    """Fallback intent classifier using keywords (original method)"""
-    message_lower = message.lower()
-
-    # Simple keyword-based fallback
-    if "emergency" in message_lower:
-        return "emergency"
-    elif any(phrase in message_lower for phrase in ["what disease", "what illness", "analyze my symptoms", "diagnose me"]):
-        return "health_analysis"
-    elif any(word in message_lower for word in ["doctor", "appointment", "book", "schedule"]):
-        return "book_doctor"
-    elif any(word in message_lower for word in ["medicine", "pharmacy", "buy", "prescription", "available"]):
-        return "pharmacy"
-    elif any(word in message_lower for word in ["remind", "reminder", "medication"]):
-        return "medication_reminder"
-    elif any(phrase in message_lower for phrase in ["delete", "remove", "clear"]) and any(word in message_lower for word in ["wellness", "sleep", "steps", "exercise", "log"]):
-        return "wellness_delete"
-    elif any(word in message_lower for word in ["sleep", "steps", "walked", "exercise", "workout", "gym", "run", "jog", "bike"]):
-        return "wellness"
-    elif any(phrase in message_lower for phrase in ["i have", "i feel", "pain", "ache", "hurt", "sick"]):
-        return "symptom_logging"
-    else:
+        ctx.logger.error(f"LLM intent classification failed: {str(e)}, returning general")
         return "general"
 
-def classify_user_intent(message: str, sender: str = None) -> str:
-    """Legacy synchronous wrapper - will be replaced by async version"""
-    return classify_user_intent_fallback(message)
+
 
 def set_user_context(sender: str, context: dict):
     """Set conversation context for a user"""
@@ -528,7 +686,7 @@ async def handle_symptom_logging(symptoms_text: str, ctx: Context, sender: str =
 async def handle_medication_reminder(reminder_text: str, ctx: Context, sender: str = "default_user") -> str:
     """Handle medication reminder setup"""
     try:
-        reminder_info = extract_reminder_info(reminder_text)
+        reminder_info = await extract_reminder_info_with_llm(reminder_text, ctx)
 
         reminder_data = {
             "medicine": reminder_info["medicine"],
@@ -1094,25 +1252,13 @@ async def route_to_doctor_agent(message: str, ctx: Context, user_sender: str = N
         ctx.logger.info(f" Analyzing booking request with AI: '{message}'")
         specialty = await extract_specialty_with_llm(message, ctx)
 
-        # Also extract timing and urgency with simple parsing (can enhance with LLM later)
-        preferred_time = "next available"
-        urgency = "normal"
-        message_lower = message.lower()
+        # Extract timing and urgency using LLM for better understanding
+        timing_info = await extract_appointment_timing_with_llm(message, ctx)
+        preferred_time = timing_info.get("preferred_time", "next available")
+        urgency = timing_info.get("urgency", "normal")
 
-        if any(word in message_lower for word in ["urgent", "emergency", "asap", "immediately", "right now"]):
-            urgency = "urgent"
-            preferred_time = "today"
-        elif "tomorrow" in message_lower:
-            preferred_time = "tomorrow"
-        elif "today" in message_lower:
-            preferred_time = "today"
-        elif any(word in message_lower for word in ["next week", "later this week"]):
-            preferred_time = "next week"
-
-        # Extract symptoms if mentioned
-        symptoms = None
-        if any(word in message_lower for word in ["symptoms", "feel", "pain", "hurt", "ache", "problem"]):
-            symptoms = message  # Pass the full message as symptoms context
+        # Use the full message as symptom context for better doctor matching
+        symptoms = message
 
         request_id = str(uuid4())[:8]
         ctx.logger.info(f"🏥 Creating doctor booking request with user_id: '{user_sender}'")
@@ -1268,10 +1414,8 @@ async def route_to_pharmacy_agent(message: str, ctx: Context, user_sender: str =
         except (ValueError, TypeError):
             quantity = 1
 
-        # Determine if this is an order request (buy, purchase, order) vs check request
-        is_order_request = request_type == "order" or any(word in message.lower() for word in [
-            "buy", "purchase", "order", "get me", "i need", "i want"
-        ])
+        # Use LLM-extracted request type to determine if this is an order
+        is_order_request = request_type == "order"
 
         ctx.logger.info(f"Medicine: {medicine_name}, Type: {request_type}, Quantity: {quantity}, Is Order: {is_order_request}")
 
@@ -1964,10 +2108,11 @@ async def process_health_query(query: str, ctx: Context, sender: str = "default_
 
             # Handle doctor booking confirmations
             if context.get("awaiting_doctor_confirmation"):
-                message_lower = query.lower()
-                if any(word in message_lower for word in ["yes", "yeah", "sure", "ok", "okay", "book it", "please", "go ahead"]):
+                # Use LLM to understand confirmation intent
+                confirmation_intent = await classify_confirmation_with_llm(query, ctx)
+                if confirmation_intent == "yes":
                     return await handle_doctor_booking_confirmation(sender, ctx)
-                elif any(word in message_lower for word in ["no", "nope", "cancel", "not now", "maybe later"]):
+                elif confirmation_intent == "no":
                     return await handle_doctor_booking_cancellation(sender, ctx)
 
         # Use ASI1 LLM for intent classification (more accurate)

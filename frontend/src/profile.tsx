@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { AuthClient } from '@dfinity/auth-client';
 import Navbar from './nav';
 import { storeUserProfile, fetchUserProfile } from './services/flaskService';
 import { useAuth } from './contexts/AuthContext';

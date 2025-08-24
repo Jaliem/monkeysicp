@@ -2151,6 +2151,31 @@ doctors.add(("gp_008", gp8));
     };
   };
 
+  // Extracts user_id and date from delete wellness request
+  private func extractDeleteWellnessRequest(body : Blob) : Result.Result<{user_id: Text; date: Text}, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+
+    type DeleteWellnessRequest = {
+      user_id : Text;
+      date : Text;
+    };
+    let deleteRequest : ?DeleteWellnessRequest = from_candid (blob);
+
+    switch (deleteRequest) {
+      case null return #err("user_id or date not found in JSON");
+      case (?req) {
+        #ok({ user_id = req.user_id; date = req.date });
+      };
+    };
+  };
+
   // Extracts medicine data from HTTP request body
   private func extractMedicineData(body : Blob) : Result.Result<Types.Medicine, Text> {
     let jsonText = switch (Text.decodeUtf8(body)) {
@@ -2341,7 +2366,7 @@ doctors.add(("gp_008", gp8));
           upgrade = null;
         };
       };
-      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/cancel-appointment" or "/cancel-medicine-order" or "/add-wellness-log" or "/get-wellness-summary" or "/store-user-profile" or "/get-user-profile") {
+      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/cancel-appointment" or "/cancel-medicine-order" or "/add-wellness-log" or "/get-wellness-summary" or "/delete-wellness-log" or "/store-user-profile" or "/get-user-profile") {
         {
           status_code = 200;
           headers = [("content-type", "application/json")];
@@ -2669,6 +2694,21 @@ doctors.add(("gp_008", gp8));
           };
           case (?log) {
             let response = await add_wellness_log(log);
+            let blob = to_candid(response);
+            let #ok(jsonText) = JSON.toText(blob, WellnessStoreResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+
+      case ("POST", "/delete-wellness-log") {
+        let deleteRequest = extractDeleteWellnessRequest(body);
+        switch (deleteRequest) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok({user_id; date})) {
+            let response = await delete_wellness_log(user_id, date);
             let blob = to_candid(response);
             let #ok(jsonText) = JSON.toText(blob, WellnessStoreResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);

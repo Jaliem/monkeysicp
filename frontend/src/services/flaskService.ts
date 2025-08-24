@@ -921,7 +921,47 @@ export const deleteWellnessData = async (date: string, userId: string): Promise<
   try {
     console.log(`Deleting wellness data for ${date} for user: ${userId}`);
     
-    // Send delete request directly to ICP canister
+    // Try direct canister HTTP request first (same pattern as other functions)
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/delete-wellness-log`;
+    console.log('Trying canister URL:', canisterUrl);
+    
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        user_id: userId,
+        date: date
+      })
+    });
+
+    console.log('Delete wellness response status:', icpResponse.status);
+    
+    if (icpResponse.ok) {
+      const result = await icpResponse.json();
+      console.log('Delete result:', result);
+
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message,
+          data: result.logged_data
+        };
+      } else {
+        throw new Error(result.message || 'Failed to delete wellness data');
+      }
+    }
+    
+    console.warn('Canister delete response not ok:', icpResponse.status, icpResponse.statusText);
+    
+  } catch (error) {
+    console.error('Error deleting wellness data from canister:', error);
+  }
+  
+  // Fallback to HTTP interface
+  try {
+    console.log('Trying HTTP interface fallback for delete...');
     const response = await fetch(`${ICP_BASE_URL}/delete-wellness-log`, {
       method: 'POST',
       headers: {
@@ -934,27 +974,27 @@ export const deleteWellnessData = async (date: string, userId: string): Promise<
       })
     });
 
-    if (!response.ok) {
-      throw new Error(`Delete request failed: ${response.status}`);
+    if (response.ok) {
+      const result = await response.json();
+      console.log('HTTP interface delete result:', result);
+
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message,
+          data: result.logged_data
+        };
+      } else {
+        throw new Error(result.message || 'Failed to delete wellness data');
+      }
     }
-
-    const result = await response.json();
-    console.log('Delete result:', result);
-
-    if (result.success) {
-      return {
-        success: true,
-        message: result.message,
-        data: result.logged_data
-      };
-    } else {
-      throw new Error(result.message || 'Failed to delete wellness data');
-    }
-
+    
   } catch (error) {
-    console.error('Error deleting wellness data:', error);
-    throw error;
+    console.error('Error with HTTP interface for delete:', error);
   }
+  
+  console.log('Delete wellness failed, returning error');
+  return { success: false, message: 'Failed to delete wellness data' };
 };
 
 // Wellness insights service - using chat agent for AI insights
@@ -1134,7 +1174,7 @@ export const fetchMedicationReminders = async (userId: string): Promise<any> => 
     console.log('Fetching medication reminders for user:', userId);
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-user-medication-reminders`;
+    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-reminders`;
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -1159,7 +1199,7 @@ export const fetchMedicationReminders = async (userId: string): Promise<any> => 
   
   // Fallback to HTTP interface
   try {
-    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/get-user-medication-reminders`, {
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/get-reminders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

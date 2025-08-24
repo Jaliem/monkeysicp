@@ -92,7 +92,6 @@ const Wellness = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 7;
   const [searchDate, setSearchDate] = useState<string>('');
-  const [isDeleting, setIsDeleting] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [longestStreak, setLongestStreak] = useState(0);
 
@@ -497,46 +496,28 @@ const Wellness = () => {
     }
   };
 
-  const handleDeleteData = async () => {
-    if (!todayData.date) {
-      alert('Please select a date to delete.');
-      return;
-    }
 
-    const confirmDelete = window.confirm(`Are you sure you want to delete wellness data for ${todayData.date}? This action cannot be undone.`);
+  const handleDeleteLogEntry = async (date: string) => {
+    const confirmDelete = window.confirm(`Are you sure you want to delete wellness data for ${new Date(date).toLocaleDateString()}? This action cannot be undone.`);
     if (!confirmDelete) {
       return;
     }
 
-    setIsDeleting(true);
-    
     try {
-      const result = await deleteWellnessData(todayData.date, principal!);
-      console.log('Wellness data deleted successfully:', result);
+      const result = await deleteWellnessData(date, principal!);
+      console.log('Wellness log entry deleted successfully:', result);
       
-      // Clear the form data for the deleted date
-      setTodayData({
-        sleep: 0,
-        steps: 0,
-        water: 0,
-        mood: '',
-        exercise: '',
-        date: todayData.date
-      });
+      // Show success message
+      alert(`Wellness data for ${new Date(date).toLocaleDateString()} has been deleted successfully.`);
       
-      // Refresh the data to reflect the deletion
-      await loadWellnessData();
-      
-      alert(`Wellness data for ${todayData.date} has been deleted successfully.`);
+      // Refresh the entire page to ensure all data is updated
+      window.location.reload();
       
     } catch (error) {
-      console.error('Error deleting wellness data:', error);
+      console.error('Error deleting wellness log entry:', error);
       alert('Failed to delete wellness data. Please try again.');
-    } finally {
-      setIsDeleting(false);
     }
   };
-
 
   const closeDateModal = () => {
     setShowDateModal(false);
@@ -886,23 +867,6 @@ const Wellness = () => {
                     )}
                   </button>
                   
-                  {/* Delete Button - Only show if date has existing data */}
-                  {wellnessHistory.some(log => log.date === todayData.date) && (
-                    <button
-                      onClick={handleDeleteData}
-                      disabled={isDeleting}
-                      className="w-full mt-3 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isDeleting ? (
-                        <span className="flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Deleting...
-                        </span>
-                      ) : (
-                        '🗑️ Delete Data for This Date'
-                      )}
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -1313,6 +1277,17 @@ const Wellness = () => {
                           )}
                         </div>
                       </div>
+                      
+                      {/* Delete button */}
+                      <button
+                        onClick={() => handleDeleteLogEntry(log.date)}
+                        className="ml-4 p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-200 group"
+                        title={`Delete wellness log for ${new Date(log.date).toLocaleDateString()}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
                     </div>
                   ))}
                 </div>

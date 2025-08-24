@@ -26,7 +26,7 @@ interface Order {
   medicineName: string;
   quantity: number;
   totalPrice: number;
-  status: 'pending' | 'processing' | 'ready' | 'delivered' | 'cancelled' | 'confirmed';
+  status: 'pending' | 'processing' | 'shipped' | 'ready' | 'delivered' | 'cancelled' | 'confirmed';
   orderDate: string;
   pharmacyName: string;
 }
@@ -134,6 +134,7 @@ const Pharmacy = () => {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCart, setShowCart] = useState(false);
+  const [showOrders, setShowOrders] = useState(false);
   const [showMedicineModal, setShowMedicineModal] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
   const [isOrdering, setIsOrdering] = useState(false);
@@ -436,12 +437,20 @@ const Pharmacy = () => {
                 Pharmacy
               </h1>
             </div>
-            <button
-              onClick={() => setShowCart(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors duration-200"
-            >
-              <span>Cart ({cart.length})</span>
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowOrders(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                <span>My Orders ({orders.length})</span>
+              </button>
+              <button
+                onClick={() => setShowCart(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors duration-200"
+              >
+                <span>Cart ({cart.length})</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -767,6 +776,80 @@ const Pharmacy = () => {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Orders Modal */}
+      {showOrders && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="p-6 border-b border-stone-200/60">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-light text-stone-800 font-serif">
+                  My Orders
+                </h2>
+                <button
+                  onClick={() => setShowOrders(false)}
+                  className="text-stone-400 hover:text-stone-600 text-2xl transition-colors duration-200"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6">
+              {orders.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">📦</div>
+                  <p className="text-stone-500 font-light text-lg">No orders yet</p>
+                  <p className="text-stone-400 font-light">Your order history will appear here</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map((order) => (
+                    <div key={order.id} className="border border-stone-200 rounded-xl p-6 hover:shadow-sm transition-shadow">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-medium text-stone-800">{order.medicineName}</h3>
+                          <p className="text-stone-500 font-light">Order ID: {order.id}</p>
+                          <p className="text-stone-500 font-light">Pharmacy: {order.pharmacyName}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xl font-light text-stone-800">${order.totalPrice}</p>
+                          <p className="text-stone-500 font-light">Qty: {order.quantity}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-4">
+                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                            order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                            order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
+                            order.status === 'processing' ? 'bg-yellow-100 text-yellow-800' :
+                            order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                            'bg-stone-100 text-stone-800'
+                          }`}>
+                            {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                          </span>
+                          <p className="text-stone-500 font-light">Ordered: {order.orderDate}</p>
+                        </div>
+                        
+                        {order.status === 'pending' || order.status === 'processing' ? (
+                          <button
+                            onClick={() => handleCancelOrder(order.id)}
+                            disabled={cancellingOrders.has(order.id)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {cancellingOrders.has(order.id) ? 'Cancelling...' : 'Cancel Order'}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
