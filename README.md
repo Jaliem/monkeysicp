@@ -1,3 +1,5 @@
+![tag:innovationlab](https://img.shields.io/badge/innovationlab-3D8BD3)
+
 # System Overview
 
 Cura is a comprehensive healthcare agent system built on Internet Computer Protocol (ICP) with Fetch.ai agents that provide intelligent healthcare services through multiple specialized microservices.

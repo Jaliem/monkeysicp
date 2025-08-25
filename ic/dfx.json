@@ -5,6 +5,10 @@
       "type": "motoko",
       "args": "--enhanced-orthogonal-persistence"
     },
+    "wallet": {
+      "main": "src/wallet/main.mo",
+      "type": "motoko"
+    },
     "frontend": {
       "dependencies": ["backend"],
       "frontend": {
