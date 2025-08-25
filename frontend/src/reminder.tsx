@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { deleteMedicationReminder } from './services/flaskService';
 import Navbar from './nav';
 import { useAuth } from './contexts/AuthContext';
 import { fetchWellnessData, fetchMedicationReminders, fetchAppointments, createMedicationReminder } from './services/flaskService';
@@ -270,13 +271,17 @@ const Reminder = () => {
   };
 
   const markMedicationTaken = (id: string) => {
-    setMedicationReminders(prev => 
-      prev.map(reminder => 
-        reminder.id === id 
-          ? { ...reminder, status: 'taken' } 
-          : reminder
-      )
-    );
+    if (!principal) { return; }
+    // Remove from backend first
+    deleteMedicationReminder(principal, id).then((result) => {
+      if (result.success) {
+        setMedicationReminders(prev => prev.filter(reminder => reminder.id !== id));
+      } else {
+        alert('Failed to delete reminder: ' + (result.message || 'Unknown error'));
+      }
+    }).catch((err) => {
+      alert('Error deleting reminder: ' + err);
+    });
   };
 
   // Handle form submission for new medication reminder
@@ -364,80 +369,69 @@ const Reminder = () => {
   }
 
   return (
-    <div className="h-screen w-screen flex bg-gradient-to-tr from-stone-50 via-white to-emerald-50">
-      <style>{`
-        @keyframes glow {
-          0% { text-shadow: 0 0 8px #ffb347, 0 0 16px #ffb347, 0 0 32px #ffb347; }
-          50% { text-shadow: 0 0 24px #ffb347, 0 0 48px #ffb347, 0 0 96px #ffb347; }
-          100% { text-shadow: 0 0 8px #ffb347, 0 0 16px #ffb347, 0 0 32px #ffb347; }
-        }
-        .animate-glow {
-          animation: glow 2s infinite alternate;
-        }
-      `}</style>
-      <Navbar />
-      
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-8 max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-4xl font-serif font-light text-stone-800 mb-2">Reminders</h1>
-                <p className="text-stone-600 font-light">Stay on top of your health routine</p>
-              </div>
-              <div className="flex items-center gap-4">
-                {/* Streak Display */}
-                <div className="flex items-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-full shadow-lg">
-                  <svg className="w-6 h-6 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold animate-glow">
-                      {currentStreak}
-                    </div>
-                    <div className="text-xs opacity-90 animate-glow">
-                      day{currentStreak !== 1 ? 's' : ''} streak
-                    </div>
+  <div className="h-screen w-screen flex bg-gradient-to-br from-stone-50 via-white to-emerald-50">
+    <Navbar />
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header Section - White container only for the header */}
+      <div className="bg-white shadow-sm border-b border-stone-200">
+        <div className="px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-light text-stone-800 tracking-wide font-serif">
+                Reminders
+              </h1>
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Streak Display */}
+              <div className="flex items-center bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-3 rounded-full shadow-lg">
+                <svg className="w-6 h-6 mr-2 animate-pulse" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                </svg>
+                <div className="text-center">
+                  <div className="text-2xl font-bold animate-glow">
+                    {currentStreak}
+                  </div>
+                  <div className="text-xs opacity-90 animate-glow">
+                    day{currentStreak !== 1 ? 's' : ''} streak
                   </div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Content Section - This part will have the gradient background */}
+      <div className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Wellness Log Reminder */}
+          {!hasLoggedWellnessToday && (
+            <div className="col-span-1 lg:col-span-2 bg-gradient-to-r from-emerald-500 to-emerald-700 rounded-2xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-light mb-2">Log Your Wellness Data</h2>
+                  <p className="text-emerald-100 mb-2">You haven't logged your wellness data for today yet.</p>
+                  {currentStreak > 0 ? (
+                    <p className="text-emerald-100 font-medium mb-4">
+                      Don't break your {currentStreak}-day streak! Keep the momentum going! 
+                    </p>
+                  ) : (
+                    <p className="text-emerald-100 font-medium mb-4">
+                      Start building your wellness streak today! 
+                    </p>
+                  )}
+                </div>
+              </div>
+              <a
+                href="/wellness"
+                className="inline-block bg-white text-emerald-600 px-6 py-2 rounded-lg hover:bg-emerald-50 transition-colors font-medium"
+              >
+                Log Wellness Data
+              </a>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Wellness Log Reminder */}
-            {!hasLoggedWellnessToday && (
-              <div className="col-span-1 lg:col-span-2 bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-light mb-2">Log Your Wellness Data</h2>
-                    <p className="text-emerald-100 mb-2">You haven't logged your wellness data for today yet.</p>
-                    {currentStreak > 0 ? (
-                      <p className="text-emerald-100 font-medium mb-4">
-                        Don't break your {currentStreak}-day streak! Keep the momentum going! 🔥
-                      </p>
-                    ) : (
-                      <p className="text-emerald-100 font-medium mb-4">
-                        Start building your wellness streak today! 🌱
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-emerald-200">
-                    <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                    </svg>
-                  </div>
-                </div>
-                <a
-                  href="/wellness"
-                  className="inline-block bg-white text-emerald-600 px-6 py-2 rounded-lg hover:bg-emerald-50 transition-colors font-medium"
-                >
-                  Log Wellness Data
-                </a>
-              </div>
-            )}
-
             {/* Medication Reminders */}
             <div className="bg-white rounded-2xl p-6 shadow-lg">
               <h2 className="text-2xl font-light text-stone-800 mb-6 flex items-center">
@@ -445,18 +439,16 @@ const Reminder = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                 </svg>
                 <span>Medication Reminders</span>
-                {/* Add Medication Reminder Button (beside title) */}
-                {!showReminderForm && (
-                  <button
-                    onClick={() => setShowReminderForm(true)}
-                    className="ml-3 bg-emerald-600 text-white p-2 rounded-full hover:bg-emerald-700 transition-colors shadow-lg"
-                    title="Add Medication Reminder"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                )}
+                {/* Add Medication Reminder Button (beside title) as popup trigger */}
+                <button
+                  onClick={() => setShowReminderForm(true)}
+                  className="ml-3 bg-emerald-600 text-white p-2 rounded-full hover:bg-emerald-700 transition-colors shadow-lg"
+                  title="Add Medication Reminder"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
               </h2>
               
               {medicationReminders.length === 0 ? (
@@ -504,76 +496,77 @@ const Reminder = () => {
                 </div>
               )}
 
-              {/* Add New Reminder Button */}
-              {/* Add New Reminder Button removed from here, now in header */}
-
               {/* Add Reminder Form */}
               {showReminderForm && (
-                <div className="mt-6 bg-gray-50 rounded-xl p-6 border-2 border-dashed border-gray-300">
-                  <h3 className="text-lg font-medium text-stone-800 mb-4">Add New Medication Reminder</h3>
-                  <form onSubmit={handleAddReminder} className="space-y-4">
-                    <div>
-                      <label htmlFor="medication" className="block text-sm font-medium text-stone-700 mb-2">
-                        Medication Name
-                      </label>
-                      <input
-                        id="medication"
-                        type="text"
-                        value={newReminder.medication}
-                        onChange={(e) => setNewReminder({ ...newReminder, medication: e.target.value })}
-                        placeholder="e.g., Aspirin, Vitamin D, Blood pressure pills"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        required
-                      />
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                  {/* Blurred background overlay with same gradient */}
+                  <div className="absolute inset-0 w-full h-full from-stone-50 backdrop-blur-md"></div>
+                  <div className="relative z-10 flex items-center justify-center w-full h-full">
+                    <div className="bg-white rounded-2xl p-8 shadow-2xl max-w-md w-full mx-auto">
+                      <h3 className="text-lg font-medium text-stone-800 mb-4">Add New Medication Reminder</h3>
+                      <form onSubmit={handleAddReminder} className="space-y-4">
+                        <div>
+                          <label htmlFor="medication" className="block text-sm font-medium text-stone-700 mb-2">
+                            Medication Name
+                          </label>
+                          <input
+                            id="medication"
+                            type="text"
+                            value={newReminder.medication}
+                            onChange={(e) => setNewReminder({ ...newReminder, medication: e.target.value })}
+                            placeholder="e.g., Aspirin, Vitamin D, Blood pressure pills"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="time" className="block text-sm font-medium text-stone-700 mb-2">
+                            Reminder Time / Schedule
+                          </label>
+                          <input
+                            id="time"
+                            type="text"
+                            value={newReminder.time}
+                            onChange={(e) => setNewReminder({ ...newReminder, time: e.target.value })}
+                            placeholder="e.g., 8:00 AM, After eating, Before bed, Every 6 hours"
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                            required
+                          />
+                        </div>
+                        <div className="flex space-x-4 pt-2">
+                          <button
+                            type="submit"
+                            className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
+                          >
+                            Add Reminder
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowReminderForm(false);
+                              setNewReminder({ medication: '', time: '' });
+                            }}
+            
+                            className="bg-white-500 border border-stone-200 text-stone-600 px-6 py-2 rounded-lg hover:bg-stone-50 transition-colors font-medium"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
                     </div>
-                    
-                    <div>
-                      <label htmlFor="time" className="block text-sm font-medium text-stone-700 mb-2">
-                        Reminder Time / Schedule
-                      </label>
-                      <input
-                        id="time"
-                        type="text"
-                        value={newReminder.time}
-                        onChange={(e) => setNewReminder({ ...newReminder, time: e.target.value })}
-                        placeholder="e.g., 8:00 AM, After eating, Before bed, Every 6 hours"
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        required
-                      />
-                    </div>
-                    
-                    <div className="flex space-x-4 pt-2">
-                      <button
-                        type="submit"
-                        className="bg-emerald-600 text-white px-6 py-2 rounded-lg hover:bg-emerald-700 transition-colors font-medium"
-                      >
-                        Add Reminder
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowReminderForm(false);
-                          setNewReminder({ medication: '', time: '' });
-                        }}
-                        className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition-colors font-medium"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </form>
+                  </div>
                 </div>
               )}
             </div>
 
             {/* Upcoming Appointments */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg">
+            <div className="bg-white rounded-2xl p-6 shadow-lg flex flex-col h-full">
               <h2 className="text-2xl font-light text-stone-800 mb-6 flex items-center">
                 <svg className="w-6 h-6 text-emerald-700 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 Upcoming Appointments
               </h2>
-              
               {upcomingAppointments.length === 0 ? (
                 <p className="text-stone-500 text-center py-8">No upcoming appointments</p>
               ) : (
@@ -620,8 +613,8 @@ const Reminder = () => {
                   ))}
                 </div>
               )}
-              
-              <div className="mt-6 pt-4 border-t border-stone-200">
+              {/* Book New Appointment button moved to bottom */}
+              <div className="mt-auto pt-4 border-t border-stone-200 flex justify-end">
                 <a
                   href="/doctor"
                   className="text-emerald-700 hover:text-purple-700 font-medium text-sm flex items-center"
@@ -683,7 +676,9 @@ const Reminder = () => {
         </div>
       </div>
     </div>
-  );
-};
+  </div>
+);
+
+}
 
 export default Reminder;

@@ -15,7 +15,44 @@ import Iter "mo:base/Iter";
 import { JSON } "mo:serde";
 import Types "./Types";
 
-persistent actor {
+actor {
+  // --- DELETE REMINDER SUPPORT ---
+
+  private func extractDeleteReminderRequest(body : Blob) : Result.Result<Types.DeleteReminderRequest, Text> {
+    let jsonText = switch (Text.decodeUtf8(body)) {
+      case null { return #err("Invalid UTF-8 encoding in request body") };
+      case (?txt) { txt };
+    };
+    let #ok(blob) = JSON.fromText(jsonText, null) else {
+      return #err("Invalid JSON format in request body");
+    };
+    let req : ? Types.DeleteReminderRequest = from_candid (blob);
+    switch (req) {
+      case null return #err("Delete reminder data not found in JSON");
+      case (?r) #ok(r);
+    };
+  };
+
+  public shared func delete_reminder(user_id : Text, reminder_id : Text) : async Types.HealthStorageResponse {
+    var deleted : Bool = false;
+    var idx : Nat = 0;
+    label search for ((id, reminder) in reminders.vals()) {
+      if (id == reminder_id and reminder.user_id == user_id) {
+        reminders.remove(idx);
+        deleted := true;
+        break search;
+      };
+      idx += 1;
+    };
+    {
+      success = deleted;
+      message = if deleted { "Reminder deleted successfully" } else {
+        "Reminder not found";
+      };
+      id = ?reminder_id;
+    };
+  };
+
   // Record keys for JSON serialization - Healthcare
   transient let WelcomeResponseKeys = ["message"];
   transient let _SymptomDataKeys = ["symptoms", "timestamp", "user_id"];
@@ -50,18 +87,7 @@ persistent actor {
   transient let _UserProfileKeys = ["user_id", "name", "age", "gender", "height", "weight", "blood_type", "phone_number", "emergency_contact", "allergies", "medications", "conditions", "surgeries", "preferred_doctor", "preferred_pharmacy", "privacy_level", "created_at", "updated_at"];
   transient let UserProfileResponseKeys = ["success", "message", "profile"];
 
-  // Healthcare data storage
-  private var symptom_entries : [(Text, Types.SymptomData)] = [];
-  private var medication_reminders : [(Text, Types.MedicationReminder)] = [];
-  private var emergency_alerts : [(Text, Types.EmergencyAlert)] = [];
-  private var doctor_entries : [(Text, Types.Doctor)] = [];
-  private var appointment_entries : [(Text, Types.Appointment)] = [];
-  private var wellness_log_entries : [(Text, Types.WellnessLog)] = [];
-  private var streak_entries : [(Text, Types.UserStreak)] = [];
-  private var medicine_entries : [(Text, Types.Medicine)] = [];
-  private var medicine_order_entries : [(Text, Types.MedicineOrder)] = [];
-  private var next_id : Nat = 1;
-
+  // Healthcare data storage - Use Buffers for mutable storage
   private transient var symptoms = Buffer.Buffer<(Text, Types.SymptomData)>(0);
   private transient var reminders = Buffer.Buffer<(Text, Types.MedicationReminder)>(0);
   private transient var emergencies = Buffer.Buffer<(Text, Types.EmergencyAlert)>(0);
@@ -72,305 +98,327 @@ persistent actor {
   private transient var medicines = Buffer.Buffer<(Text, Types.Medicine)>(0);
   private transient var medicine_orders = Buffer.Buffer<(Text, Types.MedicineOrder)>(0);
   private transient var user_profiles = Buffer.Buffer<(Text, Types.UserProfile)>(0);
-  private var user_profile_entries : [(Text, Types.UserProfile)] = [];
+  private transient var next_id : Nat = 1;
 
-  system func preupgrade() {
-    symptom_entries := Buffer.toArray(symptoms);
-    medication_reminders := Buffer.toArray(reminders);
-    emergency_alerts := Buffer.toArray(emergencies);
-    doctor_entries := Buffer.toArray(doctors);
-    appointment_entries := Buffer.toArray(appointments);
-    wellness_log_entries := Buffer.toArray(wellness_logs);
-    streak_entries := Buffer.toArray(user_streaks);
-    medicine_entries := Buffer.toArray(medicines);
-    medicine_order_entries := Buffer.toArray(medicine_orders);
-    user_profile_entries := Buffer.toArray(user_profiles);
+  // Stable storage arrays for upgrade
+  private stable var symptom_entries : [(Text, Types.SymptomData)] = [];
+  private stable var medication_reminders : [(Text, Types.MedicationReminder)] = [];
+  private stable var emergency_alerts : [(Text, Types.EmergencyAlert)] = [];
+  private stable var doctor_entries : [(Text, Types.Doctor)] = [];
+  private stable var appointment_entries : [(Text, Types.Appointment)] = [];
+  private stable var wellness_log_entries : [(Text, Types.WellnessLog)] = [];
+  private stable var streak_entries : [(Text, Types.UserStreak)] = [];
+  private stable var medicine_entries : [(Text, Types.Medicine)] = [];
+  private stable var medicine_order_entries : [(Text, Types.MedicineOrder)] = [];
+private stable var user_profile_entries : [(Text, Types.UserProfile)] = [];
+
+system func preupgrade() {
+  symptom_entries := Buffer.toArray(symptoms);
+  medication_reminders := Buffer.toArray(reminders);
+  emergency_alerts := Buffer.toArray(emergencies);
+  doctor_entries := Buffer.toArray(doctors);
+  appointment_entries := Buffer.toArray(appointments);
+  wellness_log_entries := Buffer.toArray(wellness_logs);
+  streak_entries := Buffer.toArray(user_streaks);
+  medicine_entries := Buffer.toArray(medicines);
+  medicine_order_entries := Buffer.toArray(medicine_orders);
+  user_profile_entries := Buffer.toArray(user_profiles);
+};
+
+system func postupgrade() {
+  symptoms := Buffer.fromArray(symptom_entries);
+  reminders := Buffer.fromArray(medication_reminders);
+  emergencies := Buffer.fromArray(emergency_alerts);
+  doctors := Buffer.fromArray(doctor_entries);
+  appointments := Buffer.fromArray(appointment_entries);
+  wellness_logs := Buffer.fromArray(wellness_log_entries);
+  user_streaks := Buffer.fromArray(streak_entries);
+  medicines := Buffer.fromArray(medicine_entries);
+  medicine_orders := Buffer.fromArray(medicine_order_entries);
+  user_profiles := Buffer.fromArray(user_profile_entries);
+  
+  // Clear stable arrays to save space
+  symptom_entries := [];
+  medication_reminders := [];
+  emergency_alerts := [];
+  doctor_entries := [];
+  appointment_entries := [];
+  wellness_log_entries := [];
+  streak_entries := [];
+  medicine_entries := [];
+  medicine_order_entries := [];
+  user_profile_entries := [];
+
+  // Initialize doctors if empty
+  if (doctors.size() == 0) {
+    initializeDoctors();
   };
 
-  system func postupgrade() {
-    symptoms := Buffer.fromArray(symptom_entries);
-    reminders := Buffer.fromArray(medication_reminders);
-    emergencies := Buffer.fromArray(emergency_alerts);
-    doctors := Buffer.fromArray(doctor_entries);
-    appointments := Buffer.fromArray(appointment_entries);
-    wellness_logs := Buffer.fromArray(wellness_log_entries);
-    user_streaks := Buffer.fromArray(streak_entries);
-    medicines := Buffer.fromArray(medicine_entries);
-    medicine_orders := Buffer.fromArray(medicine_order_entries);
-    user_profiles := Buffer.fromArray(user_profile_entries);
-    symptom_entries := [];
-    medication_reminders := [];
-    emergency_alerts := [];
-    streak_entries := [];
-
-    // Initialize doctors if empty
-    if (doctors.size() == 0) {
-      initializeDoctors();
-    };
-
-    // Initialize medicines if empty
-    if (medicines.size() == 0) {
-      initializeMedicines();
-    };
+  // Initialize medicines if empty
+  if (medicines.size() == 0) {
+    initializeMedicines();
   };
+};
+
+  // ... rest of your actor functions ..
 
   // ----- Doctor Database Initialization -----
 
   private func initializeDoctors() {
     Debug.print("[INIT]: Initializing doctor database");
 
-   // CARDIOLOGY DOCTORS
+    // CARDIOLOGY DOCTORS
     let card1 : Types.Doctor = {
-        doctor_id = "card_001";
-        name = "Dr. Amir Hassan";
-        specialty = "Cardiology";
-        qualifications = "MD, FACC";
-        experience_years = 15;
-        rating = 4.8;
-        available_days = ["Monday", "Wednesday", "Friday"];
-        available_slots = ["09:00", "11:00", "14:00", "16:00"];
-        image_url = "https://media.istockphoto.com/id/177373093/photo/indian-male-doctor.jpg?s=612x612&w=0&k=20&c=5FkfKdCYERkAg65cQtdqeO_D0JMv6vrEdPw3mX1Lkfg=";
+      doctor_id = "card_001";
+      name = "Dr. Amir Hassan";
+      specialty = "Cardiology";
+      qualifications = "MD, FACC";
+      experience_years = 15;
+      rating = 4.8;
+      available_days = ["Monday", "Wednesday", "Friday"];
+      available_slots = ["09:00", "11:00", "14:00", "16:00"];
+      image_url = "https://media.istockphoto.com/id/177373093/photo/indian-male-doctor.jpg?s=612x612&w=0&k=20&c=5FkfKdCYERkAg65cQtdqeO_D0JMv6vrEdPw3mX1Lkfg=";
     };
     doctors.add(("card_001", card1));
 
     let card2 : Types.Doctor = {
-        doctor_id = "card_002";
-        name = "Dr. Sarah Chen";
-        specialty = "Cardiology";
-        qualifications = "MD, FACC, FHRS";
-        experience_years = 12;
-        rating = 4.7;
-        available_days = ["Tuesday", "Thursday"];
-        available_slots = ["10:00", "13:00", "15:00"];
-        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-KjqUO12bNZqGpsdh6gU0DUmz3f3-Pj5ikJYYqb5w8A789NqtMnEmVf6Fo0AqoXJOfcY&usqp=CAU";
+      doctor_id = "card_002";
+      name = "Dr. Sarah Chen";
+      specialty = "Cardiology";
+      qualifications = "MD, FACC, FHRS";
+      experience_years = 12;
+      rating = 4.7;
+      available_days = ["Tuesday", "Thursday"];
+      available_slots = ["10:00", "13:00", "15:00"];
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT-KjqUO12bNZqGpsdh6gU0DUmz3f3-Pj5ikJYYqb5w8A789NqtMnEmVf6Fo0AqoXJOfcY&usqp=CAU";
     };
     doctors.add(("card_002", card2));
 
     // DERMATOLOGY DOCTORS
     let derm1 : Types.Doctor = {
-        doctor_id = "derm_001";
-        name = "Dr. Isabella Rodriguez";
-        specialty = "Dermatology";
-        qualifications = "MD, FAAD";
-        experience_years = 11;
-        rating = 4.6;
-        available_days = ["Monday", "Tuesday", "Thursday"];
-        available_slots = ["08:00", "10:00", "14:00", "16:00"];
-        image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
+      doctor_id = "derm_001";
+      name = "Dr. Isabella Rodriguez";
+      specialty = "Dermatology";
+      qualifications = "MD, FAAD";
+      experience_years = 11;
+      rating = 4.6;
+      available_days = ["Monday", "Tuesday", "Thursday"];
+      available_slots = ["08:00", "10:00", "14:00", "16:00"];
+      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
     };
     doctors.add(("derm_001", derm1));
 
     let derm2 : Types.Doctor = {
-        doctor_id = "derm_002";
-        name = "Dr. Sofia Petrov";
-        specialty = "Dermatology";
-        qualifications = "MD, FAAD, FACMS";
-        experience_years = 17;
-        rating = 4.9;
-        available_days = ["Wednesday", "Friday"];
-        available_slots = ["09:00", "11:00", "13:00", "15:00"];
-        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYgoNUGdTXgbbapdy3wq9WPJYj9UxpkcVwnwxD9M_fvkR-nwQIY57c8TguRer6Cshtcnw&usqp=CAU";
+      doctor_id = "derm_002";
+      name = "Dr. Sofia Petrov";
+      specialty = "Dermatology";
+      qualifications = "MD, FAAD, FACMS";
+      experience_years = 17;
+      rating = 4.9;
+      available_days = ["Wednesday", "Friday"];
+      available_slots = ["09:00", "11:00", "13:00", "15:00"];
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRYgoNUGdTXgbbapdy3wq9WPJYj9UxpkcVwnwxD9M_fvkR-nwQIY57c8TguRer6Cshtcnw&usqp=CAU";
     };
     doctors.add(("derm_002", derm2));
 
     // NEUROLOGY DOCTORS
     let neuro1 : Types.Doctor = {
-        doctor_id = "neuro_001";
-        name = "Dr. Chen Wang";
-        specialty = "Neurology";
-        qualifications = "MD, FAAN";
-        experience_years = 18;
-        rating = 4.9;
-        available_days = ["Wednesday", "Friday"];
-        available_slots = ["09:00", "13:00", "15:00", "17:00"];
-        image_url = "https://media.istockphoto.com/id/469603848/photo/mature-medical-doctor.jpg?s=612x612&w=0&k=20&c=tvCH8hG-O3GQrwo-Zd0YdQgjSWgW_Mn9DJPLODKKUrE=";
+      doctor_id = "neuro_001";
+      name = "Dr. Chen Wang";
+      specialty = "Neurology";
+      qualifications = "MD, FAAN";
+      experience_years = 18;
+      rating = 4.9;
+      available_days = ["Wednesday", "Friday"];
+      available_slots = ["09:00", "13:00", "15:00", "17:00"];
+      image_url = "https://media.istockphoto.com/id/469603848/photo/mature-medical-doctor.jpg?s=612x612&w=0&k=20&c=tvCH8hG-O3GQrwo-Zd0YdQgjSWgW_Mn9DJPLODKKUrE=";
     };
     doctors.add(("neuro_001", neuro1));
 
     let neuro2 : Types.Doctor = {
-        doctor_id = "neuro_002";
-        name = "Dr. Isabella Romano";
-        specialty = "Neurology";
-        qualifications = "MD, FAAN, FAES";
-        experience_years = 22;
-        rating = 4.9;
-        available_days = ["Monday", "Tuesday"];
-        available_slots = ["10:00", "14:00", "16:00"];
-        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTwoLR-bBo8Y92cKLK7QQ61MPdYffu7sJCxdQBhMy5zk5RedIVAsV8ON8LgBKqgwFyLQEE&usqp=CAU";
+      doctor_id = "neuro_002";
+      name = "Dr. Isabella Romano";
+      specialty = "Neurology";
+      qualifications = "MD, FAAN, FAES";
+      experience_years = 22;
+      rating = 4.9;
+      available_days = ["Monday", "Tuesday"];
+      available_slots = ["10:00", "14:00", "16:00"];
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTwoLR-bBo8Y92cKLK7QQ61MPdYffu7sJCxdQBhMy5zk5RedIVAsV8ON8LgBKqgwFyLQEE&usqp=CAU";
     };
     doctors.add(("neuro_002", neuro2));
 
     // ORTHOPEDICS DOCTORS
     let ortho1 : Types.Doctor = {
-        doctor_id = "ortho_001";
-        name = "Dr. Miguel Diaz";
-        specialty = "Orthopedics";
-        qualifications = "MD, FAAOS";
-        experience_years = 14;
-        rating = 4.5;
-        available_days = ["Monday", "Wednesday"];
-        available_slots = ["09:30", "16:00", "18:00"];
-        image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
+      doctor_id = "ortho_001";
+      name = "Dr. Miguel Diaz";
+      specialty = "Orthopedics";
+      qualifications = "MD, FAAOS";
+      experience_years = 14;
+      rating = 4.5;
+      available_days = ["Monday", "Wednesday"];
+      available_slots = ["09:30", "16:00", "18:00"];
+      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
     };
     doctors.add(("ortho_001", ortho1));
 
     let ortho2 : Types.Doctor = {
-        doctor_id = "ortho_002";
-        name = "Dr. Lisa Thompson";
-        specialty = "Orthopedics";
-        qualifications = "MD, FAAOS";
-        experience_years = 17;
-        rating = 4.8;
-        available_days = ["Tuesday", "Thursday"];
-        available_slots = ["08:00", "10:00", "14:00", "16:00"];
-        image_url = "https://i.pinimg.com/474x/c5/a3/90/c5a3904b38eb241dd03dd30889599dc4.jpg";
+      doctor_id = "ortho_002";
+      name = "Dr. Lisa Thompson";
+      specialty = "Orthopedics";
+      qualifications = "MD, FAAOS";
+      experience_years = 17;
+      rating = 4.8;
+      available_days = ["Tuesday", "Thursday"];
+      available_slots = ["08:00", "10:00", "14:00", "16:00"];
+      image_url = "https://i.pinimg.com/474x/c5/a3/90/c5a3904b38eb241dd03dd30889599dc4.jpg";
     };
     doctors.add(("ortho_002", ortho2));
 
     // PEDIATRICS DOCTORS
     let pedia1 : Types.Doctor = {
-        doctor_id = "pedia_001";
-        name = "Dr. Emily Johnson";
-        specialty = "Pediatrics";
-        qualifications = "MD, FAAP";
-        experience_years = 8;
-        rating = 4.8;
-        available_days = ["Tuesday", "Thursday", "Saturday"];
-        available_slots = ["08:00", "12:00", "14:00"];
-        image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
+      doctor_id = "pedia_001";
+      name = "Dr. Emily Johnson";
+      specialty = "Pediatrics";
+      qualifications = "MD, FAAP";
+      experience_years = 8;
+      rating = 4.8;
+      available_days = ["Tuesday", "Thursday", "Saturday"];
+      available_slots = ["08:00", "12:00", "14:00"];
+      image_url = "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&h=400&fit=crop&crop=face";
     };
     doctors.add(("pedia_001", pedia1));
 
     let pedia2 : Types.Doctor = {
-        doctor_id = "pedia_002";
-        name = "Dr. Rachel Green";
-        specialty = "Pediatrics";
-        qualifications = "MD, FAAP";
-        experience_years = 12;
-        rating = 4.7;
-        available_days = ["Monday", "Wednesday", "Friday"];
-        available_slots = ["08:30", "10:30", "13:30", "15:30"];
-        image_url = "https://img.freepik.com/free-photo/female-doctor-hospital-with-stethoscope_23-2148827774.jpg?semt=ais_hybrid&w=740&q=80";
+      doctor_id = "pedia_002";
+      name = "Dr. Rachel Green";
+      specialty = "Pediatrics";
+      qualifications = "MD, FAAP";
+      experience_years = 12;
+      rating = 4.7;
+      available_days = ["Monday", "Wednesday", "Friday"];
+      available_slots = ["08:30", "10:30", "13:30", "15:30"];
+      image_url = "https://img.freepik.com/free-photo/female-doctor-hospital-with-stethoscope_23-2148827774.jpg?semt=ais_hybrid&w=740&q=80";
     };
     doctors.add(("pedia_002", pedia2));
 
     let pedia3 : Types.Doctor = {
-        doctor_id = "pedia_003";
-        name = "Dr. Yuki Yamamoto";
-        specialty = "Pediatrics";
-        qualifications = "MD, FAAP, FPIDS";
-        experience_years = 15;
-        rating = 4.9;
-        available_days = ["Tuesday", "Thursday"];
-        available_slots = ["09:00", "12:00", "14:00"];
-        image_url = "https://st2.depositphotos.com/1930953/5700/i/450/depositphotos_57007925-Asian-doctor.jpg";
+      doctor_id = "pedia_003";
+      name = "Dr. Yuki Yamamoto";
+      specialty = "Pediatrics";
+      qualifications = "MD, FAAP, FPIDS";
+      experience_years = 15;
+      rating = 4.9;
+      available_days = ["Tuesday", "Thursday"];
+      available_slots = ["09:00", "12:00", "14:00"];
+      image_url = "https://st2.depositphotos.com/1930953/5700/i/450/depositphotos_57007925-Asian-doctor.jpg";
     };
     doctors.add(("pedia_003", pedia3));
 
     // PSYCHIATRY DOCTORS
     let psych1 : Types.Doctor = {
-        doctor_id = "psych_001";
-        name = "Dr. Vellyn Angeline";
-        specialty = "Psychiatry";
-        qualifications = "MD, FAPA";
-        experience_years = 11;
-        rating = 4.6;
-        available_days = ["Tuesday", "Thursday"];
-        available_slots = ["09:15", "11:15", "13:15"];
-        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBPtP4JyvRQ3P8KvuY4AOcxF97MTZ3Tph9sw&s";
+      doctor_id = "psych_001";
+      name = "Dr. Vellyn Angeline";
+      specialty = "Psychiatry";
+      qualifications = "MD, FAPA";
+      experience_years = 11;
+      rating = 4.6;
+      available_days = ["Tuesday", "Thursday"];
+      available_slots = ["09:15", "11:15", "13:15"];
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTBPtP4JyvRQ3P8KvuY4AOcxF97MTZ3Tph9sw&s";
     };
     doctors.add(("psych_001", psych1));
 
     let psych2 : Types.Doctor = {
-        doctor_id = "psych_002";
-        name = "Dr. Michael Foster";
-        specialty = "Psychiatry";
-        qualifications = "MD, FAPA";
-        experience_years = 16;
-        rating = 4.8;
-        available_days = ["Monday", "Wednesday"];
-        available_slots = ["10:00", "12:00", "14:00", "16:00"];
-        image_url = "https://www.shutterstock.com/image-photo/profile-picture-smiling-old-male-600nw-1769847965.jpg";
+      doctor_id = "psych_002";
+      name = "Dr. Michael Foster";
+      specialty = "Psychiatry";
+      qualifications = "MD, FAPA";
+      experience_years = 16;
+      rating = 4.8;
+      available_days = ["Monday", "Wednesday"];
+      available_slots = ["10:00", "12:00", "14:00", "16:00"];
+      image_url = "https://www.shutterstock.com/image-photo/profile-picture-smiling-old-male-600nw-1769847965.jpg";
     };
     doctors.add(("psych_002", psych2));
 
     // ONCOLOGY DOCTORS
     let onco1 : Types.Doctor = {
-        doctor_id = "onco_001";
-        name = "Dr. Faisal Ahmad";
-        specialty = "Oncology";
-        qualifications = "MD, FACP";
-        experience_years = 20;
-        rating = 4.7;
-        available_days = ["Monday", "Wednesday", "Friday"];
-        available_slots = ["10:30", "13:30", "15:30"];
-        image_url = "https://t4.ftcdn.net/jpg/07/07/89/33/360_F_707893394_5DEhlBjWOmse1nyu0rC9T7ZRvsAFDkYC.jpg";
+      doctor_id = "onco_001";
+      name = "Dr. Faisal Ahmad";
+      specialty = "Oncology";
+      qualifications = "MD, FACP";
+      experience_years = 20;
+      rating = 4.7;
+      available_days = ["Monday", "Wednesday", "Friday"];
+      available_slots = ["10:30", "13:30", "15:30"];
+      image_url = "https://t4.ftcdn.net/jpg/07/07/89/33/360_F_707893394_5DEhlBjWOmse1nyu0rC9T7ZRvsAFDkYC.jpg";
     };
     doctors.add(("onco_001", onco1));
 
     let onco2 : Types.Doctor = {
-        doctor_id = "onco_002";
-        name = "Dr. Gisella Jayata";
-        specialty = "Oncology";
-        qualifications = "MD, FACP, FASCO";
-        experience_years = 17;
-        rating = 4.8;
-        available_days = ["Tuesday", "Thursday"];
-        available_slots = ["09:00", "12:00", "15:00"];
-        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQI3lsxUqYV0T-Tsp3ZsrqAvw5KAmjxXrpThsCXVO_0sRlbyprZqg40YeUYV8Uth6zpH04&usqp=CAU";
+      doctor_id = "onco_002";
+      name = "Dr. Gisella Jayata";
+      specialty = "Oncology";
+      qualifications = "MD, FACP, FASCO";
+      experience_years = 17;
+      rating = 4.8;
+      available_days = ["Tuesday", "Thursday"];
+      available_slots = ["09:00", "12:00", "15:00"];
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQI3lsxUqYV0T-Tsp3ZsrqAvw5KAmjxXrpThsCXVO_0sRlbyprZqg40YeUYV8Uth6zpH04&usqp=CAU";
     };
     doctors.add(("onco_002", onco2));
 
     // GENERAL PRACTITIONER DOCTORS
     let gp1 : Types.Doctor = {
-        doctor_id = "gp_001";
-        name = "Dr. Dylan Lorrenzo";
-        specialty = "General Practitioner";
-        qualifications = "MD, AAFP";
-        experience_years = 7;
-        rating = 4.4;
-        available_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-        available_slots = ["08:30", "10:30", "12:30", "14:30"];
-        image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
+      doctor_id = "gp_001";
+      name = "Dr. Dylan Lorrenzo";
+      specialty = "General Practitioner";
+      qualifications = "MD, AAFP";
+      experience_years = 7;
+      rating = 4.4;
+      available_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+      available_slots = ["08:30", "10:30", "12:30", "14:30"];
+      image_url = "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&h=400&fit=crop&crop=face";
     };
     doctors.add(("gp_001", gp1));
 
     let gp2 : Types.Doctor = {
-        doctor_id = "gp_002";
-        name = "Dr. Sarah Williams";
-        specialty = "General Practitioner";
-        qualifications = "MD, AAFP";
-        experience_years = 10;
-        rating = 4.6;
-        available_days = ["Monday", "Tuesday", "Thursday"];
-        available_slots = ["08:00", "11:00", "13:00", "16:00"];
-        image_url = "https://thumbs.dreamstime.com/b/passionate-helping-patients-headshot-portrait-profile-picture-social-networks-successful-professional-young-female-doctor-356873660.jpg";
+      doctor_id = "gp_002";
+      name = "Dr. Sarah Williams";
+      specialty = "General Practitioner";
+      qualifications = "MD, AAFP";
+      experience_years = 10;
+      rating = 4.6;
+      available_days = ["Monday", "Tuesday", "Thursday"];
+      available_slots = ["08:00", "11:00", "13:00", "16:00"];
+      image_url = "https://thumbs.dreamstime.com/b/passionate-helping-patients-headshot-portrait-profile-picture-social-networks-successful-professional-young-female-doctor-356873660.jpg";
     };
     doctors.add(("gp_002", gp2));
 
     let gp3 : Types.Doctor = {
-        doctor_id = "gp_003";
-        name = "Dr. Robert Clarke";
-        specialty = "General Practitioner";
-        qualifications = "MD, AAFP, ABFM";
-        experience_years = 14;
-        rating = 4.7;
-        available_days = ["Wednesday", "Friday"];
-        available_slots = ["09:00", "11:30", "14:30"];
-        image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQBIr4N0-Wyj91VvwOvhiZ5-uJgjkbiPA5xOA&s";
+      doctor_id = "gp_003";
+      name = "Dr. Robert Clarke";
+      specialty = "General Practitioner";
+      qualifications = "MD, AAFP, ABFM";
+      experience_years = 14;
+      rating = 4.7;
+      available_days = ["Wednesday", "Friday"];
+      available_slots = ["09:00", "11:30", "14:30"];
+      image_url = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQBIr4N0-Wyj91VvwOvhiZ5-uJgjkbiPA5xOA&s";
     };
     doctors.add(("gp_003", gp3));
 
     let gp4 : Types.Doctor = {
-        doctor_id = "gp_004";
-        name = "Dr. Angela Martinez";
-        specialty = "General Practitioner";
-        qualifications = "MD, AAFP";
-        experience_years = 12;
-        rating = 4.5;
-        available_days = ["Monday", "Wednesday", "Friday"];
-        available_slots = ["08:00", "10:00", "15:00", "17:00"];
-        image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
+      doctor_id = "gp_004";
+      name = "Dr. Angela Martinez";
+      specialty = "General Practitioner";
+      qualifications = "MD, AAFP";
+      experience_years = 12;
+      rating = 4.5;
+      available_days = ["Monday", "Wednesday", "Friday"];
+      available_slots = ["08:00", "10:00", "15:00", "17:00"];
+      image_url = "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&h=400&fit=crop&crop=face";
     };
     doctors.add(("gp_004", gp4));
     Debug.print("[INIT]: Added " # Nat.toText(doctors.size()) # " doctors to database");
@@ -381,7 +429,7 @@ persistent actor {
   private func initializeMedicines() {
     Debug.print("[INIT]: Initializing medicine database");
 
-  // Pain Relief medicines
+    // Pain Relief medicines
     let paracetamol : Types.Medicine = {
       medicine_id = "med_001";
       name = "Paracetamol";
@@ -743,22 +791,30 @@ persistent actor {
   // Get doctors by specialty
   public shared query func get_doctors_by_specialty(specialty : Text) : async Types.DoctorSearchResponse {
     let matching_doctors = Buffer.Buffer<Types.Doctor>(0);
-    let specialty_lower = Text.map(specialty, func(c : Char) : Char {
-      if (c >= 'A' and c <= 'Z') {
-        Char.fromNat32(Char.toNat32(c) + 32)
-      } else { c }
-    });
+    let specialty_lower = Text.map(
+      specialty,
+      func(c : Char) : Char {
+        if (c >= 'A' and c <= 'Z') {
+          Char.fromNat32(Char.toNat32(c) + 32);
+        } else { c };
+      },
+    );
 
     for ((_, doctor) in doctors.vals()) {
-      let doctor_specialty_lower = Text.map(doctor.specialty, func(c : Char) : Char {
-        if (c >= 'A' and c <= 'Z') {
-          Char.fromNat32(Char.toNat32(c) + 32)
-        } else { c }
-      });
+      let doctor_specialty_lower = Text.map(
+        doctor.specialty,
+        func(c : Char) : Char {
+          if (c >= 'A' and c <= 'Z') {
+            Char.fromNat32(Char.toNat32(c) + 32);
+          } else { c };
+        },
+      );
 
-      if (Text.contains(doctor_specialty_lower, #text specialty_lower) or
-          Text.contains(specialty_lower, #text doctor_specialty_lower) or
-          specialty_lower == "general") {
+      if (
+        Text.contains(doctor_specialty_lower, #text specialty_lower) or
+        Text.contains(specialty_lower, #text doctor_specialty_lower) or
+        specialty_lower == "general"
+      ) {
         matching_doctors.add(doctor);
       };
     };
@@ -927,33 +983,44 @@ persistent actor {
   // Search medicines by name (partial match)
   public shared query func search_medicines_by_name(medicine_name : Text) : async Types.MedicineSearchResponse {
     let matching_medicines = Buffer.Buffer<Types.Medicine>(0);
-    let name_lower = Text.map(medicine_name, func(c : Char) : Char {
-      if (c >= 'A' and c <= 'Z') {
-        Char.fromNat32(Char.toNat32(c) + 32)
-      } else { c }
-    });
+    let name_lower = Text.map(
+      medicine_name,
+      func(c : Char) : Char {
+        if (c >= 'A' and c <= 'Z') {
+          Char.fromNat32(Char.toNat32(c) + 32);
+        } else { c };
+      },
+    );
 
     for ((_, medicine) in medicines.vals()) {
-      let medicine_name_lower = Text.map(medicine.name, func(c : Char) : Char {
-        if (c >= 'A' and c <= 'Z') {
-          Char.fromNat32(Char.toNat32(c) + 32)
-        } else { c }
-      });
+      let medicine_name_lower = Text.map(
+        medicine.name,
+        func(c : Char) : Char {
+          if (c >= 'A' and c <= 'Z') {
+            Char.fromNat32(Char.toNat32(c) + 32);
+          } else { c };
+        },
+      );
 
       let generic_name_lower = switch (medicine.generic_name) {
         case null { "" };
         case (?generic) {
-          Text.map(generic, func(c : Char) : Char {
-            if (c >= 'A' and c <= 'Z') {
-              Char.fromNat32(Char.toNat32(c) + 32)
-            } else { c }
-          });
+          Text.map(
+            generic,
+            func(c : Char) : Char {
+              if (c >= 'A' and c <= 'Z') {
+                Char.fromNat32(Char.toNat32(c) + 32);
+              } else { c };
+            },
+          );
         };
       };
 
-      if (Text.contains(medicine_name_lower, #text name_lower) or
-          Text.contains(name_lower, #text medicine_name_lower) or
-          Text.contains(generic_name_lower, #text name_lower)) {
+      if (
+        Text.contains(medicine_name_lower, #text name_lower) or
+        Text.contains(name_lower, #text medicine_name_lower) or
+        Text.contains(generic_name_lower, #text name_lower)
+      ) {
         matching_medicines.add(medicine);
       };
     };
@@ -968,21 +1035,29 @@ persistent actor {
   // Search medicines by category
   public shared query func search_medicines_by_category(category : Text) : async Types.MedicineSearchResponse {
     let matching_medicines = Buffer.Buffer<Types.Medicine>(0);
-    let category_lower = Text.map(category, func(c : Char) : Char {
-      if (c >= 'A' and c <= 'Z') {
-        Char.fromNat32(Char.toNat32(c) + 32)
-      } else { c }
-    });
+    let category_lower = Text.map(
+      category,
+      func(c : Char) : Char {
+        if (c >= 'A' and c <= 'Z') {
+          Char.fromNat32(Char.toNat32(c) + 32);
+        } else { c };
+      },
+    );
 
     for ((_, medicine) in medicines.vals()) {
-      let medicine_category_lower = Text.map(medicine.category, func(c : Char) : Char {
-        if (c >= 'A' and c <= 'Z') {
-          Char.fromNat32(Char.toNat32(c) + 32)
-        } else { c }
-      });
+      let medicine_category_lower = Text.map(
+        medicine.category,
+        func(c : Char) : Char {
+          if (c >= 'A' and c <= 'Z') {
+            Char.fromNat32(Char.toNat32(c) + 32);
+          } else { c };
+        },
+      );
 
-      if (Text.contains(medicine_category_lower, #text category_lower) or
-          Text.contains(category_lower, #text medicine_category_lower)) {
+      if (
+        Text.contains(medicine_category_lower, #text category_lower) or
+        Text.contains(category_lower, #text medicine_category_lower)
+      ) {
         matching_medicines.add(medicine);
       };
     };
@@ -1002,7 +1077,9 @@ persistent actor {
           medicine = medicine;
           available = medicine.stock > 0;
           stock_level = medicine.stock;
-          estimated_restock = if (medicine.stock == 0) { ?"2-3 business days" } else { null };
+          estimated_restock = if (medicine.stock == 0) { ?"2-3 business days" } else {
+            null;
+          };
         };
       };
     };
@@ -1051,10 +1128,12 @@ persistent actor {
           // Get alternative suggestions from same category
           let alternatives = Buffer.Buffer<Types.Medicine>(0);
           for ((_, alt_medicine) in medicines.vals()) {
-            if (alt_medicine.medicine_id != medicine_id and
-                alt_medicine.category == medicine.category and
-                alt_medicine.stock >= quantity and
-                alternatives.size() < 3) {
+            if (
+              alt_medicine.medicine_id != medicine_id and
+              alt_medicine.category == medicine.category and
+              alt_medicine.stock >= quantity and
+              alternatives.size() < 3
+            ) {
               alternatives.add(alt_medicine);
             };
           };
@@ -1064,7 +1143,9 @@ persistent actor {
             order_id = null;
             message = "Insufficient stock. Available: " # Nat.toText(medicine.stock) # " units";
             order = null;
-            suggested_alternatives = if (alternatives.size() > 0) { ?Buffer.toArray(alternatives) } else { null };
+            suggested_alternatives = if (alternatives.size() > 0) {
+              ?Buffer.toArray(alternatives);
+            } else { null };
           };
         };
 
@@ -1111,7 +1192,7 @@ persistent actor {
         // Update medicine stock in the buffer by finding and replacing the entry
         let medicines_temp = Buffer.Buffer<(Text, Types.Medicine)>(medicines.size());
         var found_and_updated = false;
-        
+
         for ((id, med) in medicines.vals()) {
           if (med.medicine_id == medicine_id) {
             medicines_temp.add((id, updated_medicine));
@@ -1120,12 +1201,12 @@ persistent actor {
             medicines_temp.add((id, med));
           };
         };
-        
+
         // If medicine wasn't found in buffer, add it (shouldn't happen but safety check)
         if (not found_and_updated) {
           medicines_temp.add((medicine_id, updated_medicine));
         };
-        
+
         // Replace the medicines buffer with updated one
         medicines := medicines_temp;
 
@@ -1146,7 +1227,7 @@ persistent actor {
   public shared query func get_user_medicine_orders(user_id : Text) : async [Types.MedicineOrder] {
     Debug.print("[ORDER_QUERY]: Fetching orders for user: " # user_id);
     Debug.print("[ORDER_QUERY]: Total orders in system: " # Nat.toText(medicine_orders.size()));
-    
+
     let user_orders = Buffer.Buffer<Types.MedicineOrder>(0);
     for ((id, order) in medicine_orders.vals()) {
       Debug.print("[ORDER_QUERY]: Checking order " # id # " for user " # order.user_id);
@@ -1155,7 +1236,7 @@ persistent actor {
         Debug.print("[ORDER_QUERY]: Found matching order: " # order.order_id);
       };
     };
-    
+
     Debug.print("[ORDER_QUERY]: Found " # Nat.toText(user_orders.size()) # " orders for user " # user_id);
     Buffer.toArray(user_orders);
   };
@@ -1286,7 +1367,7 @@ persistent actor {
   // ----- Wellness Functions -----
 
   // Add a new wellness log
-  public shared func add_wellness_log(log: Types.WellnessLog): async Types.StoreResponse {
+  public shared func add_wellness_log(log : Types.WellnessLog) : async Types.StoreResponse {
     // Validate log data
     if (Text.size(log.user_id) == 0) {
       Debug.print("[ERROR]: Invalid user_id in wellness log");
@@ -1316,7 +1397,7 @@ persistent actor {
   };
 
   // Get wellness summary for a user
-  public shared query func get_wellness_summary(user_id: Text, _days: Nat): async Types.SummaryResponse {
+  public shared query func get_wellness_summary(user_id : Text, _days : Nat) : async Types.SummaryResponse {
     let user_logs = Buffer.Buffer<Types.WellnessLog>(0);
 
     for ((_, log) in wellness_logs.vals()) {
@@ -1328,11 +1409,13 @@ persistent actor {
     Debug.print("[INFO]: Found " # Nat.toText(user_logs.size()) # " logs for user " # user_id);
 
     // Get user streak data
-    var user_streak : ?Types.UserStreak = null;
-    for ((_, streak) in user_streaks.vals()) {
-      if (streak.user_id == user_id) {
-        user_streak := ?streak;
+    let user_streak = do ? {
+      for ((_, streak) in user_streaks.vals()) {
+        if (streak.user_id == user_id) {
+          return ?streak;
+        };
       };
+      null;
     };
 
     return {
@@ -1345,7 +1428,7 @@ persistent actor {
   };
 
   // Delete wellness log by date for a user
-  public shared func delete_wellness_log(user_id: Text, date: Text): async Types.StoreResponse {
+  public shared func delete_wellness_log(user_id : Text, date : Text) : async Types.StoreResponse {
     if (Text.size(user_id) == 0 or Text.size(date) == 0) {
       return {
         success = false;
@@ -1357,7 +1440,7 @@ persistent actor {
 
     var found = false;
     let logs_temp = Buffer.Buffer<(Text, Types.WellnessLog)>(wellness_logs.size());
-    var deleted_log: ?Types.WellnessLog = null;
+    var deleted_log : ?Types.WellnessLog = null;
 
     label search for ((id, log) in wellness_logs.vals()) {
       if (log.user_id == user_id and log.date == date) {
@@ -1372,10 +1455,10 @@ persistent actor {
     if (found) {
       // Replace the buffer with filtered logs
       wellness_logs := logs_temp;
-      
+
       // Update user streak after deleting log
       ignore calculateAndUpdateStreak(user_id);
-      
+
       return {
         success = true;
         message = "Wellness log deleted successfully";
@@ -1393,7 +1476,7 @@ persistent actor {
   };
 
   // Calculate and update user streak
-  private func calculateAndUpdateStreak(user_id: Text): async () {
+  private func calculateAndUpdateStreak(user_id : Text) : async () {
     // Get all user's wellness logs sorted by date (newest first)
     let user_logs = Buffer.Buffer<Types.WellnessLog>(0);
     for ((_, log) in wellness_logs.vals()) {
@@ -1404,9 +1487,12 @@ persistent actor {
 
     // Convert to array and sort by date (newest first)
     let logs_array = Buffer.toArray(user_logs);
-    let sorted_logs = Array.sort(logs_array, func(a: Types.WellnessLog, b: Types.WellnessLog): Order.Order {
-      Text.compare(b.date, a.date)
-    });
+    let sorted_logs = Array.sort(
+      logs_array,
+      func(a : Types.WellnessLog, b : Types.WellnessLog) : Order.Order {
+        Text.compare(b.date, a.date);
+      },
+    );
 
     if (sorted_logs.size() == 0) {
       // No logs, set streak to 0
@@ -1415,15 +1501,15 @@ persistent actor {
     };
 
     // Calculate current streak
-    var current_streak: Nat = 0;
-    var longest_streak: Nat = 0;
-    var temp_streak: Nat = 0;
+    var current_streak : Nat = 0;
+    var longest_streak : Nat = 0;
+    var temp_streak : Nat = 0;
     let today = getCurrentDate();
     var check_date = today;
-    
+
     // Check if logged today
     let has_logged_today = Array.find<Types.WellnessLog>(sorted_logs, func(log) { log.date == today });
-    
+
     // If not logged today, start from yesterday
     if (has_logged_today == null) {
       check_date := getPreviousDate(today);
@@ -1431,7 +1517,8 @@ persistent actor {
 
     // Count consecutive days backwards
     var date_to_check = check_date;
-    label streak_loop for (i in Iter.range(0, 364)) { // Max 365 days
+    label streak_loop for (i in Iter.range(0, 364)) {
+      // Max 365 days
       let found_log = Array.find<Types.WellnessLog>(sorted_logs, func(log) { log.date == date_to_check });
       if (found_log != null) {
         current_streak += 1;
@@ -1448,14 +1535,14 @@ persistent actor {
     // Calculate longest streak from all logs
     let dates_only = Array.map<Types.WellnessLog, Text>(sorted_logs, func(log) { log.date });
     let sorted_dates = Array.sort(dates_only, Text.compare);
-    
+
     temp_streak := 0;
     var i = 0;
     while (i < sorted_dates.size()) {
       var current_temp_streak = 1;
       var check_date_for_longest = sorted_dates[i];
       var j = i + 1;
-      
+
       // Count consecutive dates forward
       while (j < sorted_dates.size()) {
         let next_expected = getNextDate(check_date_for_longest);
@@ -1467,20 +1554,22 @@ persistent actor {
           j := sorted_dates.size(); // Break the loop
         };
       };
-      
+
       if (current_temp_streak > longest_streak) {
         longest_streak := current_temp_streak;
       };
-      
+
       i += 1;
     };
 
-    let last_log_date = if (sorted_logs.size() > 0) { sorted_logs[0].date } else { "" };
+    let last_log_date = if (sorted_logs.size() > 0) { sorted_logs[0].date } else {
+      "";
+    };
     await updateUserStreak(user_id, current_streak, longest_streak, last_log_date, getCurrentTimestamp());
   };
 
   // Update or create user streak record
-  private func updateUserStreak(user_id: Text, current: Nat, longest: Nat, last_date: Text, updated: Text): async () {
+  private func updateUserStreak(user_id : Text, current : Nat, longest : Nat, last_date : Text, updated : Text) : async () {
     // Remove existing streak record for user
     let streaks_temp = Buffer.Buffer<(Text, Types.UserStreak)>(user_streaks.size());
     for ((id, streak) in user_streaks.vals()) {
@@ -1491,7 +1580,7 @@ persistent actor {
     user_streaks := streaks_temp;
 
     // Add new streak record
-    let new_streak: Types.UserStreak = {
+    let new_streak : Types.UserStreak = {
       user_id = user_id;
       current_streak = current;
       longest_streak = longest;
@@ -1503,17 +1592,17 @@ persistent actor {
   };
 
   // Get user streak data
-  public query func get_user_streak(user_id: Text): async ?Types.UserStreak {
+  public query func get_user_streak(user_id : Text) : async ?Types.UserStreak {
     for ((_, streak) in user_streaks.vals()) {
       if (streak.user_id == user_id) {
         return ?streak;
       };
     };
-    null
+    null;
   };
 
   // Helper function to get current date in YYYY-MM-DD format
-  private func getCurrentDate(): Text {
+  private func getCurrentDate() : Text {
     // For now, we'll use a simplified approach
     // In production, you would want proper date handling
     let now = Time.now();
@@ -1525,34 +1614,43 @@ persistent actor {
     let day_of_year = days_since_2024 % 365;
     let month = (day_of_year / 30) + 1; // Simplified month calculation
     let day = (day_of_year % 30) + 1;
-    Nat.toText(Int.abs(year)) # "-" # 
-    (if (month < 10) { "0" } else { "" }) # Nat.toText(Int.abs(month)) # "-" #
-    (if (day < 10) { "0" } else { "" }) # Nat.toText(Int.abs(day))
+    Nat.toText(year) # "-" # 
+    (if (month < 10) { "0" } else { "" }) # Nat.toText(month) # "-" #
+    (if (day < 10) { "0" } else { "" }) # Nat.toText(day)
   };
 
   // Helper function to get previous date (simplified but functional)
-  private func getPreviousDate(date: Text): Text {
+  private func getPreviousDate(date : Text) : Text {
     // Simple date parsing and manipulation
     // Input format: "YYYY-MM-DD"
     let parts = Text.split(date, #char '-');
     let partsArray = Iter.toArray(parts);
-    
+
     if (partsArray.size() != 3) return date; // Return original if invalid format
-    
+
     let yearText = partsArray[0];
     let monthText = partsArray[1];
     let dayText = partsArray[2];
-    
+
     // Convert to numbers
-    let year = switch (Nat.fromText(yearText)) { case (?n) n; case null return date; };
-    let month = switch (Nat.fromText(monthText)) { case (?n) n; case null return date; };
-    let day = switch (Nat.fromText(dayText)) { case (?n) n; case null return date; };
-    
+    let year = switch (Nat.fromText(yearText)) {
+      case (?n) n;
+      case null return date;
+    };
+    let month = switch (Nat.fromText(monthText)) {
+      case (?n) n;
+      case null return date;
+    };
+    let day = switch (Nat.fromText(dayText)) {
+      case (?n) n;
+      case null return date;
+    };
+
     // Simple previous day logic
     var newYear = year;
     var newMonth = month;
     var newDay = day;
-    
+
     if (day > 1) {
       newDay := day - 1;
     } else {
@@ -1567,37 +1665,47 @@ persistent actor {
         newDay := 31;
       };
     };
-    
+
     // Format back to string
-    Nat.toText(newYear) # "-" # 
+    Nat.toText(newYear) # "-" #
     (if (newMonth < 10) { "0" } else { "" }) # Nat.toText(newMonth) # "-" #
-    (if (newDay < 10) { "0" } else { "" }) # Nat.toText(newDay)
+    (if (newDay < 10) { "0" } else { "" }) # Nat.toText(newDay);
   };
 
   // Helper function to get next date (for longest streak calculation)
-  private func getNextDate(date: Text): Text {
+  private func getNextDate(date : Text) : Text {
     // Simple date parsing and manipulation
     // Input format: "YYYY-MM-DD"
     let parts = Text.split(date, #char '-');
     let partsArray = Iter.toArray(parts);
-    
+
     if (partsArray.size() != 3) return date; // Return original if invalid format
-    
+
     let yearText = partsArray[0];
     let monthText = partsArray[1];
     let dayText = partsArray[2];
-    
+
     // Convert to numbers
-    let year = switch (Nat.fromText(yearText)) { case (?n) n; case null return date; };
-    let month = switch (Nat.fromText(monthText)) { case (?n) n; case null return date; };
-    let day = switch (Nat.fromText(dayText)) { case (?n) n; case null return date; };
-    
+    let year = switch (Nat.fromText(yearText)) {
+      case (?n) n;
+      case null return date;
+    };
+    let month = switch (Nat.fromText(monthText)) {
+      case (?n) n;
+      case null return date;
+    };
+    let day = switch (Nat.fromText(dayText)) {
+      case (?n) n;
+      case null return date;
+    };
+
     // Simple next day logic
     var newYear = year;
     var newMonth = month;
     var newDay = day;
-    
-    if (day < 28) { // Safe for all months
+
+    if (day < 28) {
+      // Safe for all months
       newDay := day + 1;
     } else if (day < 30) {
       newDay := day + 1;
@@ -1615,32 +1723,32 @@ persistent actor {
         newDay := 1;
       };
     };
-    
+
     // Format back to string
-    Nat.toText(newYear) # "-" # 
+    Nat.toText(newYear) # "-" #
     (if (newMonth < 10) { "0" } else { "" }) # Nat.toText(newMonth) # "-" #
-    (if (newDay < 10) { "0" } else { "" }) # Nat.toText(newDay)
+    (if (newDay < 10) { "0" } else { "" }) # Nat.toText(newDay);
   };
 
   // Helper function to get current timestamp
-  private func getCurrentTimestamp(): Text {
+  private func getCurrentTimestamp() : Text {
     let now = Time.now();
-    Int.toText(now)
+    Int.toText(now);
   };
 
   // ----- Cancel Functions -----
 
   // Cancel doctor appointment
-  public shared func cancel_appointment(appointment_id: Text, user_id: Text): async Types.CancelResponse {
+  public shared func cancel_appointment(appointment_id : Text, user_id : Text) : async Types.CancelResponse {
     Debug.print("[CANCEL]: Attempting to cancel appointment " # appointment_id # " for user " # user_id);
-    
+
     var found = false;
     let appointments_temp = Buffer.Buffer<(Text, Types.Appointment)>(appointments.size());
-    
+
     for ((id, appointment) in appointments.vals()) {
       if (appointment.appointment_id == appointment_id and appointment.user_id == user_id) {
         // Update appointment status to cancelled
-        let cancelled_appointment: Types.Appointment = {
+        let cancelled_appointment : Types.Appointment = {
           appointment_id = appointment.appointment_id;
           doctor_id = appointment.doctor_id;
           doctor_name = appointment.doctor_name;
@@ -1660,7 +1768,7 @@ persistent actor {
         appointments_temp.add((id, appointment));
       };
     };
-    
+
     if (found) {
       appointments := appointments_temp;
       return {
@@ -1678,18 +1786,18 @@ persistent actor {
   };
 
   // Cancel medicine order
-  public shared func cancel_medicine_order(order_id: Text, user_id: Text): async Types.CancelResponse {
+  public shared func cancel_medicine_order(order_id : Text, user_id : Text) : async Types.CancelResponse {
     Debug.print("[CANCEL]: Attempting to cancel order " # order_id # " for user " # user_id);
-    
+
     var found = false;
     let orders_temp = Buffer.Buffer<(Text, Types.MedicineOrder)>(medicine_orders.size());
-    
+
     for ((id, order) in medicine_orders.vals()) {
       if (order.order_id == order_id and order.user_id == user_id) {
         // Only allow cancellation if order is not already shipped/delivered
         if (order.status == "confirmed") {
           // Update order status to cancelled and restore medicine stock
-          let cancelled_order: Types.MedicineOrder = {
+          let cancelled_order : Types.MedicineOrder = {
             order_id = order.order_id;
             medicine_id = order.medicine_id;
             medicine_name = order.medicine_name;
@@ -1702,12 +1810,12 @@ persistent actor {
             prescription_id = order.prescription_id;
             pharmacy_notes = ?"Order cancelled by user request";
           };
-          
+
           // Restore medicine stock
           let medicines_temp = Buffer.Buffer<(Text, Types.Medicine)>(medicines.size());
           for ((med_id, medicine) in medicines.vals()) {
             if (medicine.medicine_id == order.medicine_id) {
-              let updated_medicine: Types.Medicine = {
+              let updated_medicine : Types.Medicine = {
                 medicine_id = medicine.medicine_id;
                 name = medicine.name;
                 generic_name = medicine.generic_name;
@@ -1727,7 +1835,7 @@ persistent actor {
             };
           };
           medicines := medicines_temp;
-          
+
           orders_temp.add((id, cancelled_order));
           found := true;
           Debug.print("[CANCEL]: Order " # order_id # " cancelled successfully, stock restored");
@@ -1742,7 +1850,7 @@ persistent actor {
         orders_temp.add((id, order));
       };
     };
-    
+
     if (found) {
       medicine_orders := orders_temp;
       return {
@@ -1764,7 +1872,7 @@ persistent actor {
   // Store or update user profile
   public shared func store_user_profile(profile : Types.UserProfile) : async Types.UserProfileResponse {
     Debug.print("[USER_PROFILE]: Storing profile for user " # profile.user_id);
-    
+
     // Check if profile already exists and update it
     var found = false;
     var profileIndex : ?Nat = null;
@@ -1776,7 +1884,7 @@ persistent actor {
       };
       i += 1;
     };
-    
+
     if (found) {
       // Update existing profile
       switch (profileIndex) {
@@ -1794,18 +1902,18 @@ persistent actor {
       next_id := next_id + 1;
       Debug.print("[USER_PROFILE]: Created new profile for user " # profile.user_id);
     };
-    
+
     {
       success = true;
       message = if (found) "User profile updated successfully" else "User profile created successfully";
       profile = ?profile;
-    }
+    };
   };
 
   // Get user profile by user_id
   public shared query func get_user_profile(user_id : Text) : async Types.UserProfileResponse {
     Debug.print("[USER_PROFILE]: Fetching profile for user " # user_id);
-    
+
     for ((_, profile) in user_profiles.vals()) {
       if (profile.user_id == user_id) {
         Debug.print("[USER_PROFILE]: Found profile for user " # user_id);
@@ -1816,19 +1924,19 @@ persistent actor {
         };
       };
     };
-    
+
     Debug.print("[USER_PROFILE]: No profile found for user " # user_id);
     {
       success = false;
       message = "User profile not found";
       profile = null;
-    }
+    };
   };
 
   // ----- Private helper functions -----
 
   // Helper function to parse JSON text from blob
-  private func parseJson(body: Blob): Result.Result<Text, Text> {
+  private func parseJson(body : Blob) : Result.Result<Text, Text> {
     switch (Text.decodeUtf8(body)) {
       case null { #err("Invalid UTF-8 encoding") };
       case (?text) { #ok(text) };
@@ -1836,11 +1944,11 @@ persistent actor {
   };
 
   // Extracts WellnessLog data from HTTP request body
-  private func extractWellnessLogData(body: Blob): ?Types.WellnessLog {
-    switch(parseJson(body)) {
+  private func extractWellnessLogData(body : Blob) : ?Types.WellnessLog {
+    switch (parseJson(body)) {
       case (#err(e)) {
         Debug.print("[ERROR]: Failed to parse JSON: " # e);
-        null
+        null;
       };
       case (#ok(jsonText)) {
         Debug.print("[DEBUG]: Received wellness JSON: " # jsonText);
@@ -1850,15 +1958,15 @@ persistent actor {
         };
 
         let logData : ?Types.WellnessLog = from_candid (blob);
-        switch(logData) {
+        switch (logData) {
           case null {
             Debug.print("[ERROR]: from_candid returned null for wellness log");
           };
           case (?log) {
             Debug.print("[DEBUG]: Successfully parsed wellness log - user: " # log.user_id # ", date: " # log.date);
-            Debug.print("[DEBUG]: Sleep value: " # (switch(log.sleep) { case null { "null" }; case (?s) { Float.toText(s) } }));
-            Debug.print("[DEBUG]: Water value: " # (switch(log.water_intake) { case null { "null" }; case (?w) { Float.toText(w) } }));
-            Debug.print("[DEBUG]: Steps value: " # (switch(log.steps) { case null { "null" }; case (?st) { Nat.toText(st) } }));
+            Debug.print("[DEBUG]: Sleep value: " # (switch (log.sleep) { case null { "null" }; case (?s) { Float.toText(s) } }));
+            Debug.print("[DEBUG]: Water value: " # (switch (log.water_intake) { case null { "null" }; case (?w) { Float.toText(w) } }));
+            Debug.print("[DEBUG]: Steps value: " # (switch (log.steps) { case null { "null" }; case (?st) { Nat.toText(st) } }));
           };
         };
         logData;
@@ -2006,7 +2114,7 @@ persistent actor {
   };
 
   // Extracts user_id and optional days from wellness summary request
-  private func extractWellnessSummaryRequest(body : Blob) : Result.Result<{user_id: Text; days: Nat}, Text> {
+  private func extractWellnessSummaryRequest(body : Blob) : Result.Result<{ user_id : Text; days : Nat }, Text> {
     let jsonText = switch (Text.decodeUtf8(body)) {
       case null { return #err("Invalid UTF-8 encoding in request body") };
       case (?txt) { txt };
@@ -2026,13 +2134,16 @@ persistent actor {
       case null return #err("user_id not found in JSON");
       case (?req) {
         // Return the user_id and the days value, defaulting to 7 if not provided
-        #ok({ user_id = req.user_id; days = switch(req.days) { case null { 7 }; case (?d) { d }; }; });
+        #ok({
+          user_id = req.user_id;
+          days = switch (req.days) { case null { 7 }; case (?d) { d } };
+        });
       };
     };
   };
 
   // Extracts user_id and date from delete wellness request
-  private func extractDeleteWellnessRequest(body : Blob) : Result.Result<{user_id: Text; date: Text}, Text> {
+  private func extractDeleteWellnessRequest(body : Blob) : Result.Result<{ user_id : Text; date : Text }, Text> {
     let jsonText = switch (Text.decodeUtf8(body)) {
       case null { return #err("Invalid UTF-8 encoding in request body") };
       case (?txt) { txt };
@@ -2142,7 +2253,7 @@ persistent actor {
   };
 
   // Extracts medicine order request from HTTP request body
-  private func extractMedicineOrderRequest(body : Blob) : Result.Result<{medicine_id: Text; quantity: Nat; user_id: Text; prescription_id: ?Text}, Text> {
+  private func extractMedicineOrderRequest(body : Blob) : Result.Result<{ medicine_id : Text; quantity : Nat; user_id : Text; prescription_id : ?Text }, Text> {
     let jsonText = switch (Text.decodeUtf8(body)) {
       case null { return #err("Invalid UTF-8 encoding in request body") };
       case (?txt) { txt };
@@ -2179,7 +2290,7 @@ persistent actor {
 
     type CancelRequest = {
       appointment_id : ?Text;
-      order_id : ?Text; 
+      order_id : ?Text;
       user_id : Text;
     };
     let cancelRequest : ?CancelRequest = from_candid (blob);
@@ -2188,10 +2299,10 @@ persistent actor {
       case null { null };
       case (?req) {
         // Support both appointment_id and order_id fields
-        let id = switch(req.appointment_id) {
+        let id = switch (req.appointment_id) {
           case (?id) { id };
           case null {
-            switch(req.order_id) {
+            switch (req.order_id) {
               case (?id) { id };
               case null { return null };
             };
@@ -2311,6 +2422,20 @@ persistent actor {
           };
           case (#ok(reminderData)) {
             let response = await store_reminder(reminderData);
+            let blob = to_candid (response);
+            let #ok(jsonText) = JSON.toText(blob, HealthStorageResponseKeys, null) else return makeSerializationErrorResponse();
+            makeJsonResponse(200, jsonText);
+          };
+        };
+      };
+      case ("POST", "/delete-reminder") {
+        let deleteResult = extractDeleteReminderRequest(body);
+        switch (deleteResult) {
+          case (#err(errorMessage)) {
+            return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
+          };
+          case (#ok(req)) {
+            let response = await delete_reminder(req.user_id, req.reminder_id);
             let blob = to_candid (response);
             let #ok(jsonText) = JSON.toText(blob, HealthStorageResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
@@ -2536,13 +2661,13 @@ persistent actor {
       // Cancel endpoints
       case ("POST", "/cancel-appointment") {
         let cancelRequest = extractCancelRequest(body);
-        switch(cancelRequest) {
+        switch (cancelRequest) {
           case null {
             makeJsonResponse(400, "{\"error\": \"Invalid cancel request data. Required: appointment_id, user_id\"}");
           };
           case (?(appointment_id, user_id)) {
             let response = await cancel_appointment(appointment_id, user_id);
-            let blob = to_candid(response);
+            let blob = to_candid (response);
             let cancelResponseKeys = ["success", "message", "cancelled_id"];
             let #ok(jsonText) = JSON.toText(blob, cancelResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
@@ -2551,13 +2676,13 @@ persistent actor {
       };
       case ("POST", "/cancel-medicine-order") {
         let cancelRequest = extractCancelRequest(body);
-        switch(cancelRequest) {
+        switch (cancelRequest) {
           case null {
             makeJsonResponse(400, "{\"error\": \"Invalid cancel request data. Required: order_id (as appointment_id), user_id\"}");
           };
           case (?(order_id, user_id)) {
             let response = await cancel_medicine_order(order_id, user_id);
-            let blob = to_candid(response);
+            let blob = to_candid (response);
             let cancelResponseKeys = ["success", "message", "cancelled_id"];
             let #ok(jsonText) = JSON.toText(blob, cancelResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
@@ -2568,13 +2693,13 @@ persistent actor {
       // Wellness endpoints
       case ("POST", "/add-wellness-log") {
         let logData = extractWellnessLogData(body);
-        switch(logData) {
+        switch (logData) {
           case null {
             makeJsonResponse(400, "{\"error\": \"Invalid wellness log data\"}");
           };
           case (?log) {
             let response = await add_wellness_log(log);
-            let blob = to_candid(response);
+            let blob = to_candid (response);
             let #ok(jsonText) = JSON.toText(blob, WellnessStoreResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
           };
@@ -2587,9 +2712,9 @@ persistent actor {
           case (#err(errorMessage)) {
             return makeJsonResponse(400, "{\"error\": \"" # errorMessage # "\"}");
           };
-          case (#ok({user_id; date})) {
+          case (#ok({ user_id; date })) {
             let response = await delete_wellness_log(user_id, date);
-            let blob = to_candid(response);
+            let blob = to_candid (response);
             let #ok(jsonText) = JSON.toText(blob, WellnessStoreResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
           };
@@ -2604,7 +2729,7 @@ persistent actor {
           };
           case (#ok(requestData)) {
             let response = await get_wellness_summary(requestData.user_id, requestData.days);
-            let blob = to_candid(response);
+            let blob = to_candid (response);
             let #ok(jsonText) = JSON.toText(blob, WellnessSummaryResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
           };
@@ -2618,7 +2743,7 @@ persistent actor {
           };
           case (#ok(profile)) {
             let response = await store_user_profile(profile);
-            let blob = to_candid(response);
+            let blob = to_candid (response);
             let #ok(jsonText) = JSON.toText(blob, UserProfileResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
           };
@@ -2632,7 +2757,7 @@ persistent actor {
           };
           case (#ok(user_id)) {
             let response = await get_user_profile(user_id);
-            let blob = to_candid(response);
+            let blob = to_candid (response);
             let #ok(jsonText) = JSON.toText(blob, UserProfileResponseKeys, null) else return makeSerializationErrorResponse();
             makeJsonResponse(200, jsonText);
           };

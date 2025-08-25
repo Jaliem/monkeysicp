@@ -129,6 +129,13 @@ module {
   };
 
   // ----- Doctor & Appointment API types -----
+
+  // Request type for deleting a medication reminder
+  public type DeleteReminderRequest = {
+    user_id : Text;
+    reminder_id : Text;
+  };
+  
   public type Doctor = {
     doctor_id : Text;
     name : Text;

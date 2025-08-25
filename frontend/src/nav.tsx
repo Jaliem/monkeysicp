@@ -117,7 +117,7 @@ const Navbar = () => {
           {/* Notification Bell */}
           <button
             onClick={() => navigate('/reminders')}
-            className="relative p-2 hover:bg-emerald-50 rounded-lg transition-colors duration-200 group"
+            className="relative p-2 hover: rounded-lg transition-colors duration-200 group"
           >
             <svg 
               className="w-6 h-6 text-stone-400 group-hover:text-emerald-600 transition-colors duration-200" 
@@ -133,10 +133,7 @@ const Navbar = () => {
               />
             </svg>
             
-            {/* Notification Badge */}
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-              <span className="text-xs text-white font-medium">3</span>
-            </div>
+         
           </button>
         </div>
       </div>
