@@ -13,6 +13,8 @@ interface Message {
     intent?: string;
     confidence?: number;
     requestId?: string;
+    requires_analysis_choice?: boolean;
+    analysis_choice?: 'full' | 'regular';
   };
 }
 
@@ -261,7 +263,8 @@ Just speak naturally - I'll understand and connect you with the right healthcare
         metadata: {
           intent: data.intent,
           confidence: data.confidence,
-          requestId: data.request_id
+          requestId: data.request_id,
+          requires_analysis_choice: data.intent === 'image_analysis'
         }
       };
       
@@ -281,6 +284,24 @@ Just speak naturally - I'll understand and connect you with the right healthcare
         }
       };
     }
+  };
+
+  const handleAnalysisChoice = (messageId: string, choice: 'full' | 'regular') => {
+    const message = messages.find(msg => msg.id === messageId);
+    if (message?.metadata?.analysis_choice) {
+      return; 
+    }
+
+    setMessages(prevMessages =>
+      prevMessages.map(msg =>
+        msg.id === messageId
+          ? { ...msg, metadata: { ...msg.metadata, analysis_choice: choice } }
+          : msg
+      )
+    );
+    
+    const choiceText = choice === 'full' ? 'Full Analysis' : 'Regular Analysis';
+    handleSendMessage(choiceText);
   };
 
   const handleQuickAction = (action: QuickAction) => {
@@ -461,25 +482,48 @@ Just speak naturally - I'll understand and connect you with the right healthcare
         <div className="flex-1 relative">
           <div ref={scrollContainerRef} className="absolute inset-0 overflow-y-auto p-6">
             <div className="max-w-6xl mx-auto space-y-8">
-              {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-3xl ${message.isUser ? 'ml-4' : 'mr-4'}`}>
-                    <div className={`p-4 rounded-2xl border shadow-sm ${message.isUser ? 'bg-emerald-600 text-white border-emerald-600' : getMessageBgColor(message.type || 'text')}`}>
-                      {message.type === 'loading' ? (
-                        <div className="flex items-center space-x-3">
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-stone-400"></div>
-                          <span className="text-stone-600 font-light">{message.content}</span>
-                        </div>
-                      ) : ( // Original text rendering
-                        <div className={`whitespace-pre-wrap font-light leading-relaxed space-y-3 ${message.isUser ? 'text-white' : ''}`} dangerouslySetInnerHTML={{ __html: message.content }} />
-                      )}
-                    </div>
-                    <div className="text-xs text-stone-400 font-light mt-2 px-2">
-                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {messages.map((message) => {
+                const chosen = message.metadata?.analysis_choice;
+                return (
+                  <div key={message.id} className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-3xl ${message.isUser ? 'ml-4' : 'mr-4'}`}>
+                      <div className={`p-4 rounded-2xl border shadow-sm ${message.isUser ? 'bg-emerald-600 text-white border-emerald-600' : getMessageBgColor(message.type || 'text')}`}>
+                        {message.type === 'loading' ? (
+                          <div className="flex items-center space-x-3">
+                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-stone-400"></div>
+                            <span className="text-stone-600 font-light">{message.content}</span>
+                          </div>
+                        ) : message.metadata?.requires_analysis_choice && !message.isUser ? (
+                          <div className="font-light leading-relaxed space-y-3">
+                            <p>I have analyzed the image you sent. Which level of analysis would you like?</p>
+                            <div className="flex flex-row space-x-2 pt-2">
+                              <button
+                                onClick={() => handleAnalysisChoice(message.id, 'full')}
+                                disabled={!!chosen}
+                                className={`px-3 py-1 font-medium border-2 rounded-lg transition-colors ${chosen === 'full' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : chosen ? 'bg-stone-100 text-stone-500 border-stone-200 cursor-not-allowed' : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'}`}
+                              >
+                                Full Analysis
+                              </button>
+                              <button
+                                onClick={() => handleAnalysisChoice(message.id, 'regular')}
+                                disabled={!!chosen}
+                                className={`px-3 py-1 font-medium border-2 rounded-lg transition-colors ${chosen === 'regular' ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : chosen ? 'bg-stone-100 text-stone-500 border-stone-200 cursor-not-allowed' : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'}`}
+                              >
+                                Regular Analysis
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`whitespace-pre-wrap font-light leading-relaxed space-y-3 ${message.isUser ? 'text-white' : ''}`} dangerouslySetInnerHTML={{ __html: message.content }} />
+                        )}
+                      </div>
+                      <div className="text-xs text-stone-400 font-light mt-2 px-2">
+                        {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                )}
+              )}
               <div ref={messagesEndRef} />
             </div>
           </div>
