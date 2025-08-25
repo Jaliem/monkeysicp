@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from './contexts/AuthContext';
+import { isAdminPrincipal } from './config/adminConfig';
 
 const Login = () => {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -8,38 +9,37 @@ const Login = () => {
   const navigate = useNavigate();
   const { login: authLogin, isAuthenticated, principal } = useAuth();
 
-  const adminPrincipals = [
-    "oe63i-xkqdd-nolac-hdyjg-evw3c-4si3e-ijboe-5vwgg-x55dj-env47-jqe",
-    "wp7j5-ejwvb-7jpfm-eukk7-utyas-rdffi-wvlzd-pbdnv-7sdkr-u5phb-dqe"
-  ];
-
   useEffect(() => {
     // If already authenticated, redirect appropriately
     if (isAuthenticated && principal) {
-      if (adminPrincipals.includes(principal)) {
-        navigate("/admin2");
+      console.log('🔄 Login useEffect - checking principal:', principal);
+      if (isAdminPrincipal(principal)) {
+        console.log('🚀 Redirecting to admin dashboard');
+        navigate("/admin");
       } else {
+        console.log('🚀 Redirecting to chat');
         navigate("/chat");
       }
     }
-  }, [isAuthenticated, principal, navigate, adminPrincipals]);
+  }, [isAuthenticated, principal, navigate]);
 
   const login = async () => {
     setIsLoading(true);
     try {
       await authLogin((userPrincipal: string) => {
         // This callback runs after authentication is successful with the principal
-        const isUserAdmin = adminPrincipals.includes(userPrincipal);
+        console.log('🔑 Login callback - checking principal:', userPrincipal);
+        const isUserAdmin = isAdminPrincipal(userPrincipal);
         
-        if (isAdmin && isUserAdmin) {
-          console.log("Navigating to admin dashboard");
+        if (isUserAdmin) {
+          console.log("✅ Admin user detected, navigating to admin dashboard");
           navigate("/admin");
         } else if (isAdmin && !isUserAdmin) {
           // User tried to login as admin but doesn't have admin privileges
-          console.warn("User attempted admin login without privileges");
+          console.warn("❌ User attempted admin login without privileges");
           alert("Access denied: You don't have admin privileges");
         } else {
-          console.log("Navigating to regular chat");
+          console.log("👤 Regular user, navigating to chat");
           navigate("/chat");
         }
       });

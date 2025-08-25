@@ -833,6 +833,82 @@ persistent actor {
     };
   };
 
+  // Get all doctors (for admin dashboard)
+  public shared query func get_all_doctors() : async Types.DoctorSearchResponse {
+    let all_doctors = Buffer.Buffer<Types.Doctor>(0);
+    for ((_, doctor) in doctors.vals()) {
+      all_doctors.add(doctor);
+    };
+    
+    {
+      doctors = Buffer.toArray(all_doctors);
+      total_count = all_doctors.size();
+    };
+  };
+
+  // Update doctor by ID
+  public shared func update_doctor(doctor_id : Text, doctor_data : Types.Doctor) : async Types.HealthStorageResponse {
+    let doctors_temp = Buffer.Buffer<(Text, Types.Doctor)>(0);
+    var found = false;
+    
+    for ((id, doctor) in doctors.vals()) {
+      if (id == doctor_id) {
+        doctors_temp.add((id, doctor_data));
+        found := true;
+        Debug.print("[DOCTOR]: Updated doctor " # doctor_data.name # " with ID " # doctor_id);
+      } else {
+        doctors_temp.add((id, doctor));
+      };
+    };
+    
+    doctors := doctors_temp;
+    
+    if (found) {
+      {
+        success = true;
+        message = "Doctor updated successfully";
+        id = ?doctor_id;
+      };
+    } else {
+      {
+        success = false;
+        message = "Doctor not found";
+        id = null;
+      };
+    };
+  };
+
+  // Delete doctor by ID
+  public shared func delete_doctor(doctor_id : Text) : async Types.HealthStorageResponse {
+    let doctors_temp = Buffer.Buffer<(Text, Types.Doctor)>(0);
+    var found = false;
+    
+    for ((id, doctor) in doctors.vals()) {
+      if (id == doctor_id) {
+        found := true;
+        Debug.print("[DOCTOR]: Deleted doctor " # doctor.name # " with ID " # doctor_id);
+      } else {
+        doctors_temp.add((id, doctor));
+      };
+    };
+    
+    doctors := doctors_temp;
+    
+    if (found) {
+      {
+        success = true;
+        message = "Doctor deleted successfully";
+        id = ?doctor_id;
+      };
+    } else {
+      {
+        success = false;
+        message = "Doctor not found";
+        id = null;
+      };
+    };
+  };
+
   // ----- Medicine & Pharmacy API functions -----
 
   // Store medicine information
@@ -1084,6 +1160,36 @@ persistent actor {
     Buffer.toArray(user_orders);
   };
 
+  // ===== ADMIN FUNCTIONS =====
+  
+  // Get all appointments (admin only - shows all user activity)
+  public shared query func get_all_appointments() : async [Types.Appointment] {
+    Debug.print("[ADMIN]: Fetching all appointments");
+    Debug.print("[ADMIN]: Total appointments in system: " # Nat.toText(appointments.size()));
+    
+    let all_appointments = Buffer.Buffer<Types.Appointment>(0);
+    for ((_, appointment) in appointments.vals()) {
+      all_appointments.add(appointment);
+    };
+    
+    Debug.print("[ADMIN]: Returning " # Nat.toText(all_appointments.size()) # " appointments");
+    Buffer.toArray(all_appointments);
+  };
+
+  // Get all medicine orders (admin only - shows all user activity)
+  public shared query func get_all_medicine_orders() : async [Types.MedicineOrder] {
+    Debug.print("[ADMIN]: Fetching all medicine orders");
+    Debug.print("[ADMIN]: Total orders in system: " # Nat.toText(medicine_orders.size()));
+    
+    let all_orders = Buffer.Buffer<Types.MedicineOrder>(0);
+    for ((_, order) in medicine_orders.vals()) {
+      all_orders.add(order);
+    };
+    
+    Debug.print("[ADMIN]: Returning " # Nat.toText(all_orders.size()) # " orders");
+    Buffer.toArray(all_orders);
+  };
+
   // Get all available medicines (non-prescription, in stock)
   public shared query func get_available_medicines() : async Types.MedicineSearchResponse {
     let available_medicines = Buffer.Buffer<Types.Medicine>(0);
@@ -1097,6 +1203,83 @@ persistent actor {
       medicines = Buffer.toArray(available_medicines);
       total_count = available_medicines.size();
       status = "success";
+    };
+  };
+
+  // Get all medicines (for admin dashboard)
+  public shared query func get_all_medicines() : async Types.MedicineSearchResponse {
+    let all_medicines = Buffer.Buffer<Types.Medicine>(0);
+    for ((_, medicine) in medicines.vals()) {
+      all_medicines.add(medicine);
+    };
+    
+    {
+      medicines = Buffer.toArray(all_medicines);
+      total_count = all_medicines.size();
+      status = "success";
+    };
+  };
+
+  // Update medicine by ID
+  public shared func update_medicine(medicine_id : Text, medicine_data : Types.Medicine) : async Types.HealthStorageResponse {
+    let medicines_temp = Buffer.Buffer<(Text, Types.Medicine)>(0);
+    var found = false;
+    
+    for ((id, medicine) in medicines.vals()) {
+      if (id == medicine_id) {
+        medicines_temp.add((id, medicine_data));
+        found := true;
+        Debug.print("[MEDICINE]: Updated medicine " # medicine_data.name # " with ID " # medicine_id);
+      } else {
+        medicines_temp.add((id, medicine));
+      };
+    };
+    
+    medicines := medicines_temp;
+    
+    if (found) {
+      {
+        success = true;
+        message = "Medicine updated successfully";
+        id = ?medicine_id;
+      };
+    } else {
+      {
+        success = false;
+        message = "Medicine not found";
+        id = null;
+      };
+    };
+  };
+
+  // Delete medicine by ID
+  public shared func delete_medicine(medicine_id : Text) : async Types.HealthStorageResponse {
+    let medicines_temp = Buffer.Buffer<(Text, Types.Medicine)>(0);
+    var found = false;
+    
+    for ((id, medicine) in medicines.vals()) {
+      if (id == medicine_id) {
+        found := true;
+        Debug.print("[MEDICINE]: Deleted medicine " # medicine.name # " with ID " # medicine_id);
+      } else {
+        medicines_temp.add((id, medicine));
+      };
+    };
+    
+    medicines := medicines_temp;
+    
+    if (found) {
+      {
+        success = true;
+        message = "Medicine deleted successfully";
+        id = ?medicine_id;
+      };
+    } else {
+      {
+        success = false;
+        message = "Medicine not found";
+        id = null;
+      };
     };
   };
 
@@ -1145,13 +1328,11 @@ persistent actor {
     Debug.print("[INFO]: Found " # Nat.toText(user_logs.size()) # " logs for user " # user_id);
 
     // Get user streak data
-    let user_streak = do ? {
-      for ((_, streak) in user_streaks.vals()) {
-        if (streak.user_id == user_id) {
-          return ?streak;
-        };
+    var user_streak : ?Types.UserStreak = null;
+    for ((_, streak) in user_streaks.vals()) {
+      if (streak.user_id == user_id) {
+        user_streak := ?streak;
       };
-      null
     };
 
     return {
@@ -1344,9 +1525,9 @@ persistent actor {
     let day_of_year = days_since_2024 % 365;
     let month = (day_of_year / 30) + 1; // Simplified month calculation
     let day = (day_of_year % 30) + 1;
-    Nat.toText(year) # "-" # 
-    (if (month < 10) { "0" } else { "" }) # Nat.toText(month) # "-" #
-    (if (day < 10) { "0" } else { "" }) # Nat.toText(day)
+    Nat.toText(Int.abs(year)) # "-" # 
+    (if (month < 10) { "0" } else { "" }) # Nat.toText(Int.abs(month)) # "-" #
+    (if (day < 10) { "0" } else { "" }) # Nat.toText(Int.abs(day))
   };
 
   // Helper function to get previous date (simplified but functional)
@@ -1553,10 +1734,8 @@ persistent actor {
         } else {
           return {
             success = false;
-            order_id = null;
             message = "Order cannot be cancelled (status: " # order.status # ")";
-            order = null;
-            suggested_alternatives = null;
+            cancelled_id = null;
           };
         };
       } else {
@@ -2067,7 +2246,7 @@ persistent actor {
           upgrade = null;
         };
       };
-      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/cancel-appointment" or "/cancel-medicine-order" or "/add-wellness-log" or "/get-wellness-summary" or "/delete-wellness-log" or "/store-user-profile" or "/get-user-profile") {
+      case ("POST", "/store-symptoms" or "/store-reminder" or "/emergency-alert" or "/get-symptom-history" or "/get-reminders" or "/get-emergency-status" or "/store-doctor" or "/get-doctors-by-specialty" or "/store-appointment" or "/get-user-appointments" or "/update-appointment" or "/store-medicine" or "/search-medicines-by-name" or "/search-medicines-by-category" or "/get-medicine-by-id" or "/place-medicine-order" or "/get-user-medicine-orders" or "/get-available-medicines" or "/cancel-appointment" or "/cancel-medicine-order" or "/add-wellness-log" or "/get-wellness-summary" or "/delete-wellness-log" or "/store-user-profile" or "/get-user-profile" or "/get-all-appointments" or "/get-all-medicine-orders") {
         {
           status_code = 200;
           headers = [("content-type", "application/json")];
@@ -2458,6 +2637,22 @@ persistent actor {
             makeJsonResponse(200, jsonText);
           };
         };
+      };
+
+      // Admin endpoints  
+      case ("POST", "/get-all-appointments") {
+        let appointments = await get_all_appointments();
+        let blob = to_candid(appointments);
+        let appointmentArrayKeys = ["appointment_id", "doctor_id", "doctor_name", "specialty", "patient_symptoms", "appointment_date", "appointment_time", "status", "urgency", "created_at", "user_id"];
+        let #ok(jsonText) = JSON.toText(blob, appointmentArrayKeys, null) else return makeSerializationErrorResponse();
+        makeJsonResponse(200, jsonText);
+      };
+      case ("POST", "/get-all-medicine-orders") {
+        let orders = await get_all_medicine_orders();
+        let blob = to_candid(orders);
+        let orderArrayKeys = ["order_id", "medicine_id", "medicine_name", "quantity", "unit_price", "total_price", "user_id", "order_date", "status", "prescription_id", "pharmacy_notes"];
+        let #ok(jsonText) = JSON.toText(blob, orderArrayKeys, null) else return makeSerializationErrorResponse();
+        makeJsonResponse(200, jsonText);
       };
       case ("OPTIONS", _) {
         {

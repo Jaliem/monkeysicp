@@ -1,26 +1,38 @@
 import { useState, useEffect } from "react";
 import { AuthClient } from "@dfinity/auth-client";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Edit, Trash2, Users, Pill } from "lucide-react";
 import NavbarAdmin from "./navAdmin";
-import AdminTestComponent from "./components/admin/AdminTestComponent";
+import { 
+  storeDoctor, 
+  storeMedicine,
+  fetchDoctors,
+  fetchMedicines,
+  updateDoctor,
+  deleteDoctor,
+  updateMedicine,
+  deleteMedicine
+} from "./services/flaskService";
 
 interface Doctor {
-  id: string;
+  doctor_id: string;
   name: string;
   specialty: string;
+  qualifications: string;
+  experience_years: number;
   rating: number;
-  reviews: number;
-  experience: number;
-  location: string;
-  availability: string[];
-  price: number;
-  image: string;
-  bio: string;
-  languages: string[];
+  available_days: string[];
+  available_slots: string[];
   image_url: string;
-  qualifications?: string;
-  available_days?: string[];
-  available_slots?: string[];
+  // Frontend-only fields for display
+  id?: string;
+  reviews?: number;
+  experience?: number;
+  location?: string;
+  availability?: string[];
+  price?: number;
+  image?: string;
+  bio?: string;
+  languages?: string[];
 }
 
 interface Medicine {
@@ -51,15 +63,20 @@ const Admin = () => {
     medicine: false,
   });
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"doctor" | "medicine">("doctor");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState(false);
 
   const [doctorData, setDoctorData] = useState<Doctor>({
-    id: "",
+    doctor_id: "",
     name: "",
     specialty: "",
-    rating: 0,
+    qualifications: "",
+    experience_years: 0,
+    rating: 4.5,
+    available_days: [],
+    available_slots: [],
+    image_url: "",
+    // Display-only fields
     reviews: 0,
     experience: 0,
     location: "",
@@ -68,10 +85,6 @@ const Admin = () => {
     image: "",
     bio: "",
     languages: [],
-    image_url: "",
-    qualifications: "",
-    available_days: [],
-    available_slots: [],
   });
 
   const [medicineData, setMedicineData] = useState<Medicine>({
@@ -92,6 +105,24 @@ const Admin = () => {
     string | null
   >(null);
   const [uploadingMedicineImage, setUploadingMedicineImage] = useState(false);
+
+  // Data management states
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [activeSection, setActiveSection] = useState<"doctors" | "medicines">("doctors");
+  const [doctorMode, setDoctorMode] = useState<"add" | "manage">("add");
+  const [medicineMode, setMedicineMode] = useState<"add" | "manage">("add");
+  const [loadingData, setLoadingData] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  
+  // Edit states
+  const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{
+    type: 'doctor' | 'medicine';
+    id: string;
+    name: string;
+  } | null>(null);
 
   const specialties = [
     "Cardiology",
@@ -153,7 +184,96 @@ const Admin = () => {
 
   useEffect(() => {
     initAuth();
+    loadData();
   }, []);
+
+  // Load data for management sections
+  const loadData = async () => {
+    setLoadingData(true);
+    setDataError(null);
+    
+    try {
+      console.log('Loading admin data...');
+      
+      // Load doctors from all specialties
+      console.log('Loading doctors from specialties:', specialties);
+      const specialtyPromises = specialties.map(async (specialty) => {
+        console.log(`Fetching doctors for ${specialty}...`);
+        return await fetchDoctors(specialty);
+      });
+      
+      const doctorResults = await Promise.all(specialtyPromises);
+      const allDoctors = doctorResults.flat();
+      console.log('All doctors raw data loaded:', allDoctors.length, 'doctors');
+      console.log('First doctor raw sample:', allDoctors[0]);
+      
+      // Parse ICP doctor data format using numeric keys
+      const parsedDoctors = allDoctors.map((doctor: any) => ({
+        // Backend fields (required)
+        doctor_id: doctor["3_732_697_147"] || doctor.doctor_id || `doc_${Date.now()}_${Math.random()}`,
+        name: doctor["1_224_700_491"] || doctor.name || 'Unknown Doctor',
+        specialty: (doctor["2_069_078_014"] || doctor.specialty || 'General Practice'),
+        qualifications: doctor["1_692_858_852"] || doctor.qualifications || '',
+        experience_years: doctor["825_774_209"] || doctor.experience_years || 5,
+        rating: doctor["3_146_396_701"] || doctor.rating || 4.5,
+        available_days: doctor["2_213_151_757"] || doctor.available_days || [],
+        available_slots: doctor["2_467_954_303"] || doctor.available_slots || [],
+        image_url: doctor["914_348_363"] || doctor.image_url || '',
+        // Display fields
+        id: doctor["3_732_697_147"] || doctor.doctor_id,
+        reviews: Math.floor(Math.random() * 200) + 50,
+        experience: doctor["825_774_209"] || doctor.experience_years || 5,
+        location: 'Medical Center',
+        availability: doctor["2_213_151_757"] || doctor.available_days || [],
+        price: Math.floor(Math.random() * 100) + 100,
+        image: doctor["914_348_363"] || doctor.image_url || '',
+        bio: `Experienced ${doctor["2_069_078_014"] || doctor.specialty || 'general practice'} specialist with ${doctor["825_774_209"] || doctor.experience_years || 5}+ years of experience. ${doctor["1_692_858_852"] || doctor.qualifications || ''}.`,
+        languages: ['English']
+      }));
+      
+      // Remove duplicates using parsed data
+      const uniqueDoctors = parsedDoctors.filter((doctor, index, self) => 
+        index === self.findIndex(d => d.doctor_id === doctor.doctor_id)
+      );
+      console.log('👨‍⚕️ Parsed doctors:', uniqueDoctors.length);
+      console.log('First parsed doctor sample:', uniqueDoctors[0]);
+      setDoctors(uniqueDoctors);
+
+      // Load medicines
+      console.log('💊 Loading medicines...');
+      const medicinesData = await fetchMedicines();
+      console.log('📋 Medicines raw data loaded:', medicinesData.length, 'medicines');
+      console.log('First medicine raw sample:', medicinesData[0]);
+      
+      // Parse ICP medicine data format using numeric keys
+      const parsedMedicines = medicinesData.map((medicine: any) => ({
+        medicine_id: medicine["1_098_344_064"] || medicine.medicine_id || `med_${Date.now()}_${Math.random()}`,
+        name: medicine["1_224_700_491"] || medicine.name || 'Unknown Medicine',
+        generic_name: medicine["1_026_369_715"] || medicine.generic_name || medicine["1_224_700_491"] || medicine.name || 'N/A',
+        category: (medicine["2_909_547_262"] || medicine.category || 'general'),
+        dosage: medicine["829_945_655"] || medicine.dosage || 'N/A',
+        price: medicine["3_364_572_809"] || medicine.price || 0,
+        stock: medicine["2_216_036_054"] || medicine.stock || 0,
+        manufacturer: medicine["341_121_617"] || medicine.manufacturer || 'Unknown',
+        requires_prescription: medicine["3_699_773_643"] || medicine.requires_prescription || false,
+        description: medicine["1_595_738_364"] || medicine.description || 'Medicine description not available.',
+        active_ingredient: medicine["819_652_970"] || medicine.active_ingredient || 'N/A',
+        image_url: medicine["914_348_363"] || medicine.image_url || 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center',
+        image: medicine["914_348_363"] || medicine.image_url || medicine.image || 'https://images.unsplash.com/photo-1584017911766-d451b3d0e843?w=400&h=400&fit=crop&crop=center'
+      }));
+      
+      console.log('Parsed medicines:', parsedMedicines.length);
+      console.log('First parsed medicine sample:', parsedMedicines[0]);
+      setMedicines(parsedMedicines);
+      
+      console.log('Data loading and parsing completed');
+    } catch (error) {
+      console.error("Error loading data:", error);
+      setDataError(error instanceof Error ? error.message : "Failed to load data");
+    } finally {
+      setLoadingData(false);
+    }
+  };
 
   const initAuth = async () => {
     setIsLoading(true);
@@ -178,18 +298,13 @@ const Admin = () => {
       [
         data.name,
         data.specialty,
-        data.location,
-        data.bio,
         data.qualifications,
       ].every((field) => field && field.trim() !== "") &&
-      data.experience > 0 &&
-      data.price > 0 &&
+      data.experience_years > 0 &&
       data.available_days &&
       data.available_days.length > 0 &&
       data.available_slots &&
-      data.available_slots.length > 0 &&
-      data.languages &&
-      data.languages.length > 0
+      data.available_slots.length > 0
     );
   };
 
@@ -205,8 +320,8 @@ const Admin = () => {
 
   const updateValidation = () => {
     setValidationState({
-      doctor: validateDoctorData(doctorData),
-      medicine: validateMedicineData(medicineData),
+      doctor: validateDoctorData(doctorData) || false,
+      medicine: validateMedicineData(medicineData) || false,
     });
   };
 
@@ -352,10 +467,12 @@ const Admin = () => {
       return;
     }
 
-    const isValid =
-      activeTab === "doctor"
+    const isValid = 
+      activeSection === "doctors" && doctorMode === "add"
         ? validationState.doctor
-        : validationState.medicine;
+        : activeSection === "medicines" && medicineMode === "add"
+        ? validationState.medicine
+        : false;
     if (!isValid) {
       setSaveStatus({
         type: "error",
@@ -368,43 +485,97 @@ const Admin = () => {
     setSaveStatus({ type: null, message: "" });
 
     try {
-      // Generate ID if not provided
-      const currentData = activeTab === "doctor" ? doctorData : medicineData;
-      if (!currentData.id && !currentData.medicine_id) {
-        const newId = Date.now().toString();
-        if (activeTab === "doctor") {
-          handleDoctorChange("id", newId);
-        } else {
-          handleMedicineChange("medicine_id", newId);
-        }
-      }
-
-      // Call backend service
+      // Generate ID if not provided and prepare data for backend
+      let dataToSend;
       let result;
-      if (activeTab === "doctor") {
-        // @ts-ignore
-        const { storeDoctor } = await import("./services/flaskService");
-        result = await storeDoctor(doctorData);
-      } else {
-        // @ts-ignore
-        const { storeMedicine } = await import("./services/flaskService");
-        result = await storeMedicine(medicineData);
+      let isEditing = false;
+      
+      if (activeSection === "doctors" && doctorMode === "add") {
+        isEditing = !!editingDoctor;
+        
+        // Use existing ID if editing, generate new one if adding
+        const doctor_id = editingDoctor?.doctor_id || doctorData.doctor_id || `doctor_${Date.now()}`;
+        
+        // Prepare data matching backend Types.Doctor exactly
+        dataToSend = {
+          doctor_id,
+          name: doctorData.name,
+          specialty: doctorData.specialty,
+          qualifications: doctorData.qualifications,
+          experience_years: doctorData.experience_years,
+          rating: doctorData.rating,
+          available_days: doctorData.available_days,
+          available_slots: doctorData.available_slots,
+          image_url: doctorData.image_url || doctorData.image || ""
+        };
+        
+        console.log(`Admin ${isEditing ? 'updating' : 'adding'} doctor data:`, dataToSend);
+        
+        if (isEditing) {
+          result = await updateDoctor(doctor_id, dataToSend);
+        } else {
+          result = await storeDoctor(dataToSend);
+        }
+        
+      } else if (activeSection === "medicines" && medicineMode === "add") {
+        isEditing = !!editingMedicine;
+        
+        // Use existing ID if editing, generate new one if adding
+        const medicine_id = editingMedicine?.medicine_id || medicineData.medicine_id || `medicine_${Date.now()}`;
+        
+        // Prepare data matching backend Types.Medicine exactly
+        dataToSend = {
+          medicine_id,
+          name: medicineData.name,
+          generic_name: medicineData.generic_name || null,
+          category: medicineData.category,
+          stock: medicineData.stock,
+          price: medicineData.price,
+          manufacturer: medicineData.manufacturer || null,
+          description: medicineData.description || null,
+          requires_prescription: medicineData.requires_prescription,
+          active_ingredient: medicineData.active_ingredient || null,
+          dosage: medicineData.dosage || null,
+          image_url: medicineData.image_url || medicineData.image || ""
+        };
+        
+        console.log(`Admin ${isEditing ? 'updating' : 'adding'} medicine data:`, dataToSend);
+        
+        if (isEditing) {
+          result = await updateMedicine(medicine_id, dataToSend);
+        } else {
+          result = await storeMedicine(dataToSend);
+        }
       }
 
       if (result && result.success !== false) {
         setSaveStatus({
           type: "success",
           message: `${
-            activeTab === "doctor" ? "Doctor" : "Medicine"
-          } added successfully!`,
+            activeSection === "doctors" ? "Doctor" : "Medicine"
+          } ${isEditing ? 'updated' : 'added'} successfully!`,
         });
+        
+        // Reload data after successful save
+        await loadData();
+        
+        // Clear editing state
+        setEditingDoctor(null);
+        setEditingMedicine(null);
+        
         // Reset form after successful save
-        if (activeTab === "doctor") {
+        if (activeSection === "doctors") {
           setDoctorData({
-            id: "",
+            doctor_id: "",
             name: "",
             specialty: "",
-            rating: 0,
+            qualifications: "",
+            experience_years: 0,
+            rating: 4.5,
+            available_days: [],
+            available_slots: [],
+            image_url: "",
+            // Display-only fields
             reviews: 0,
             experience: 0,
             location: "",
@@ -413,10 +584,6 @@ const Admin = () => {
             image: "",
             bio: "",
             languages: [],
-            image_url: "",
-            qualifications: "",
-            available_days: [],
-            available_slots: [],
           });
           setImagePreview(null);
         } else {
@@ -432,6 +599,7 @@ const Admin = () => {
             requires_prescription: false,
             active_ingredient: "",
             dosage: "",
+            image_url: "",
           });
           setMedicineImagePreview(null);
         }
@@ -453,12 +621,136 @@ const Admin = () => {
     }
   };
 
-  const tabClasses = (tab: string) =>
-    `px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-      activeTab === tab
-        ? "bg-emerald-600 text-white shadow-md"
-        : "bg-white text-stone-600 hover:bg-stone-50 border border-stone-200"
-    }`;
+  // Edit functions
+  const handleEditDoctor = (doctor: Doctor) => {
+    setEditingDoctor(doctor);
+    setDoctorData({
+      ...doctor,
+      // Ensure all fields are present for editing
+      experience: doctor.experience_years,
+      availability: doctor.available_days,
+      languages: doctor.languages || ['English']
+    });
+    setDoctorMode("add"); // Reuse add form for editing
+    setActiveSection("doctors");
+    setImagePreview(doctor.image_url || doctor.image || null);
+  };
+
+  const handleEditMedicine = (medicine: Medicine) => {
+    setEditingMedicine(medicine);
+    setMedicineData({...medicine});
+    setMedicineMode("add"); // Reuse add form for editing
+    setActiveSection("medicines");
+    setMedicineImagePreview(medicine.image_url || medicine.image || null);
+  };
+
+  const handleDeleteConfirm = (type: 'doctor' | 'medicine', id: string, name: string) => {
+    setShowDeleteConfirm({ type, id, name });
+  };
+
+  const handleDeleteDoctor = async (doctorId: string) => {
+    setIsSaving(true);
+    try {
+      console.log('Deleting doctor:', doctorId);
+      const result = await deleteDoctor(doctorId);
+      
+      if (result && result.success !== false) {
+        setSaveStatus({
+          type: "success",
+          message: "Doctor deleted successfully!"
+        });
+        await loadData(); // Reload data
+      } else {
+        setSaveStatus({
+          type: "error",
+          message: result?.message || "Failed to delete doctor"
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting doctor:', error);
+      setSaveStatus({
+        type: "error",
+        message: "Error deleting doctor"
+      });
+    } finally {
+      setIsSaving(false);
+      setShowDeleteConfirm(null);
+      setTimeout(() => setSaveStatus({ type: null, message: "" }), 3000);
+    }
+  };
+
+  const handleDeleteMedicine = async (medicineId: string) => {
+    setIsSaving(true);
+    try {
+      console.log('Deleting medicine:', medicineId);
+      const result = await deleteMedicine(medicineId);
+      
+      if (result && result.success !== false) {
+        setSaveStatus({
+          type: "success",
+          message: "Medicine deleted successfully!"
+        });
+        await loadData(); // Reload data
+      } else {
+        setSaveStatus({
+          type: "error",
+          message: result?.message || "Failed to delete medicine"
+        });
+      }
+    } catch (error) {
+      console.error('Error deleting medicine:', error);
+      setSaveStatus({
+        type: "error",
+        message: "Error deleting medicine"
+      });
+    } finally {
+      setIsSaving(false);
+      setShowDeleteConfirm(null);
+      setTimeout(() => setSaveStatus({ type: null, message: "" }), 3000);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingDoctor(null);
+    setEditingMedicine(null);
+    // Reset forms
+    setDoctorData({
+      doctor_id: "",
+      name: "",
+      specialty: "",
+      qualifications: "",
+      experience_years: 0,
+      rating: 4.5,
+      available_days: [],
+      available_slots: [],
+      image_url: "",
+      reviews: 0,
+      experience: 0,
+      location: "",
+      availability: [],
+      price: 0,
+      image: "",
+      bio: "",
+      languages: [],
+    });
+    setMedicineData({
+      medicine_id: "",
+      name: "",
+      generic_name: "",
+      category: "",
+      stock: 0,
+      price: 0,
+      manufacturer: "",
+      description: "",
+      requires_prescription: false,
+      active_ingredient: "",
+      dosage: "",
+      image_url: "",
+    });
+    setImagePreview(null);
+    setMedicineImagePreview(null);
+  };
+
 
   if (isLoading) {
     return (
@@ -487,11 +779,7 @@ const Admin = () => {
                   Add Records
                 </h1>
                 {/* Development: Admin Access Test */}
-                {process.env.NODE_ENV === 'development' && (
-                  <div className="mt-4">
-                    <AdminTestComponent />
-                  </div>
-                )}
+             
                 {saveStatus.type && (
                   <div
                     className={`mt-2 px-3 py-1 rounded-lg text-sm font-light ${
@@ -520,30 +808,76 @@ const Admin = () => {
         </div>
 
         <div className="p-8 max-w-6xl mx-auto">
-          {/* Tab Navigation */}
-          <div className="flex space-x-4 mb-8">
+          {/* Section Navigation */}
+          <div className="flex flex-wrap gap-2 mb-8">
             <button
-              onClick={() => setActiveTab("doctor")}
-              className={tabClasses("doctor")}
+              onClick={() => setActiveSection("doctors")}
+              className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                activeSection === "doctors"
+                  ? "bg-emerald-600 text-white shadow-md"
+                  : "bg-white text-stone-600 hover:bg-stone-50 border border-stone-200"
+              }`}
             >
-              Add Doctor
+              <Users className="w-5 h-5" />
+              Doctors
             </button>
             <button
-              onClick={() => setActiveTab("medicine")}
-              className={tabClasses("medicine")}
+              onClick={() => setActiveSection("medicines")}
+              className={`px-8 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                activeSection === "medicines"
+                  ? "bg-emerald-600 text-white shadow-md"
+                  : "bg-white text-stone-600 hover:bg-stone-50 border border-stone-200"
+              }`}
             >
-              Add Medicine
+              <Pill className="w-5 h-5" />
+              Medicines
             </button>
           </div>
 
           {/* Content */}
           <div className="bg-white rounded-2xl shadow-sm border border-stone-100">
-            {/* Doctor Tab */}
-            {activeTab === "doctor" && (
+            {/* Doctors Section */}
+            {activeSection === "doctors" && (
               <div className="p-8">
-                <h2 className="text-2xl font-light text-stone-800 font-serif mb-6">
-                  Add New Doctor
-                </h2>
+                {/* Sub-navigation for Doctor actions */}
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <button
+                    onClick={() => setDoctorMode("add")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      doctorMode === "add"
+                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                    }`}
+                  >
+                    Add Doctor
+                  </button>
+                  <button
+                    onClick={() => setDoctorMode("manage")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      doctorMode === "manage"
+                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                    }`}
+                  >
+                    Manage Doctors ({doctors.length})
+                  </button>
+                </div>
+
+                {doctorMode === "add" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-light text-stone-800 font-serif">
+                        {editingDoctor ? 'Edit Doctor' : 'Add New Doctor'}
+                      </h2>
+                      {editingDoctor && (
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-4 py-2 text-stone-600 border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors"
+                        >
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
 
                 <div className="space-y-8 justify-center">
                   {/* Profile Image Upload */}
@@ -669,10 +1003,10 @@ style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.o
                         </label>
                         <input
                           type="number"
-                          value={doctorData.experience || ""}
+                          value={doctorData.experience_years || ""}
                           onChange={(e) =>
                             handleDoctorChange(
-                              "experience",
+                              "experience_years",
                               parseInt(e.target.value) || 0
                             )
                           }
@@ -759,10 +1093,10 @@ style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.o
                         >
                           <input
                             type="checkbox"
-                            checked={doctorData.languages.includes(language)}
+                            checked={doctorData.languages?.includes(language) || false}
                             onChange={() =>
                               handleArrayToggle(
-                                doctorData.languages,
+                                doctorData.languages || [],
                                 language,
                                 (value) =>
                                   handleDoctorChange("languages", value)
@@ -842,15 +1176,249 @@ style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.o
                     </div>
                   </div>
                 </div>
+                  </div>
+                )}
+
+                {doctorMode === "manage" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-light text-stone-800 font-serif">
+                        Manage Doctors
+                      </h2>
+                      <button 
+                        onClick={loadData}
+                        disabled={loadingData}
+                        className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-200 transition-colors disabled:opacity-50"
+                      >
+                        {loadingData ? 'Refreshing...' : 'Refresh'}
+                      </button>
+                    </div>
+
+                    {dataError && (
+                      <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-700 text-sm">Error loading doctors: {dataError}</p>
+                        <button 
+                          onClick={loadData}
+                          className="mt-2 px-3 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+
+                    {loadingData ? (
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+                        <p className="text-stone-600 font-light">Loading doctors...</p>
+                      </div>
+                    ) : doctors.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Users className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                        <p className="text-stone-500 font-light text-lg">No doctors found</p>
+                        <p className="text-stone-400 font-light">Add your first doctor to get started</p>
+                        <button 
+                          onClick={() => setDoctorMode("add")}
+                          className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700"
+                        >
+                          Add Doctor
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Desktop Table Header - Hidden on mobile */}
+                        <div className="hidden lg:block bg-stone-50 border border-stone-200 rounded-lg p-4 font-medium text-stone-700 text-sm">
+                          <div className="grid grid-cols-12 gap-4 items-center">
+                            <div className="col-span-1">Photo</div>
+                            <div className="col-span-2">Name</div>
+                            <div className="col-span-2">Specialty</div>
+                            <div className="col-span-2">Location</div>
+                            <div className="col-span-1">Experience</div>
+                            <div className="col-span-1">Price</div>
+                            <div className="col-span-1">Rating</div>
+                            <div className="col-span-2">Actions</div>
+                          </div>
+                        </div>
+
+                        {/* Data rows - Responsive */}
+                        {doctors.map((doctor, index) => (
+                          <div key={doctor.id || doctor.doctor_id || `doctor-${index}`} className="bg-white border border-stone-200 rounded-lg p-4 hover:bg-stone-50 transition-colors">
+                            {/* Desktop Layout */}
+                            <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
+                              <div className="col-span-1">
+                                <div className="w-12 h-12 rounded-full overflow-hidden bg-stone-100">
+                                  {doctor.image_url || doctor.image ? (
+                                    <img 
+                                      src={doctor.image_url || doctor.image} 
+                                      alt={doctor.name} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-emerald-100 flex items-center justify-center">
+                                      <Users className="w-4 h-4 text-emerald-600" />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="font-medium text-stone-800">{doctor.name}</p>
+                                <p className="text-xs text-stone-500">{doctor.qualifications}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-stone-700">{doctor.specialty}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-stone-600 text-sm">{doctor.location}</p>
+                              </div>
+                              <div className="col-span-1">
+                                <p className="text-stone-600 text-sm">{doctor.experience_years || doctor.experience} yrs</p>
+                              </div>
+                              <div className="col-span-1">
+                                <p className="text-stone-600 text-sm">IDR {doctor.price?.toLocaleString()}</p>
+                              </div>
+                              <div className="col-span-1">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-yellow-500 text-xs">★</span>
+                                  <span className="text-stone-600 text-sm">{doctor.rating}</span>
+                                </div>
+                                <p className="text-xs text-stone-500">({doctor.reviews} reviews)</p>
+                              </div>
+                              <div className="col-span-2">
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => handleEditDoctor(doctor)}
+                                    className="p-2 text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                    title="Edit doctor"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteConfirm('doctor', doctor.doctor_id, doctor.name)}
+                                    className="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Delete doctor"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Mobile/Tablet Layout - Stacked Card */}
+                            <div className="lg:hidden">
+                              <div className="flex items-start gap-4 mb-4">
+                                <div className="w-16 h-16 rounded-full overflow-hidden bg-stone-100 flex-shrink-0">
+                                  {doctor.image_url || doctor.image ? (
+                                    <img 
+                                      src={doctor.image_url || doctor.image} 
+                                      alt={doctor.name} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-emerald-100 flex items-center justify-center">
+                                      <Users className="w-6 h-6 text-emerald-600" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium text-stone-800 text-lg">{doctor.name}</h3>
+                                  <p className="text-stone-600 text-sm">{doctor.specialty}</p>
+                                  <p className="text-stone-500 text-xs mt-1">{doctor.qualifications}</p>
+                                  <div className="flex items-center gap-1 mt-2">
+                                    <span className="text-yellow-500 text-sm">★</span>
+                                    <span className="text-stone-600 text-sm">{doctor.rating}</span>
+                                    <span className="text-stone-500 text-xs">({doctor.reviews} reviews)</span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Details Grid */}
+                              <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Location</p>
+                                  <p className="text-stone-700 text-sm mt-1">{doctor.location}</p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Experience</p>
+                                  <p className="text-stone-700 text-sm mt-1">{doctor.experience_years || doctor.experience} years</p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Price</p>
+                                  <p className="text-stone-700 text-sm mt-1">IDR {doctor.price?.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Languages</p>
+                                  <p className="text-stone-700 text-sm mt-1">{doctor.languages?.join(', ') || 'English'}</p>
+                                </div>
+                              </div>
+                              
+                              {/* Actions */}
+                              <div className="flex justify-end gap-2 pt-4 border-t border-stone-100">
+                                <button 
+                                  onClick={() => handleEditDoctor(doctor)}
+                                  className="flex items-center gap-2 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors text-sm"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                  Edit
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteConfirm('doctor', doctor.doctor_id, doctor.name)}
+                                  className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Medicine Tab */}
-            {activeTab === "medicine" && (
+            {/* Medicines Section */}
+            {activeSection === "medicines" && (
               <div className="p-8">
-                <h2 className="text-2xl font-light text-stone-800 font-serif mb-6">
-                  Add New Medicine
-                </h2>
+                {/* Sub-navigation for Medicine actions */}
+                <div className="flex flex-wrap gap-2 mb-6">
+                  <button
+                    onClick={() => setMedicineMode("add")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      medicineMode === "add"
+                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                    }`}
+                  >
+                    Add Medicine
+                  </button>
+                  <button
+                    onClick={() => setMedicineMode("manage")}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                      medicineMode === "manage"
+                        ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                        : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                    }`}
+                  >
+                    Manage Medicines ({medicines.length})
+                  </button>
+                </div>
+
+                {medicineMode === "add" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-light text-stone-800 font-serif">
+                        {editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}
+                      </h2>
+                      {editingMedicine && (
+                        <button
+                          onClick={handleCancelEdit}
+                          className="px-4 py-2 text-stone-600 border border-stone-300 rounded-lg hover:bg-stone-50 transition-colors"
+                        >
+                          Cancel Edit
+                        </button>
+                      )}
+                    </div>
 
                 <div className="space-y-8">
                   {/* Medicine Image Upload */}
@@ -1035,6 +1603,51 @@ style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.o
                           placeholder="100"
                         />
                       </div>
+
+                      <div>
+                        <label className="block text-stone-700 font-light mb-2">
+                          Manufacturer
+                        </label>
+                        <input
+                          type="text"
+                          value={medicineData.manufacturer}
+                          onChange={(e) =>
+                            handleMedicineChange("manufacturer", e.target.value)
+                          }
+                          className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                          placeholder="Pfizer, Johnson & Johnson, etc."
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-stone-700 font-light mb-2">
+                          Active Ingredient
+                        </label>
+                        <input
+                          type="text"
+                          value={medicineData.active_ingredient}
+                          onChange={(e) =>
+                            handleMedicineChange("active_ingredient", e.target.value)
+                          }
+                          className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                          placeholder="Acetaminophen, Ibuprofen, etc."
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-stone-700 font-light mb-2">
+                          Description
+                        </label>
+                        <textarea
+                          value={medicineData.description}
+                          onChange={(e) =>
+                            handleMedicineChange("description", e.target.value)
+                          }
+                          className="w-full px-4 py-3 border border-stone-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 font-light"
+                          placeholder="Brief description of the medicine and its uses..."
+                          rows={3}
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -1086,31 +1699,331 @@ style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.o
                     </div>
                   </div>
                 </div>
+                  </div>
+                )}
+
+                {medicineMode === "manage" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-6">
+                      <h2 className="text-2xl font-light text-stone-800 font-serif">
+                        Manage Medicines
+                      </h2>
+                      <button 
+                        onClick={loadData}
+                        disabled={loadingData}
+                        className="px-4 py-2 bg-emerald-100 text-emerald-700 rounded-lg text-sm font-medium hover:bg-emerald-200 transition-colors disabled:opacity-50"
+                      >
+                        {loadingData ? 'Refreshing...' : 'Refresh'}
+                      </button>
+                    </div>
+
+                    {dataError && (
+                      <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-700 text-sm">Error loading medicines: {dataError}</p>
+                        <button 
+                          onClick={loadData}
+                          className="mt-2 px-3 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200"
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+
+                    {loadingData ? (
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mx-auto mb-4"></div>
+                        <p className="text-stone-600 font-light">Loading medicines...</p>
+                      </div>
+                    ) : medicines.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Pill className="w-16 h-16 text-stone-300 mx-auto mb-4" />
+                        <p className="text-stone-500 font-light text-lg">No medicines found</p>
+                        <p className="text-stone-400 font-light">Add your first medicine to get started</p>
+                        <button 
+                          onClick={() => setMedicineMode("add")}
+                          className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700"
+                        >
+                          Add Medicine
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Desktop Table Header - Hidden on mobile */}
+                        <div className="hidden lg:block bg-stone-50 border border-stone-200 rounded-lg p-4 font-medium text-stone-700 text-sm">
+                          <div className="grid grid-cols-12 gap-4 items-center">
+                            <div className="col-span-1">Photo</div>
+                            <div className="col-span-2">Name</div>
+                            <div className="col-span-2">Category</div>
+                            <div className="col-span-1">Stock</div>
+                            <div className="col-span-1">Price</div>
+                            <div className="col-span-1">Dosage</div>
+                            <div className="col-span-2">Prescription</div>
+                            <div className="col-span-2">Actions</div>
+                          </div>
+                        </div>
+
+                        {/* Data rows - Responsive */}
+                        {medicines.map((medicine, index) => (
+                          <div key={medicine.medicine_id || `medicine-${index}`} className="bg-white border border-stone-200 rounded-lg p-4 hover:bg-stone-50 transition-colors">
+                            {/* Desktop Layout */}
+                            <div className="hidden lg:grid grid-cols-12 gap-4 items-center">
+                              <div className="col-span-1">
+                                <div className="w-12 h-12 rounded-full overflow-hidden bg-stone-100">
+                                  {medicine.image_url || medicine.image ? (
+                                    <img 
+                                      src={medicine.image_url || medicine.image} 
+                                      alt={medicine.name} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-emerald-100 flex items-center justify-center">
+                                      <Pill className="w-4 h-4 text-emerald-600" />
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="font-medium text-stone-800">{medicine.name}</p>
+                                {medicine.generic_name && (
+                                  <p className="text-xs text-stone-500">({medicine.generic_name})</p>
+                                )}
+                                {medicine.manufacturer && (
+                                  <p className="text-xs text-stone-500">by {medicine.manufacturer}</p>
+                                )}
+                              </div>
+                              <div className="col-span-2">
+                                <p className="text-stone-700">{medicine.category}</p>
+                                {medicine.active_ingredient && (
+                                  <p className="text-xs text-stone-500">{medicine.active_ingredient}</p>
+                                )}
+                              </div>
+                              <div className="col-span-1">
+                                <p className={`text-sm font-medium ${
+                                  medicine.stock > 10 ? 'text-green-600' : 
+                                  medicine.stock > 0 ? 'text-yellow-600' : 'text-red-600'
+                                }`}>
+                                  {medicine.stock}
+                                </p>
+                              </div>
+                              <div className="col-span-1">
+                                <p className="text-stone-600 text-sm">IDR {medicine.price?.toLocaleString()}</p>
+                              </div>
+                              <div className="col-span-1">
+                                <p className="text-stone-600 text-sm">{medicine.dosage || 'N/A'}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  medicine.requires_prescription
+                                    ? "bg-orange-100 text-orange-700"
+                                    : "bg-green-100 text-green-700"
+                                }`}>
+                                  {medicine.requires_prescription ? "Rx Required" : "OTC"}
+                                </span>
+                              </div>
+                              <div className="col-span-2">
+                                <div className="flex items-center gap-2">
+                                  <button 
+                                    onClick={() => handleEditMedicine(medicine)}
+                                    className="p-2 text-stone-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                                    title="Edit medicine"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                  <button 
+                                    onClick={() => handleDeleteConfirm('medicine', medicine.medicine_id, medicine.name)}
+                                    className="p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    title="Delete medicine"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Mobile/Tablet Layout - Stacked Card */}
+                            <div className="lg:hidden">
+                              <div className="flex items-start gap-4 mb-4">
+                                <div className="w-16 h-16 rounded-full overflow-hidden bg-stone-100 flex-shrink-0">
+                                  {medicine.image_url || medicine.image ? (
+                                    <img 
+                                      src={medicine.image_url || medicine.image} 
+                                      alt={medicine.name} 
+                                      className="w-full h-full object-cover" 
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-emerald-100 flex items-center justify-center">
+                                      <Pill className="w-6 h-6 text-emerald-600" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h3 className="font-medium text-stone-800 text-lg">{medicine.name}</h3>
+                                  {medicine.generic_name && (
+                                    <p className="text-stone-600 text-sm">({medicine.generic_name})</p>
+                                  )}
+                                  <p className="text-stone-600 text-sm">{medicine.category}</p>
+                                  {medicine.manufacturer && (
+                                    <p className="text-stone-500 text-xs mt-1">by {medicine.manufacturer}</p>
+                                  )}
+                                </div>
+                                <div className="flex-shrink-0">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    medicine.requires_prescription
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-green-100 text-green-700"
+                                  }`}>
+                                    {medicine.requires_prescription ? "Rx Required" : "OTC"}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              {/* Details Grid */}
+                              <div className="grid grid-cols-2 gap-4 mb-4">
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Stock Level</p>
+                                  <p className={`text-sm font-medium mt-1 ${
+                                    medicine.stock > 10 ? 'text-green-600' : 
+                                    medicine.stock > 0 ? 'text-yellow-600' : 'text-red-600'
+                                  }`}>
+                                    {medicine.stock} units
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Price</p>
+                                  <p className="text-stone-700 text-sm mt-1">IDR {medicine.price?.toLocaleString()}</p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Dosage</p>
+                                  <p className="text-stone-700 text-sm mt-1">{medicine.dosage || 'N/A'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Active Ingredient</p>
+                                  <p className="text-stone-700 text-sm mt-1">{medicine.active_ingredient || 'N/A'}</p>
+                                </div>
+                              </div>
+                              
+                              {/* Description */}
+                              {medicine.description && (
+                                <div className="mb-4">
+                                  <p className="text-stone-500 text-xs font-medium uppercase tracking-wide">Description</p>
+                                  <p className="text-stone-600 text-sm mt-1 line-clamp-2">{medicine.description}</p>
+                                </div>
+                              )}
+                              
+                              {/* Actions */}
+                              <div className="flex justify-end gap-2 pt-4 border-t border-stone-100">
+                                <button 
+                                  onClick={() => handleEditMedicine(medicine)}
+                                  className="flex items-center gap-2 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors text-sm"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                  Edit
+                                </button>
+                                <button 
+                                  onClick={() => handleDeleteConfirm('medicine', medicine.medicine_id, medicine.name)}
+                                  className="flex items-center gap-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Save Button */}
-            <div className="px-8 py-6 bg-stone-50 border-t border-stone-100 rounded-b-2xl">
-              <div className="flex justify-end items-center">
+            {/* Save Button - only show for add modes */}
+            {((activeSection === "doctors" && doctorMode === "add") || (activeSection === "medicines" && medicineMode === "add")) && (
+              <div className="px-8 py-6 bg-stone-50 border-t border-stone-100 rounded-b-2xl">
+                <div className="flex justify-end items-center gap-4">
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving || (activeSection === "doctors" && doctorMode === "add" && !validationState.doctor) || (activeSection === "medicines" && medicineMode === "add" && !validationState.medicine)}
+                    className="px-8 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSaving ? (
+                      <span className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Saving...
+                      </span>
+                    ) : (
+                      `${(activeSection === "doctors" && editingDoctor) || (activeSection === "medicines" && editingMedicine) ? 'Update' : 'Add'} ${activeSection === "doctors" ? "Doctor" : "Medicine"}`
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center p-4 z-50">
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl max-w-md w-full shadow-xl">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-light text-stone-800 font-serif">
+                  Confirm Delete
+                </h2>
                 <button
-                  onClick={handleSave}
-                  disabled={isSaving || !validationState[activeTab]}
-                  className="px-8 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="p-2 hover:bg-stone-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="mb-8">
+                <p className="text-stone-600 mb-4">
+                  Are you sure you want to delete this {showDeleteConfirm.type}?
+                </p>
+                <div className="bg-stone-50 rounded-lg p-4">
+                  <p className="font-medium text-stone-800">{showDeleteConfirm.name}</p>
+                  <p className="text-sm text-stone-500">ID: {showDeleteConfirm.id}</p>
+                </div>
+                <p className="text-red-600 text-sm mt-4">
+                  ⚠️ This action cannot be undone.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 px-6 py-3 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (showDeleteConfirm.type === 'doctor') {
+                      handleDeleteDoctor(showDeleteConfirm.id);
+                    } else {
+                      handleDeleteMedicine(showDeleteConfirm.id);
+                    }
+                  }}
+                  disabled={isSaving}
+                  className="flex-1 px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSaving ? (
-                    <span className="flex items-center">
+                    <span className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Saving...
+                      Deleting...
                     </span>
                   ) : (
-                    `Add ${activeTab === "doctor" ? "Doctor" : "Medicine"}`
+                    'Delete'
                   )}
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

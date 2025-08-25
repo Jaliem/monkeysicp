@@ -161,7 +161,7 @@ export const fetchDoctors = async (specialty: string = "general"): Promise<any> 
     console.log('Fetching doctors for specialty:', specialty);
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-doctors-by-specialty`;
+    const canisterUrl = `/ic-api/get-doctors-by-specialty`;
     console.log('Trying canister URL:', canisterUrl);
     
     const icpResponse = await fetch(canisterUrl, {
@@ -244,7 +244,7 @@ export const fetchAppointments = async (userId: string): Promise<any> => {
     console.log('Fetching appointments for user:', userId);
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-user-appointments`;
+    const canisterUrl = `/ic-api/get-user-appointments`;
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -297,7 +297,7 @@ export const fetchMedicines = async (): Promise<any> => {
     console.log('Fetching medicines from backend...');
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-available-medicines`;
+    const canisterUrl = `/ic-api/get-available-medicines`;
     console.log('Trying canister URL:', canisterUrl);
     
     const icpResponse = await fetch(canisterUrl, {
@@ -381,7 +381,7 @@ export const fetchOrders = async (userId: string): Promise<any> => {
     console.log('Fetching orders for user:', userId);
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-user-medicine-orders`;
+    const canisterUrl = `/ic-api/get-user-medicine-orders`;
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -431,7 +431,7 @@ export const fetchWellnessData = async (userId: string, days: number = 7): Promi
     console.log('Fetching wellness data for user:', userId);
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-wellness-summary`;
+    const canisterUrl = `/ic-api/get-wellness-summary`;
     console.log('Trying canister URL:', canisterUrl);
     
     const icpResponse = await fetch(canisterUrl, {
@@ -510,7 +510,7 @@ export const storeUserProfile = async (profile: any, userId: string): Promise<an
   try {
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/store-user-profile`;
+    const canisterUrl = `/ic-api/store-user-profile`;
     console.log('Trying canister URL:', canisterUrl);
     
     const icpResponse = await fetch(canisterUrl, {
@@ -603,7 +603,7 @@ export const fetchUserProfile = async (userId: string): Promise<any> => {
     console.log('Fetching user profile for user:', userId);
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-user-profile`;
+    const canisterUrl = `/ic-api/get-user-profile`;
     console.log('Trying canister URL:', canisterUrl);
     
     const icpResponse = await fetch(canisterUrl, {
@@ -755,7 +755,7 @@ export const placeMedicineOrder = async (medicineId: string, quantity: number, u
     console.log('Placing medicine order:', { medicineId, quantity, userId });
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/place-medicine-order`;
+    const canisterUrl = `/ic-api/place-medicine-order`;
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -813,7 +813,7 @@ export const cancelAppointment = async (appointmentId: string, userId: string): 
     console.log('Cancelling appointment:', { appointmentId, userId });
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/cancel-appointment`;
+    const canisterUrl = `/ic-api/cancel-appointment`;
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -876,7 +876,7 @@ export const cancelMedicineOrder = async (orderId: string, userId: string): Prom
     console.log('Cancelling medicine order:', { orderId, userId });
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/cancel-medicine-order`;
+    const canisterUrl = `/ic-api/cancel-medicine-order`;
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -939,7 +939,7 @@ export const deleteWellnessData = async (date: string, userId: string): Promise<
     console.log(`Deleting wellness data for ${date} for user: ${userId}`);
     
     // Try direct canister HTTP request first (same pattern as other functions)
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/delete-wellness-log`;
+    const canisterUrl = `/ic-api/delete-wellness-log`;
     console.log('Trying canister URL:', canisterUrl);
     
     const icpResponse = await fetch(canisterUrl, {
@@ -1023,7 +1023,7 @@ export const createMedicationReminder = async (userId: string, medication: strin
     const canisterUrls = [
       `${ICP_BASE_URL}/api/v2/canister/${CANISTER_ID}/call`,
       `${ICP_BASE_URL}/?canisterId=${CANISTER_ID}`,
-      `http://${CANISTER_ID}.localhost:4943/store-reminder`
+      `/ic-api/store-reminder`
     ];
 
     for (const url of canisterUrls) {
@@ -1154,26 +1154,26 @@ export const getWellnessInsights = async (userId: string, days: number = 7) => {
 
 // Add doctor to canister
 export const storeDoctor = async (doctorData: any): Promise<any> => {
-  // Build payload matching Motoko DoctorForm
+  // Build payload matching Motoko Types.Doctor exactly
   const buildDoctorFormPayload = (data: any) => ({
+    doctor_id: data.doctor_id || data.id || ("doctor_" + Date.now()),
     name: data.name || "",
     specialty: data.specialty || "",
     qualifications: data.qualifications || "",
     experience_years: Number(data.experience_years ?? data.experience ?? 0),
-    rating: Number(data.rating ?? 0),
+    rating: parseFloat(data.rating ?? 0), // Must be Float, not Number
     available_days: Array.isArray(data.available_days) ? data.available_days : [],
     available_slots: Array.isArray(data.available_slots) ? data.available_slots : [],
-    image_url: data.image_url || data.image || "",
-    phone_number: data.phone_number || "",
-    email: data.email || "",
-    address: data.address || "",
-    created_at: data.created_at || new Date().toISOString(),
-    updated_at: data.updated_at || new Date().toISOString()
+    image_url: data.image_url || data.image || ""
   });
 
   try {
     const payload = buildDoctorFormPayload(doctorData);
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/store_doctor`;
+    console.log('Storing doctor with payload:', payload);
+    
+    const canisterUrl = `/ic-api/store-doctor`;
+    console.log('Trying canister URL:', canisterUrl);
+    
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -1181,20 +1181,32 @@ export const storeDoctor = async (doctorData: any): Promise<any> => {
       },
       body: JSON.stringify(payload)
     });
+    
+    console.log('Store doctor response status:', icpResponse.status);
+    
     if (icpResponse.ok) {
-      return await icpResponse.json();
+      const result = await icpResponse.json();
+      console.log('Store doctor success:', result);
+      return result;
     }
+    
+    console.warn('Canister store doctor response not ok:', icpResponse.status, icpResponse.statusText);
+    
     // Fallback
-    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/store_doctor`, {
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/store-doctor`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
     });
+    
     if (httpResponse.ok) {
-      return await httpResponse.json();
+      const result = await httpResponse.json();
+      console.log('HTTP store doctor success:', result);
+      return result;
     }
+    
     return { success: false, message: 'Failed to store doctor' };
   } catch (error) {
     console.error('Error storing doctor:', error);
@@ -1204,29 +1216,62 @@ export const storeDoctor = async (doctorData: any): Promise<any> => {
 
 // Add medicine to canister
 export const storeMedicine = async (medicineData: any): Promise<any> => {
+  // Build payload matching Motoko Types.Medicine exactly
+  const buildMedicinePayload = (data: any) => ({
+    medicine_id: data.medicine_id || ("medicine_" + Date.now()),
+    name: data.name || "",
+    generic_name: (data.generic_name && data.generic_name.trim() !== "") ? data.generic_name : null,
+    category: data.category || "",
+    stock: Number(data.stock ?? 0),
+    price: parseFloat(data.price ?? 0), // Must be Float
+    manufacturer: (data.manufacturer && data.manufacturer.trim() !== "") ? data.manufacturer : null,
+    description: (data.description && data.description.trim() !== "") ? data.description : null,
+    requires_prescription: Boolean(data.requires_prescription ?? false),
+    active_ingredient: (data.active_ingredient && data.active_ingredient.trim() !== "") ? data.active_ingredient : null,
+    dosage: (data.dosage && data.dosage.trim() !== "") ? data.dosage : null,
+    image_url: data.image_url || data.image || ""
+  });
+
   try {
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/store_medicine`;
+    const payload = buildMedicinePayload(medicineData);
+    console.log('Storing medicine with payload:', payload);
+    
+    const canisterUrl = `/ic-api/store-medicine`;
+    console.log('Trying canister URL:', canisterUrl);
+    
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(medicineData)
+      body: JSON.stringify(payload)
     });
+    
+    console.log('Store medicine response status:', icpResponse.status);
+    
     if (icpResponse.ok) {
-      return await icpResponse.json();
+      const result = await icpResponse.json();
+      console.log('Store medicine success:', result);
+      return result;
     }
+    
+    console.warn('Canister store medicine response not ok:', icpResponse.status, icpResponse.statusText);
+    
     // Fallback
-    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/store_medicine`, {
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/store-medicine`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(medicineData)
+      body: JSON.stringify(payload)
     });
+    
     if (httpResponse.ok) {
-      return await httpResponse.json();
+      const result = await httpResponse.json();
+      console.log('HTTP store medicine success:', result);
+      return result;
     }
+    
     return { success: false, message: 'Failed to store medicine' };
   } catch (error) {
     console.error('Error storing medicine:', error);
@@ -1240,7 +1285,7 @@ export const fetchMedicationReminders = async (userId: string): Promise<any> => 
     console.log('Fetching medication reminders for user:', userId);
     
     // Try direct canister HTTP request first
-    const canisterUrl = `http://${CANISTER_ID}.localhost:4943/get-reminders`;
+    const canisterUrl = `/ic-api/get-reminders`;
     const icpResponse = await fetch(canisterUrl, {
       method: 'POST',
       headers: {
@@ -1302,4 +1347,299 @@ export const fetchMedicationReminders = async (userId: string): Promise<any> => 
   
   console.log('All medication reminders fetch methods failed, returning empty array');
   return [];
+};
+
+// ===== ADMIN ACTIVITY FUNCTIONS =====
+
+// Get all appointments (admin only)
+export const fetchAllAppointments = async (): Promise<any> => {
+  try {
+    console.log('Fetching all appointments for admin dashboard');
+    
+    const canisterUrl = `/ic-api/get-all-appointments`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      console.log('All appointments data:', data);
+      return data || [];
+    }
+    
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/get-all-appointments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    
+    if (httpResponse.ok) {
+      const data = await httpResponse.json();
+      return data || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching all appointments:', error);
+    return [];
+  }
+};
+
+// Get all medicine orders (admin only)
+export const fetchAllMedicineOrders = async (): Promise<any> => {
+  try {
+    console.log('Fetching all medicine orders for admin dashboard');
+    
+    const canisterUrl = `/ic-api/get-all-medicine-orders`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    
+    if (icpResponse.ok) {
+      const data = await icpResponse.json();
+      console.log('All medicine orders data:', data);
+      return data || [];
+    }
+    
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/get-all-medicine-orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({})
+    });
+    
+    if (httpResponse.ok) {
+      const data = await httpResponse.json();
+      return data || [];
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('Error fetching all medicine orders:', error);
+    return [];
+  }
+};
+
+// ===== ADMIN CRUD FUNCTIONS =====
+
+// Get all doctors (for admin dashboard)
+export const fetchAllDoctors = async (): Promise<any> => {
+  // Since get-all-doctors doesn't exist, fetch from all specialties
+  const specialties = ["Cardiology", "Dermatology", "General Practice", "Neurology", "Orthopedics", "Pediatrics", "Psychiatry", "Radiology"];
+  
+  try {
+    console.log('Fetching all doctors by fetching each specialty');
+    
+    const specialtyPromises = specialties.map(async (specialty) => {
+      return await fetchDoctors(specialty);
+    });
+    
+    const allDoctorsArrays = await Promise.all(specialtyPromises);
+    const allDoctors = allDoctorsArrays.flat();
+    
+    // Remove duplicates
+    const uniqueDoctors = allDoctors.filter((doctor, index, self) => 
+      index === self.findIndex(d => d.doctor_id === doctor.doctor_id)
+    );
+    
+    console.log('Fetched all doctors:', uniqueDoctors.length);
+    return uniqueDoctors;
+  } catch (error) {
+    console.error('Error fetching all doctors:', error);
+    return [];
+  }
+};
+
+// Update doctor by ID
+export const updateDoctor = async (doctorId: string, doctorData: any): Promise<any> => {
+  try {
+    console.log('Updating doctor:', doctorId, doctorData);
+    
+    const canisterUrl = `/ic-api/update-doctor`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        doctor_id: doctorId,
+        doctor_data: doctorData
+      })
+    });
+    
+    if (icpResponse.ok) {
+      return await icpResponse.json();
+    }
+    
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/update-doctor`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        doctor_id: doctorId,
+        doctor_data: doctorData
+      })
+    });
+    
+    if (httpResponse.ok) {
+      return await httpResponse.json();
+    }
+    
+    return { success: false, message: 'Failed to update doctor' };
+    
+  } catch (error) {
+    console.error('Error updating doctor:', error);
+    return { success: false, message: 'Error updating doctor' };
+  }
+};
+
+// Delete doctor by ID
+export const deleteDoctor = async (doctorId: string): Promise<any> => {
+  try {
+    console.log('Deleting doctor:', doctorId);
+    
+    const canisterUrl = `/ic-api/delete-doctor`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ doctor_id: doctorId })
+    });
+    
+    if (icpResponse.ok) {
+      return await icpResponse.json();
+    }
+    
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/delete-doctor`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ doctor_id: doctorId })
+    });
+    
+    if (httpResponse.ok) {
+      return await httpResponse.json();
+    }
+    
+    return { success: false, message: 'Failed to delete doctor' };
+    
+  } catch (error) {
+    console.error('Error deleting doctor:', error);
+    return { success: false, message: 'Error deleting doctor' };
+  }
+};
+
+// Get all medicines (for admin dashboard)
+export const fetchAllMedicines = async (): Promise<any> => {
+  // Since get-all-medicines doesn't exist, use get-available-medicines
+  try {
+    console.log('Fetching all medicines using get-available-medicines');
+    
+    return await fetchMedicines();
+  } catch (error) {
+    console.error('Error fetching all medicines:', error);
+    return [];
+  }
+};
+
+// Update medicine by ID
+export const updateMedicine = async (medicineId: string, medicineData: any): Promise<any> => {
+  try {
+    console.log('Updating medicine:', medicineId, medicineData);
+    
+    const canisterUrl = `/ic-api/update-medicine`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        medicine_id: medicineId,
+        medicine_data: medicineData
+      })
+    });
+    
+    if (icpResponse.ok) {
+      return await icpResponse.json();
+    }
+    
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/update-medicine`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ 
+        medicine_id: medicineId,
+        medicine_data: medicineData
+      })
+    });
+    
+    if (httpResponse.ok) {
+      return await httpResponse.json();
+    }
+    
+    return { success: false, message: 'Failed to update medicine' };
+    
+  } catch (error) {
+    console.error('Error updating medicine:', error);
+    return { success: false, message: 'Error updating medicine' };
+  }
+};
+
+// Delete medicine by ID
+export const deleteMedicine = async (medicineId: string): Promise<any> => {
+  try {
+    console.log('Deleting medicine:', medicineId);
+    
+    const canisterUrl = `/ic-api/delete-medicine`;
+    const icpResponse = await fetch(canisterUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ medicine_id: medicineId })
+    });
+    
+    if (icpResponse.ok) {
+      return await icpResponse.json();
+    }
+    
+    // Fallback
+    const httpResponse = await fetch(`${ICP_BASE_URL}/${CANISTER_ID}/delete-medicine`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ medicine_id: medicineId })
+    });
+    
+    if (httpResponse.ok) {
+      return await httpResponse.json();
+    }
+    
+    return { success: false, message: 'Failed to delete medicine' };
+    
+  } catch (error) {
+    console.error('Error deleting medicine:', error);
+    return { success: false, message: 'Error deleting medicine' };
+  }
 };

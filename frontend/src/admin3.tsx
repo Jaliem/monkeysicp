@@ -1,21 +1,18 @@
 import { useState, useEffect } from "react";
 import { AuthClient } from "@dfinity/auth-client";
 import {
-  Search,
   Eye,
   Calendar,
   ShoppingCart,
   User,
   Clock,
-  MapPin,
-  Package,
   CheckCircle,
   XCircle,
   AlertCircle,
-  Filter,
   Download,
 } from "lucide-react";
 import NavbarAdmin from "./navAdmin";
+import { fetchAllAppointments, fetchAllMedicineOrders } from "./services/flaskService";
 
 interface Order {
   id: string;
@@ -46,129 +43,14 @@ interface Appointment {
   location?: string;
 }
 
-// Mock data for demonstration
-const mockOrders: Order[] = [
-  {
-    id: "ORD-001",
-    medicineId: "MED-001",
-    medicineName: "Paracetamol 500mg",
-    quantity: 2,
-    totalPrice: 30000,
-    status: 'delivered',
-    orderDate: "2024-08-23",
-    pharmacyName: "Kimia Farma Menteng",
-    userId: "USR-001",
-    userName: "Ahmad Rizki",
-    userEmail: "ahmad.rizki@email.com"
-  },
-  {
-    id: "ORD-002",
-    medicineId: "MED-002",
-    medicineName: "Amoxicillin 250mg",
-    quantity: 1,
-    totalPrice: 45000,
-    status: 'processing',
-    orderDate: "2024-08-24",
-    pharmacyName: "Guardian Plaza Indonesia",
-    userId: "USR-002",
-    userName: "Sari Melati",
-    userEmail: "sari.melati@email.com"
-  },
-  {
-    id: "ORD-003",
-    medicineId: "MED-003",
-    medicineName: "Vitamin C 1000mg",
-    quantity: 3,
-    totalPrice: 75000,
-    status: 'ready',
-    orderDate: "2024-08-24",
-    pharmacyName: "Apotek K24",
-    userId: "USR-003",
-    userName: "Budi Santoso",
-    userEmail: "budi.santoso@email.com"
-  },
-  {
-    id: "ORD-004",
-    medicineId: "MED-004",
-    medicineName: "Omeprazole 20mg",
-    quantity: 1,
-    totalPrice: 25000,
-    status: 'cancelled',
-    orderDate: "2024-08-22",
-    pharmacyName: "Viva Apotek",
-    userId: "USR-004",
-    userName: "Dewi Lestari",
-    userEmail: "dewi.lestari@email.com"
-  }
-];
-
-const mockAppointments: Appointment[] = [
-  {
-    id: "APT-001",
-    doctorId: "DOC-001",
-    doctorName: "Dr. Sarah Johnson",
-    specialty: "Cardiology",
-    date: "2024-08-25",
-    time: "09:00",
-    type: 'consultation',
-    status: 'scheduled',
-    userId: "USR-001",
-    userName: "Ahmad Rizki",
-    userEmail: "ahmad.rizki@email.com",
-    location: "Jakarta Medical Center"
-  },
-  {
-    id: "APT-002",
-    doctorId: "DOC-002",
-    doctorName: "Dr. Ahmad Rahman",
-    specialty: "General Practice",
-    date: "2024-08-23",
-    time: "14:00",
-    type: 'consultation',
-    status: 'completed',
-    userId: "USR-002",
-    userName: "Sari Melati",
-    userEmail: "sari.melati@email.com",
-    location: "Menteng Health Clinic"
-  },
-  {
-    id: "APT-003",
-    doctorId: "DOC-003",
-    doctorName: "Dr. Maya Sari",
-    specialty: "Dermatology",
-    date: "2024-08-26",
-    time: "11:00",
-    type: 'follow-up',
-    status: 'confirmed',
-    userId: "USR-003",
-    userName: "Budi Santoso",
-    userEmail: "budi.santoso@email.com",
-    location: "Skin Care Clinic"
-  },
-  {
-    id: "APT-004",
-    doctorId: "DOC-001",
-    doctorName: "Dr. Sarah Johnson",
-    specialty: "Cardiology",
-    date: "2024-08-21",
-    time: "15:30",
-    type: 'emergency',
-    status: 'cancelled',
-    userId: "USR-004",
-    userName: "Dewi Lestari",
-    userEmail: "dewi.lestari@email.com",
-    location: "Jakarta Medical Center"
-  }
-];
-
 const UserActivity = () => {
   const [principal, setPrincipal] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"appointments" | "orders">("appointments");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
-  const [appointments, setAppointments] = useState<Appointment[]>(mockAppointments);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedItem, setSelectedItem] = useState<Order | Appointment | null>(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
@@ -197,12 +79,58 @@ const UserActivity = () => {
 
   const loadData = async () => {
     try {
-      // In real implementation, fetch from backend
-      // For now using mock data
-      setOrders(mockOrders);
-      setAppointments(mockAppointments);
+      console.log("Loading user activity data from backend...");
+      
+      // Fetch real appointments data
+      const appointmentsData = await fetchAllAppointments();
+      console.log("Raw appointments data:", appointmentsData);
+      
+      // Transform appointments data to match our interface
+      const transformedAppointments = appointmentsData.map((apt: any, index: number) => ({
+        id: apt.appointment_id || `apt-${index}`,
+        doctorId: apt.doctor_id || apt.doctorId || 'N/A',
+        doctorName: apt.doctor_name || apt.doctorName || 'Unknown Doctor',
+        specialty: apt.specialty || 'General',
+        date: apt.appointment_date || apt.date || new Date().toISOString().split('T')[0],
+        time: apt.appointment_time || apt.time || '09:00',
+        type: apt.appointment_type || apt.type || 'consultation',
+        status: apt.status || 'scheduled',
+        userId: apt.user_id || apt.userId || 'N/A',
+        userName: apt.user_name || apt.userName || 'Unknown User',
+        userEmail: apt.user_email || apt.userEmail || undefined,
+        location: apt.location || 'Medical Center'
+      }));
+      
+      // Fetch real orders data
+      const ordersData = await fetchAllMedicineOrders();
+      console.log("Raw orders data:", ordersData);
+      
+      // Transform orders data to match our interface  
+      const transformedOrders = ordersData.map((order: any, index: number) => ({
+        id: order.order_id || order.id || `order-${index}`,
+        medicineId: order.medicine_id || order.medicineId || 'N/A',
+        medicineName: order.medicine_name || order.medicineName || 'Unknown Medicine',
+        quantity: order.quantity || 1,
+        totalPrice: order.total_price || order.totalPrice || 0,
+        status: order.status || 'pending',
+        orderDate: order.order_date || order.orderDate || order.created_at || new Date().toISOString().split('T')[0],
+        pharmacyName: order.pharmacy_name || order.pharmacyName || 'Online Pharmacy',
+        userId: order.user_id || order.userId || 'N/A',
+        userName: order.user_name || order.userName || 'Unknown User',
+        userEmail: order.user_email || order.userEmail || undefined
+      }));
+      
+      console.log("Transformed appointments:", transformedAppointments.length);
+      console.log("Transformed orders:", transformedOrders.length);
+      
+      setAppointments(transformedAppointments);
+      setOrders(transformedOrders);
+      
     } catch (error) {
       console.error("Error loading data:", error);
+      // If backend fails, just leave the arrays empty
+      setOrders([]);
+      setAppointments([]);
     }
   };
 
@@ -303,6 +231,12 @@ const UserActivity = () => {
 
   const exportData = () => {
     const dataToExport = activeTab === 'appointments' ? filteredAppointments : filteredOrders;
+    
+    if (dataToExport.length === 0) {
+      alert("No data to export");
+      return;
+    }
+    
     const csvContent = "data:text/csv;charset=utf-8," + 
       Object.keys(dataToExport[0] || {}).join(",") + "\n" +
       dataToExport.map(row => Object.values(row).join(",")).join("\n");
