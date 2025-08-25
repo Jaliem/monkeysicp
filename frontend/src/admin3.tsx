@@ -35,7 +35,7 @@ interface Appointment {
   specialty: string;
   date: string;
   time: string;
-  type: 'consultation' | 'follow-up' | 'emergency';
+  type: 'appointment' | 'consultation' | 'follow-up' | 'emergency';
   status: 'scheduled' | 'completed' | 'cancelled' | 'confirmed';
   userId: string;
   userName: string;

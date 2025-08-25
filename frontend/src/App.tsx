@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import AdminRoute from './components/guards/AdminRoute';
-import PrincipalDisplay from './components/debug/PrincipalDisplay';
 import LandingPage from './landing';
 import Login from './login';
 import NameInput from './NameInput';
@@ -13,7 +12,6 @@ import Wellness from './wellness';
 import Reminder from './reminder';
 import Profile from './profile';
 import Admin from './admin';
-import Admin2 from './admin2';
 import Admin3 from './admin3';
 
 function App() {
@@ -35,11 +33,6 @@ function App() {
             <Route path="/admin" element={
               <AdminRoute>
                 <Admin />
-              </AdminRoute>
-            } />
-            <Route path="/admin2" element={
-              <AdminRoute>
-                <Admin2 />
               </AdminRoute>
             } />
             <Route path="/admin3" element={
